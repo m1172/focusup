@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Config } from './config.js';
-import { ApiError } from './errors.js';
-import type { Settings } from './schemas.js';
+import type { Config } from './config.ts';
+import { ApiError } from './errors.ts';
+import type { Settings } from './schemas.ts';
 
 export type Session = { accessToken: string; refreshToken: string; expiresAt: number | null; user: { id: string; email: string | null } };
 export type Backup = { revision: number; payload: Settings | null; updatedAt: string | null };

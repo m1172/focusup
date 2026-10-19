@@ -1,41 +1,49 @@
-# FocusUp backend
+# FocusUp backend on Supabase
 
-Production deployment source for the FocusUp API. Supabase hosts authentication
-and PostgreSQL; the Node.js/Fastify API runs independently on Render.
+The FocusUp API runs in Supabase Edge Functions alongside Supabase Auth and
+PostgreSQL. No Render service or purchased domain is required.
 
-## Deployment
+API base URL:
 
-Use `render.yaml` to create a Render Blueprint. Render supplies an HTTPS
-`onrender.com` address, so a custom domain is optional. The prepared compute plan
-is paid: review pricing before creating the service. Supply Supabase credentials
-through Render environment secrets, never through committed `.env` files.
+```text
+https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api
+```
 
-Authentication needs configured Google/Apple credentials or SMTP before public
-signup can be enabled and tested. Deployment preparation alone does not make
-this service production-ready.
+The function entry point in `supabase/functions/focusup-api/` imports the shared
+Fetch handler, schemas and data gateway in `backend/src/`. Private routes verify
+the user through Supabase Auth and use their RLS-scoped access token. Shared rate
+limits use a server-role-only PostgreSQL function with private counters.
 
-See [production deployment](docs/production-deployment.md) and
-[backend setup](docs/backend-setup.md) for the remaining requirements.
+See [deployment instructions](docs/production-deployment.md) for secrets,
+migrations, deployment commands and remaining authentication requirements.
+Public email signup/recovery needs custom SMTP, or configured Google/Apple
+credentials for social login. A deployed API alone does not establish release
+readiness or email delivery.
 
-## Local API development
+## Deploy
 
-Use Node.js 22.13 or newer:
+```sh
+npx --yes supabase@2.121.0 login
+npx --yes supabase@2.121.0 link --project-ref vrmfrhvzvjrktiosptdp
+npx --yes supabase@2.121.0 db push
+# Configure function secrets privately before deployment.
+npx --yes supabase@2.121.0 functions deploy focusup-api --use-api
+```
+
+## Validate
 
 ```sh
 npm --prefix backend ci
-cp backend/.env.example backend/.env
-# Fill backend/.env with the current Supabase URL and API keys.
-npm --prefix backend run dev
-```
-
-## Validation
-
-```sh
 npm --prefix backend run lint
 npm --prefix backend run typecheck
 npm --prefix backend test
 npm --prefix backend run build
+npx --yes deno@2.9.6 check --config supabase/functions/focusup-api/deno.json supabase/functions/focusup-api/index.ts
 ```
 
-This repository currently contains the backend deployment source. The Expo
-mobile application is maintained in the existing local FocusUp workspace.
+The optional Fastify adapter supports local Node.js development; it is not needed
+by the hosted Edge API. See [backend setup](docs/backend-setup.md).
+
+This repository contains backend deployment source. The Expo mobile application
+and its connection changes are maintained in the existing local FocusUp workspace.
+Never commit actual environment files, API secrets or database passwords.

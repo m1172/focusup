@@ -1,10 +1,10 @@
 # FocusUp backend
 
-The backend is an independent Node.js 22 / TypeScript / Fastify API in `backend/`. Supabase provides PostgreSQL and Auth. Fastify supplies request validation, business rules, bounded settings backups and account-management endpoints without adding server dependencies to the Expo bundle. There is no separate database, ORM, Redis service or file-storage requirement for this MVP.
+The default deployment runs the API as a Supabase Edge Function, with Supabase Auth and PostgreSQL in the same project. Follow [production deployment](production-deployment.md) to deploy without Render or a purchased domain. The shared TypeScript gateway, schemas and Edge handler live in `backend/`; an optional Node.js 22 / Fastify adapter supports local development. Neither adapter adds server dependencies to the Expo bundle. There is no separate database, ORM, Redis service or file-storage requirement for this MVP.
 
 Supported authentication paths are email/password, Google, Apple and Telegram. Provider credentials must be configured before social sign-in works. The account screen is available at Settings → Your account. Mobile services in `src/services/backend/` handle secure refresh-token storage, serialized refresh, native Apple sign-in on iOS, Google/Telegram browser OAuth, callback validation, explicit backup/restore and account export/deletion. No data uploads or automatic restores run on app startup.
 
-## Start with hosted Supabase Free
+## Optional local Node API with hosted Supabase
 
 1. Create a Supabase project. Pick a region suitable for your users.
 2. Apply every file in `supabase/migrations/` once, in filename order. This includes the initial schema and the follow-up settings-conflict fix. You can run them in the SQL Editor or use the Supabase CLI from the repository root:
@@ -22,9 +22,9 @@ Supported authentication paths are email/password, Google, Apple and Telegram. P
    npm --prefix backend ci
    ```
 
-4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `backend/.env`. The publishable key can also be the legacy anon key; the secret key can be the legacy service-role key. The secret is used only for account deletion and the explicit Telegram provisioning command. Never put it in an `EXPO_PUBLIC_` variable or mobile build.
+4. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `backend/.env`. Use current publishable/secret keys; legacy keys have been disabled for this project. The secret is used for account deletion, Edge rate limiting and the explicit Telegram provisioning command. Never put it in an `EXPO_PUBLIC_` variable or mobile build.
 5. In Supabase Auth, enable email confirmation, set the minimum password length to 12, and configure the Site URL and permitted redirect URLs. Set `AUTH_REDIRECT_URL` to your real callback destination. For a mobile development build, use `focusup://auth/callback`; its Expo Router screen is implemented. For web, use your exact origin plus `/auth/callback`. The backend currently uses one fixed callback per deployment, so use separate environment configuration for native and web testing. Add that exact destination to Supabase's redirect allowlist. Do not ship a callback pointing to localhost.
-6. Set `EXPO_PUBLIC_API_URL` in the root `.env` to the backend origin, restart Metro, then build a fresh development client. The account flow adds Expo SecureStore, Crypto, WebBrowser, AppleAuthentication, FileSystem and Sharing; native configuration is in `app.json`. Run `npx eas-cli build --profile development --platform all` for EAS builds. Native social callback flows require the configured `focusup` scheme.
+6. Set `EXPO_PUBLIC_API_URL` in the root `.env` to the backend base URL (including the function path for Edge deployment), reload Metro, then build a fresh development client. The account flow adds Expo SecureStore, Crypto, WebBrowser, AppleAuthentication, FileSystem and Sharing; native configuration is in `app.json`. Run `npx eas-cli build --profile development --platform all` for EAS builds. Native social callback flows require the configured `focusup` scheme.
 7. Start the server:
 
    ```sh
@@ -162,7 +162,7 @@ docker build -t focusup-backend backend
 docker run --env-file backend/.env -e NODE_ENV=production -p 3000:3000 focusup-backend
 ```
 
-Use a Node/container host with HTTPS and supply environment variables through its secret settings. Supabase hosts Auth/database; it does **not** host this long-running Node server. Node hosting is a separate cost/plan choice. Allowlist exact web origins with `CORS_ORIGINS`; native apps do not need CORS. Set `TRUST_PROXY` only to your hosting proxy's trusted IP/CIDR so rate limiting uses the correct client address. The in-memory limiter is for one instance; configure shared rate-limit storage when adding multiple instances. Before enabling Supabase CAPTCHA, connect a challenge UI and pass its `captchaToken`; the API accepts tokens but the current account form has no CAPTCHA widget. Keep Supabase and API signup rate limits enabled.
+The production API runs in Supabase Edge Functions; see [production deployment](production-deployment.md). These build/container commands are only for the optional Node adapter. Choosing that adapter for production would require a separate HTTPS Node host. Allowlist exact web origins with `CORS_ORIGINS`; native apps do not need CORS. Set `TRUST_PROXY` only to your hosting proxy's trusted IP/CIDR so rate limiting uses the correct client address. The optional Fastify adapter has an in-memory limiter for one instance; the deployed Edge handler instead uses shared PostgreSQL counters and does not trust forwarded IP headers. Before enabling Supabase CAPTCHA, connect a challenge UI and pass its `captchaToken`; the API accepts tokens but the current account form has no CAPTCHA widget. Keep Supabase and API signup rate limits enabled.
 
 ```sh
 npm run backend:check

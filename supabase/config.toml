@@ -39,3 +39,9 @@ content_path = "./supabase/templates/confirmation.html"
 [auth.email.template.recovery]
 subject = "Your FocusUp password recovery code"
 content_path = "./supabase/templates/recovery.html"
+
+[functions.focusup-api]
+# Login, refresh and health are public. The handler verifies every private route
+# using Auth.getUser(), and all account queries still use the user's RLS token.
+verify_jwt = false
+entrypoint = "./functions/focusup-api/index.ts"

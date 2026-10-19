@@ -12,6 +12,7 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await db.exec(`
     create role anon;
     create role authenticated;
+    create role service_role;
     create schema auth;
     create table auth.users (id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$
@@ -42,6 +43,19 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   assert.equal((await db.query('select * from public.profiles')).rows.length, 0);
   await db.query('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]);
   assert.equal((await db.query('select * from public.user_settings')).rows.length, 1);
+
+  // Users cannot inspect or change shared throttle counters. Only the edge
+  // server role can invoke the bounded, atomic security-definer function.
+  await assert.rejects(db.query("select * from public.consume_api_rate_limit('edge:test', 10)"), /permission denied/);
+  await assert.rejects(db.query('select * from api_private.rate_limits'), /permission denied/);
+  await db.exec('reset role; set role service_role');
+  const burst = await Promise.all(Array.from({ length: 12 }, () => db.query<{ allowed: boolean; retry_after_seconds: number }>("select * from public.consume_api_rate_limit('edge:test', 10)")));
+  assert.equal(burst.filter((result) => result.rows[0]?.allowed).length, 10);
+  assert.ok(burst.every((result) => Number(result.rows[0]?.retry_after_seconds) > 0));
+  assert.equal((await db.query<{ allowed: boolean }>("select * from public.consume_api_rate_limit('edge:other', 10)")).rows[0]?.allowed, true);
+  await assert.rejects(db.query("select * from public.consume_api_rate_limit('edge:test', 0)"), /Invalid rate limit parameters/);
+  await db.exec("reset role; update api_private.rate_limits set expires_at = now() - interval '1 second' where bucket = 'edge:test'; set role service_role");
+  assert.equal((await db.query<{ allowed: boolean }>("select * from public.consume_api_rate_limit('edge:test', 10)")).rows[0]?.allowed, true);
 
   await asUser(user.id);
   const deleted = await db.query<{ revision: number; payload: unknown }>('select * from public.save_user_settings(1, null)');

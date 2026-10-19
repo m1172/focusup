@@ -1,78 +1,123 @@
-# Production deployment without a custom domain
+# Deploy the API on Supabase
 
-The prepared deployment is a single FocusUp API container on Render using its
-generated HTTPS `onrender.com` address. Supabase continues to host Auth and the
-database. No domain registration or second database is required.
+FocusUp runs its API, Auth and PostgreSQL in the existing Supabase project.
+Render, a separate Node host and a purchased domain are not required.
 
-## Current deployment requirements
+The deployed API base URL is:
 
-- This checkout needs a GitHub repository and remote. Publish the backend,
-  migrations and deployment configuration without private environment files.
-- Render must be connected to that repository and account access must be available.
-- Review the current price of the `0.5c-512mb` paid compute plan before creating
-  the service. Render explicitly describes Free compute as unsuitable for
-  production; it can sleep longer than the mobile client's request timeout.
-- Authentication still needs provider credentials: configure Google/Apple in
-  Supabase, or configure custom SMTP and the verification-code email templates.
-  The Blueprint deliberately leaves unconfigured OAuth providers disabled.
+```text
+https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api
+```
 
-## Deployment configuration
+The Edge Function entry point is `supabase/functions/focusup-api/index.ts`.
+It imports the Fetch handler, validation schemas and data gateway from
+`backend/src/`, so the deployed API uses the same settings schema and RLS-scoped
+gateway as the optional local Fastify server. Dependencies are pinned in the
+function's `deno.json` and `deno.lock`. Deploy from the repository root so these
+imports outside the function directory are included.
 
-`render.yaml` builds only `backend/` using its existing Dockerfile, runs with
-`NODE_ENV=production`, and checks `/ready` before routing traffic to a deployment.
-It uses one instance because the current rate limiter is in memory. Automatic
-deployments require passing repository CI checks.
+## Deploy
 
-Provide these existing values through Render's secret environment settings:
+Use a compatible Node 22 installation and the pinned Supabase CLI:
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SECRET_KEY`
+```sh
+npx --yes supabase@2.121.0 login
+npx --yes supabase@2.121.0 link --project-ref vrmfrhvzvjrktiosptdp
+npx --yes supabase@2.121.0 db push
+```
 
-The private `backend/.env` already contains these values for the configured
-project. Do not upload that file, its database password, or a Supabase management
-token. `backend/.env.production.example` lists the settings without credentials.
+Apply all migrations in filename order, including the Edge rate-limit migration.
+Never use `db reset` against the hosted project.
 
-Set `TRUST_PROXY` to the verified ingress proxy IP/CIDR. Confirm that two separate
-client IPs have separate rate-limit buckets and that a forged forwarding header
-cannot choose a different bucket. Leaving this unset can group all users behind
-the hosting proxy into one bucket; trusting arbitrary forwarded headers lets a
-caller evade throttling. Complete this check before public release.
+Set these function secrets through the Supabase dashboard or CLI:
 
-The native callback is `focusup://auth/callback`. Add it to the Supabase redirect
-allowlist. `CORS_ORIGINS` can stay empty for native clients; a web deployment needs
-its exact HTTPS origin and a separate appropriate callback configuration.
+- `FOCUSUP_PUBLISHABLE_KEY`: the current publishable key from private `backend/.env`.
+- `FOCUSUP_SECRET_KEY`: the current server secret key from private `backend/.env`.
+- `AUTH_REDIRECT_URL`: `focusup://auth/callback` for the native app.
+- `AUTH_OAUTH_PROVIDERS`: only providers configured and tested in Supabase; empty initially.
+- `CORS_ORIGINS`: exact HTTPS web origins if deploying a web client; empty for native clients.
 
-## Authentication
+The runtime supplies `SUPABASE_URL`. Custom key names avoid the reserved
+`SUPABASE_` prefix and reliance on the revoked legacy JWT keys. Keep all actual
+credentials in an ignored `.env.local` file if using CLI secret import:
 
-For Google, use the provider credentials and exact Supabase callback shown in the
-Supabase dashboard, then add `google` to `AUTH_OAUTH_PROVIDERS` after a successful
-device test. Apple requires the application's Apple developer configuration
-before adding `apple`. The app already has provider integration code; adding a
-provider name alone does not provision those credentials.
+```sh
+npx --yes supabase@2.121.0 secrets set --env-file supabase/functions/.env.local
+npx --yes supabase@2.121.0 functions deploy focusup-api --use-api
+```
 
-For email signup and recovery, configure a real SMTP provider, then apply the
-confirmation and recovery templates from `supabase/templates/`. The current app
-expects email codes. The default Supabase mailer is restricted to authorized
-project-team addresses and is insufficient for public email registration.
+`--use-api` bundles the function on Supabase without a local Docker daemon.
+The function configuration in `supabase/config.toml` deliberately sets
+`verify_jwt = false` because login, refresh and health must accept callers without
+a session. Every private route explicitly verifies the Bearer token with
+Supabase Auth before running; profile/settings access uses that user's RLS token.
+The server key is used only for verified-owner account deletion and rate limits.
+No server key belongs in the mobile app or GitHub repository.
 
-## Connect the released mobile app
+## Rate limits
 
-After Render assigns the actual service address, set `EXPO_PUBLIC_API_URL` to its
-HTTPS origin in the EAS **production** environment. Build the release with that
-value. Keep `.env` pointing at the laptop for local development until the public
-deployment passes verification. Do not use an invented or unassigned service URL.
+Edge workers share atomic PostgreSQL counters through a server-role-only RPC.
+The counter table is in a private schema, has RLS enabled, and is inaccessible to
+anonymous and authenticated clients. Expired counters are cleaned in bounded
+batches. Subjects are HMAC hashes; counters do not store emails, passwords,
+refresh/access tokens or IP addresses.
 
-Verify the deployed `/health`, `/ready`, authenticated profile/settings requests,
-and the chosen sign-in flow from a physical device using a production build.
-Verify email recovery if email authentication is enabled. The local connection
-tests do not establish production device or delivery behavior.
+There is a project-wide budget of 120 public auth calls per minute plus 10 per
+normalized email or refresh token, 120 private calls per verified user per minute,
+a 1200/minute shared budget before private token verification, and 3 account
+deletion attempts per user per minute. Readiness is limited to 60/minute. Public
+health/provider/config responses do not access the database. No caller-provided
+forwarding header is trusted for identity or rate limiting. The global budgets
+are conservative MVP limits: monitor saturation before expanding to more users.
+If the shared limiter is unavailable, affected routes fail closed with 503.
 
-Before public release, configure uptime/error monitoring and a database backup
-and restore procedure. The Free Supabase project's availability and backup limits
-need to be included in that operational decision.
+## Connect the mobile app
 
-References: [Render Blueprints](https://render.com/docs/blueprint-spec),
-[Render Free limitations](https://render.com/docs/free),
-[Supabase email delivery](https://supabase.com/docs/guides/auth/auth-smtp),
-[EAS environment variables](https://docs.expo.dev/eas/environment-variables/).
+Set `EXPO_PUBLIC_API_URL` in the root `.env` to the full base URL above, including
+`/functions/v1/focusup-api`. The client preserves that path when appending routes.
+The production EAS build profile also sets this public URL explicitly. Changing
+an environment value does not update an already-distributed native bundle:
+reload development builds and produce a new release build or compatible EAS
+Update for existing installations.
+
+Only the HTTPS API URL is public in the app. No Supabase server secret is bundled.
+The optional blocker config URL is the same base URL plus `/v1/blocker-config`.
+
+## Authentication and release checks
+
+Email confirmation remains enabled and passwords require 12 characters.
+Public email registration/recovery still needs custom SMTP and the confirmation
+and recovery code templates in `supabase/templates/`. The default Supabase
+mailer is limited to authorized project-team addresses. Alternatively configure
+Google/Apple credentials, test the device flow, then enable those provider names.
+Moving to Edge Functions does not provision email or provider credentials.
+
+Verify `/health`, `/ready`, missing/invalid-token rejection, email-code exchange,
+password sign-in/refresh/sign-out, profiles, settings backup/read/conflicts,
+account isolation, export and deletion. Temporary admin-generated verification
+codes can test the API without sending emails, but do not test email delivery.
+Test the chosen real sign-in flow in a physical-device production build before
+public release. Configure monitoring, backups and a restore procedure; review
+Supabase project quotas and free-project pausing before relying on availability.
+
+Run local checks before deployment:
+
+```sh
+npm run lint
+npm run typecheck
+npm test -- --runTestsByPath src/services/backend/__tests__/client.test.ts
+npm run backend:check
+npm --prefix backend run build
+npx --yes deno@2.9.6 check --config supabase/functions/focusup-api/deno.json supabase/functions/focusup-api/index.ts
+```
+
+GitHub Actions currently cannot start because the GitHub account reports a
+billing lock. Local CLI deployment does not require GitHub Actions. Resolve
+that account issue before relying on repository CI; no automated deployment
+secret has been placed in GitHub.
+
+References: [Supabase Edge Functions](https://supabase.com/docs/guides/functions),
+[deployment](https://supabase.com/docs/guides/functions/deploy),
+[function authentication](https://supabase.com/docs/guides/functions/auth),
+[email delivery](https://supabase.com/docs/guides/auth/auth-smtp),
+[Expo environment variables](https://docs.expo.dev/guides/environment-variables/).
