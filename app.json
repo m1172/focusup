@@ -1,25 +1,65 @@
 {
   "expo": {
-    "name": "focusup",
+    "name": "FocusUp",
     "slug": "focusup",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
+    "scheme": "focusup",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "locales": {
+      "en": "./locales/en.json",
+      "ru": "./locales/ru.json",
+      "uz": "./locales/uz.json"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.m1172.focusup",
+      "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": true,
+        "NSCameraUsageDescription": "Allow the social website to use your camera when you choose to capture or upload media.",
+        "NSMicrophoneUsageDescription": "Allow the social website to record audio when you choose a video or voice feature.",
+        "NSPhotoLibraryUsageDescription": "Choose photos or videos to upload directly to the social website. FocusUp does not upload them to its own server."
+      },
+      "usesAppleSignIn": true
     },
     "android": {
+      "package": "com.m1172.focusup",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-notifications",
+      "./plugins/withFocusUpProtection",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-apple-authentication"
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "40dbc295-f4f0-4e25-9049-50658e8bc2d9"
+      }
+    },
+    "owner": "m1172"
   }
 }

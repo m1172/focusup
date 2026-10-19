@@ -1,0 +1,7 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Foto yoki video olish yoxud yuklashni tanlaganingizda ijtimoiy tarmoq saytiga kameradan foydalanishga ruxsat bering.",
+    "NSMicrophoneUsageDescription": "Video yoki ovozli funksiyani tanlaganingizda ijtimoiy tarmoq saytiga ovoz yozishga ruxsat bering.",
+    "NSPhotoLibraryUsageDescription": "Foto va videolarni bevosita ijtimoiy tarmoq saytiga yuklash uchun tanlang. FocusUp ularni o‘z serveriga yuklamaydi."
+  }
+}

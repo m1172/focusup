@@ -1,0 +1,7 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Allow the social website to use your camera when you choose to capture or upload media.",
+    "NSMicrophoneUsageDescription": "Allow the social website to record audio when you choose a video or voice feature.",
+    "NSPhotoLibraryUsageDescription": "Choose photos or videos to upload directly to the social website. FocusUp does not upload them to its own server."
+  }
+}
