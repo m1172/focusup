@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { test } from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 import { settings, user } from './fixtures.js';
@@ -12,6 +12,7 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await db.exec(`
     create role anon;
     create role authenticated;
+    create role service_role;
     create schema auth;
     create table auth.users (id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$
@@ -21,7 +22,10 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
     grant execute on function auth.uid() to anon, authenticated;
   `);
   await db.query('insert into auth.users values ($1), ($2)', [user.id, otherId]);
-  await db.exec(await readFile(new URL('../../supabase/migrations/202610170001_initial_backend.sql', import.meta.url), 'utf8'));
+  const migrations = new URL('../../supabase/migrations/', import.meta.url);
+  for (const file of (await readdir(migrations)).filter((name) => name.endsWith('.sql')).sort()) {
+    await db.exec(await readFile(new URL(file, migrations), 'utf8'));
+  }
   const asUser = async (id: string) => {
     await db.exec('reset role; set role authenticated');
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id]);
@@ -29,7 +33,7 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await asUser(user.id);
   const saved = await db.query<{ revision: number }>('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]);
   assert.equal(Number(saved.rows[0]?.revision), 1);
-  await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]), /revision conflict/);
+  await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]), { code: 'PT409', message: /revision conflict/ });
   await assert.rejects(db.query('update public.user_settings set revision = 0'), /permission denied/);
   await assert.rejects(db.query('insert into public.profiles (user_id, display_name) values ($1, $2)', [otherId, 'Forged']), /row-level security/);
   await db.query('insert into public.profiles (user_id, display_name) values ($1, $2)', [user.id, 'Owner']);
@@ -40,10 +44,23 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await db.query('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]);
   assert.equal((await db.query('select * from public.user_settings')).rows.length, 1);
 
+  // Users cannot inspect or change shared throttle counters. Only the edge
+  // server role can invoke the bounded, atomic security-definer function.
+  await assert.rejects(db.query("select * from public.consume_api_rate_limit('edge:test', 10)"), /permission denied/);
+  await assert.rejects(db.query('select * from api_private.rate_limits'), /permission denied/);
+  await db.exec('reset role; set role service_role');
+  const burst = await Promise.all(Array.from({ length: 12 }, () => db.query<{ allowed: boolean; retry_after_seconds: number }>("select * from public.consume_api_rate_limit('edge:test', 10)")));
+  assert.equal(burst.filter((result) => result.rows[0]?.allowed).length, 10);
+  assert.ok(burst.every((result) => Number(result.rows[0]?.retry_after_seconds) > 0));
+  assert.equal((await db.query<{ allowed: boolean }>("select * from public.consume_api_rate_limit('edge:other', 10)")).rows[0]?.allowed, true);
+  await assert.rejects(db.query("select * from public.consume_api_rate_limit('edge:test', 0)"), /Invalid rate limit parameters/);
+  await db.exec("reset role; update api_private.rate_limits set expires_at = now() - interval '1 second' where bucket = 'edge:test'; set role service_role");
+  assert.equal((await db.query<{ allowed: boolean }>("select * from public.consume_api_rate_limit('edge:test', 10)")).rows[0]?.allowed, true);
+
   await asUser(user.id);
   const deleted = await db.query<{ revision: number; payload: unknown }>('select * from public.save_user_settings(1, null)');
   assert.equal(Number(deleted.rows[0]?.revision), 2); assert.equal(deleted.rows[0]?.payload, null);
-  await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [1, JSON.stringify(settings)]), /revision conflict/);
+  await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [1, JSON.stringify(settings)]), { code: 'PT409', message: /revision conflict/ });
   await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [2, JSON.stringify({ schemaVersion: 1, data: 'x'.repeat(70_000) })]), /bounded_settings/);
   await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [2, JSON.stringify({ schemaVersion: 99 })]), /bounded_settings/);
 

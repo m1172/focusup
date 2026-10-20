@@ -45,6 +45,12 @@ let reconcileInFlight: Promise<void> | null = null;
 export function reconcileStrictModeState(now = Date.now(), blocker: NativeAppBlocker = nativeAppBlocker): Promise<void> {
   if (reconcileInFlight) return reconcileInFlight;
   reconcileInFlight = (async () => {
+    if (!canUseFeature(useSubscriptionStore.getState().isPro, 'strictMode')) {
+      // Keep the saved session, but never restart hidden protection or its reminders.
+      await cancelStrictModeCompletion();
+      try { if ((await blocker.isSupported()) && (await blocker.getBlockingStatus()).active) await blocker.stopBlocking(); } catch { /* Whole-plan reconciliation retries native cleanup. */ }
+      return;
+    }
     const stored = strictModeStorage.getSession();
     const session = asSession(stored);
     if (!session) {
@@ -96,6 +102,7 @@ export async function endStrictModeEarly(blocker: NativeAppBlocker = nativeAppBl
 }
 
 export function isPlatformLocked(appId: SocialAppId, session = useAppStore.getState().strictSession, now = Date.now()): boolean {
+  if (!canUseFeature(useSubscriptionStore.getState().isPro, 'strictMode')) return false;
   if (session && session.endsAt > now && (session.protectedPlatforms ?? session.appIds).includes(appId)) return true;
-  return useSubscriptionStore.getState().isPro && activeRoutines(useAppStore.getState().schedules, new Date(now)).some((routine) => routine.strict && routine.apps.includes(appId) && !routine.allowedApps?.includes(appId));
+  return canUseFeature(useSubscriptionStore.getState().isPro, 'schedules') && activeRoutines(useAppStore.getState().schedules, new Date(now)).some((routine) => routine.strict && routine.apps.includes(appId) && !routine.allowedApps?.includes(appId));
 }

@@ -1,5 +1,7 @@
 # FocusUp product capability ledger
 
+Current release: `PRO_ENABLED = false`. Premium functionality described below is retained in source but hidden and inactive. Billing setup is for a future release; it is not required to run the current free features. See [release readiness](release-readiness.md).
+
 This is an implementation ledger, not a release or feature-parity claim. No feature is labelled Stable until it has passed real device and provider QA. Validation update: 2026-10-16. Work in this pass was limited to iOS; Android was not built or tested.
 
 | Capability | iOS | Android | Current evidence / limits |

@@ -9,7 +9,7 @@ import { AppIcon } from '../../components/AppIcon';
 import { Icon } from '../../components/Icon';
 import { ActionButton, Card, Note, Screen } from '../../components/ui';
 import { AnswerChips, CountUp, OnboardingHeader, PoppingValue, RulerPicker, StepTitle } from '../../features/onboarding/components';
-import { MINUTE_ANSWERS, ONBOARDING_APPS, answerFor, formatInteger, projectLifetime, unitFor, type OnboardingAppId } from '../../features/onboarding/lifeProjection';
+import { FREE_HOURS, MINUTE_ANSWERS, ONBOARDING_APPS, answerFor, splitDay, unitFor, type OnboardingAppId } from '../../features/onboarding/dayBudget';
 import { appCatalog } from '../../features/apps/catalog';
 import { androidUsage, type MeasuredUsage } from '../../services/device-usage/androidUsage';
 import { useAppStore } from '../../store/appStore';
@@ -37,8 +37,7 @@ function EstimateStep() {
   const reducedMotion = useReducedMotion();
   const minutes = useOnboardingStore((s) => s.shortFormMinutes);
   const setMinutes = useOnboardingStore((s) => s.setShortFormMinutes);
-  const days = Math.round(projectLifetime(minutes, 30).daysPerYear);
-  const daysText = `${formatInteger(days, locale)} ${unitFor(locale, String(days), t('onboarding.dayWords', { returnObjects: true }) as string[])}`;
+  const freeShare = Math.round(splitDay(minutes).freeShare * 100);
   const label = formatDuration(minutes, locale);
   const current = answerFor(minutes, MINUTE_ANSWERS);
   const options = MINUTE_ANSWERS.map((a, k) => ({
@@ -49,7 +48,7 @@ function EstimateStep() {
       : a.to === Infinity ? t('onboarding.rangeOver', { time: formatDuration(a.from, locale) })
         : `${formatDuration(a.from, locale)}–${formatDuration(a.to, locale)}`,
   }));
-  return <Screen glow={300} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={() => { setMinutes(minutes); router.push('/onboarding/age'); }} />}>
+  return <Screen glow={300} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={() => { setMinutes(minutes); router.push('/onboarding/reveal'); }} />}>
     <OnboardingHeader step={1} />
     <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {ONBOARDING_APPS.map((id, i) => <Animated.View key={id} entering={reducedMotion ? undefined : ZoomIn.delay(60 + i * 90).springify().damping(13)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, height: 34, paddingLeft: 4, paddingRight: 12, borderRadius: 17, backgroundColor: c.apps[id].bg }}>
@@ -64,7 +63,7 @@ function EstimateStep() {
         <Text style={{ color: c.text, fontSize: 56, lineHeight: 64, fontWeight: '800', letterSpacing: -2.5, fontVariant: ['tabular-nums'] }}>{label}</Text>
       </PoppingValue>
       <View style={{ marginTop: 10, minHeight: 34, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 17, backgroundColor: c.redSoft }}>
-        <Text style={{ color: c.red, fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.dailyLive', { days: daysText })}</Text>
+        <Text style={{ color: c.red, fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.dailyLive', { percent: freeShare, hours: FREE_HOURS })}</Text>
       </View>
       <View style={{ marginTop: 18, alignSelf: 'stretch' }}>
         <RulerPicker
@@ -110,7 +109,7 @@ function MeasureStep({ onManual }: { onManual: () => void }) {
     return () => { alive = false; sub.remove(); };
   }, [load]);
   const footer = state.kind === 'ready'
-    ? <ActionButton title={t('continue')} arrow onPress={() => router.push('/onboarding/age')} />
+    ? <ActionButton title={t('continue')} arrow onPress={() => router.push('/onboarding/reveal')} />
     : <View style={{ gap: 6 }}>
       <ActionButton title={t('onboarding.allowUsage')} icon={<Icon name="lock" size={19} color="#FFFFFF" strokeWidth={2.2} />} disabled={state.kind !== 'intro'} onPress={() => { asked.current = true; void androidUsage.openSettings(); }} />
       <ActionButton ghost title={t('onboarding.enterManually')} onPress={onManual} />

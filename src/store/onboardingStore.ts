@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { ONBOARDING_APPS, type OnboardingAppId } from '../features/onboarding/lifeProjection';
+import { ONBOARDING_APPS, type OnboardingAppId } from '../features/onboarding/dayBudget';
 import type { MeasuredUsage } from '../services/device-usage/androidUsage';
 
 /**
@@ -12,12 +12,10 @@ type OnboardingState = {
   source: 'estimate' | 'measured';
   shortFormMinutes: number;
   measured: MeasuredUsage | null;
-  age: number;
   cut: number;
   setShortFormMinutes: (minutes: number) => void;
   setMeasured: (usage: MeasuredUsage) => void;
   chooseEstimate: () => void;
-  setAge: (age: number) => void;
   setCut: (cut: number) => void;
 };
 
@@ -25,21 +23,19 @@ export const useOnboardingStore = create<OnboardingState>()(persist((set) => ({
   source: 'estimate',
   shortFormMinutes: 90,
   measured: null,
-  age: 25,
   cut: 0.5,
   setShortFormMinutes: (shortFormMinutes) => set({ shortFormMinutes, source: 'estimate' }),
   setMeasured: (measured) => set({ measured, source: 'measured' }),
   chooseEstimate: () => set({ source: 'estimate' }),
-  setAge: (age) => set({ age }),
   setCut: (cut) => set({ cut }),
 }), {
   name: 'focusup-onboarding-v1',
   storage: createJSONStorage(() => AsyncStorage),
-  version: 3,
-  partialize: ({ source, shortFormMinutes, measured, age, cut }) => ({ source, shortFormMinutes, measured, age, cut }),
+  version: 4,
+  partialize: ({ source, shortFormMinutes, measured, cut }) => ({ source, shortFormMinutes, measured, cut }),
   migrate: (persisted) => {
-    const { age, cut } = (persisted ?? {}) as Partial<OnboardingState>;
-    return { age: age ?? 25, cut: cut ?? 0.5 } as OnboardingState;
+    const { cut } = (persisted ?? {}) as Partial<OnboardingState>;
+    return { cut: cut ?? 0.5 } as OnboardingState;
   },
 }));
 

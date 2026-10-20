@@ -82,3 +82,25 @@ test('failed secure writes do not publish a new session; recovery survives refre
   expect(JSON.parse(storage.write.mock.calls.at(-1)![0]).recoveryRequired).toBe(true);
   await manager.finishRecovery(); expect(manager.getState().recoveryRequired).toBe(false);
 });
+
+test('secure read failure denies entry and a later initialization can retry', async () => {
+  const { manager, storage } = setup(JSON.stringify(stored()));
+  storage.read.mockRejectedValueOnce(new Error('keychain unavailable'));
+  await expect(manager.initialize()).rejects.toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+  expect(manager.getState()).toMatchObject({ ready: true, user: null });
+  await manager.initialize();
+  expect(manager.getState().user).toEqual(user);
+});
+
+test('clearing immediately revokes account access before secure deletion completes', async () => {
+  const { manager, storage } = setup();
+  await manager.accept(session());
+  expect(manager.getCachedAccessToken()).toBe('access');
+  const deletion = deferred<void>();
+  storage.remove.mockImplementation(() => deletion.promise);
+  const clearing = manager.clear();
+  expect(manager.getState()).toMatchObject({ ready: true, user: null });
+  expect(manager.getCachedAccessToken()).toBeNull();
+  deletion.resolve();
+  await clearing;
+});

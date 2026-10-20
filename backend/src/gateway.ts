@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Config } from './config.js';
-import { ApiError } from './errors.js';
-import type { Settings } from './schemas.js';
+import type { Config } from './config.ts';
+import { ApiError } from './errors.ts';
+import type { Settings } from './schemas.ts';
 
 export type Session = { accessToken: string; refreshToken: string; expiresAt: number | null; user: { id: string; email: string | null } };
 export type Backup = { revision: number; payload: Settings | null; updatedAt: string | null };
@@ -31,7 +31,7 @@ export interface Gateway {
 
 function databaseError(error: { code?: string } | null) {
   if (!error) return;
-  if (error.code === '40001') throw new ApiError(409, 'REVISION_CONFLICT', 'Cloud settings changed. Read the latest revision before saving again.');
+  if (error.code === 'PT409' || error.code === '40001') throw new ApiError(409, 'REVISION_CONFLICT', 'Cloud settings changed. Read the latest revision before saving again.');
   if (error.code === '23514') throw new ApiError(400, 'INVALID_SETTINGS', 'Settings exceed cloud storage limits.');
   throw new ApiError(503, 'DATABASE_UNAVAILABLE', 'Cloud storage is temporarily unavailable.');
 }

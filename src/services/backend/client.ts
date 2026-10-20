@@ -18,7 +18,10 @@ type Options = {
 export function createBackendClient(options: Options) {
   const base = new URL(options.baseUrl);
   if (base.protocol !== 'https:' && !(options.allowInsecureHttp && base.protocol === 'http:')) throw new Error('Backend URL must use HTTPS.');
-  if (base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Backend URL must be an origin without credentials, a path, or query parameters.');
+  if (base.username || base.password || base.search || base.hash || !/^\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]*$/.test(base.pathname)) throw new Error('Backend URL must use a safe base path without credentials or query parameters.');
+  // Preserve the Edge Function mount path when adding /v1 routes. A leading
+  // slash passed directly to new URL() would discard /functions/v1/focusup-api.
+  base.pathname = base.pathname.replace(/\/$/, '') + '/';
   const fetcher = options.fetch ?? fetch;
 
   async function request<T>(path: string, method = 'GET', body?: unknown, authenticated = true): Promise<T> {
@@ -27,7 +30,7 @@ export function createBackendClient(options: Options) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetcher(new URL(path, base).toString(), {
+      const response = await fetcher(new URL(path.replace(/^\//, ''), base).toString(), {
         method, headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: controller.signal,
       });

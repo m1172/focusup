@@ -22,6 +22,7 @@ it('clears FocusUp-owned storage and reminders while preserving unrelated data a
   expect(forgetAccountSession).toHaveBeenCalled();
   expect(protectionBridge.reset).toHaveBeenCalled();
   expect(await AsyncStorage.getItem('@focusup/local-analytics/events')).toBeNull();
+  expect(await AsyncStorage.getItem('@focusup/observability-consent')).toBe('denied');
   expect(await AsyncStorage.getItem('revenuecat-customer')).toBe('store-owned');
   expect(await AsyncStorage.getItem('unrelated-preferences')).toBe('keep');
   expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('focusup-wellbeing:access');

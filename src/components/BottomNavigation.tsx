@@ -7,16 +7,14 @@ import { Text } from './Typography';
 import { Icon, type IconName } from './Icon';
 import { useAppTheme } from '../theme';
 
-export type TabKey = 'home' | 'apps' | 'stats' | 'settings';
-const tabs: { key: TabKey; href: '/(tabs)' | '/(tabs)/apps' | '/(tabs)/statistics' | '/(tabs)/settings'; icon: IconName }[] = [
+export type TabKey = 'home' | 'stats' | 'settings';
+const tabs: { key: TabKey; href: '/(tabs)' | '/(tabs)/statistics' | '/(tabs)/settings'; icon: IconName }[] = [
   { key: 'home', href: '/(tabs)', icon: 'home' },
-  { key: 'apps', href: '/(tabs)/apps', icon: 'apps' },
   { key: 'stats', href: '/(tabs)/statistics', icon: 'stats' },
   { key: 'settings', href: '/(tabs)/settings', icon: 'sliders' },
 ];
 
 function activeFromPath(path: string): TabKey {
-  if (path.startsWith('/apps')) return 'apps';
   if (path.startsWith('/statistics')) return 'stats';
   if (path.startsWith('/settings') || path.startsWith('/schedule')) return 'settings';
   return 'home';

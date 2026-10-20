@@ -16,6 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.m1172.focusup",
       "infoPlist": {
+        "com.posthog.posthog.CAPTURE_PUSH_NOTIFICATION_OPENED": false,
         "UIViewControllerBasedStatusBarAppearance": true,
         "NSCameraUsageDescription": "Allow the social website to use your camera when you choose to capture or upload media.",
         "NSMicrophoneUsageDescription": "Allow the social website to record audio when you choose a video or voice feature.",
@@ -48,7 +49,8 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-sharing",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-localization"
     ],
     "extra": {
       "router": {

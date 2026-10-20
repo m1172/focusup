@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { cancelStrictModeCompletion, requestNotificationPermission, scheduleStrictModeCompletion } from '../notificationService';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   getPermissionsAsync: jest.fn(),

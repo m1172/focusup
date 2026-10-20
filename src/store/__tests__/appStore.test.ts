@@ -1,5 +1,7 @@
 import { useAppStore } from '../appStore';
 
+jest.mock('../../config/release', () => ({ PRO_ENABLED: true }));
+
 describe('local preferences store', () => {
   it('updates per-app enablement and filter preferences', () => {
     useAppStore.getState().setAppEnabled('instagram', false);

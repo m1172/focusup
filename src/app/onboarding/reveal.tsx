@@ -3,14 +3,14 @@ import { router } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import Animated, { Easing, FadeIn, FadeInDown, FadeOutUp, ZoomIn, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
+import Svg, { Circle, Defs, G, LinearGradient, Stop } from 'react-native-svg';
+import Animated, { Easing, FadeIn, FadeInDown, FadeOutUp, ZoomIn, cancelAnimation, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import { Text } from '../../components/Typography';
 import { AppIcon } from '../../components/AppIcon';
-import { ActionButton, Card, IconTile, Screen } from '../../components/ui';
+import { ActionButton, Card, IconTile, Note, Screen } from '../../components/ui';
 import type { IconName } from '../../components/Icon';
 import { CountUp, OnboardingHeader } from '../../features/onboarding/components';
-import { ONBOARDING_APPS, HOURS_PER_BOOK, HOURS_PER_LANGUAGE, LIFE_EXPECTANCY, MINUTES_PER_WORKOUT, WAKING_HOURS_PER_DAY, dotSlices, formatInteger, formatYears, projectByApp, projectLifetime, unitFor, type OnboardingAppId } from '../../features/onboarding/lifeProjection';
+import { FREE_HOURS, HOURS_PER_BOOK, HOURS_PER_EVENING, MINUTES_PER_WORKOUT, ONBOARDING_APPS, SLEEP_HOURS, WORK_HOURS, formatInteger, splitDay, unitFor, yearCost, type OnboardingAppId } from '../../features/onboarding/dayBudget';
 import { appCatalog } from '../../features/apps/catalog';
 import { formatDuration } from '../../utils/formatDuration';
 import { useAppStore } from '../../store/appStore';
@@ -74,96 +74,85 @@ function Calculating({ apps, onDone }: { apps: OnboardingAppId[]; onDone: () => 
   </View>;
 }
 
-const DOT = 18;
 
-/** One year of life. Its coloured slices (one per app) appear after `delay`. */
-function YearDot({ slices, colors, delay, animate }: { slices: [number, number][]; colors: string[]; delay: number; animate: boolean }) {
-  const c = useAppTheme();
-  const filled = slices.reduce((sum, [, f]) => sum + f, 0);
-  const shown = useSharedValue(animate ? 0 : 1);
-  useEffect(() => {
-    if (filled > 0 && animate) shown.value = withDelay(delay, withSpring(1, { damping: 11, stiffness: 180 }));
-  }, [animate, delay, filled, shown]);
-  const style = useAnimatedStyle(() => ({ opacity: Math.min(1, shown.value * 1.4), transform: [{ scale: filled < 0.999 ? 1 : 0.2 + shown.value * 0.8 }] }));
-  return <View style={{ width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: c.off, overflow: 'hidden' }}>
-    {filled > 0 ? <Animated.View style={[{ flexDirection: 'row', width: DOT, height: DOT, borderRadius: filled < 0.999 ? 0 : DOT / 2, overflow: 'hidden' }, style]}>
-      {slices.map(([app, f]) => <View key={app} style={{ width: DOT * f, height: DOT, backgroundColor: colors[app] }} />)}
-    </Animated.View> : null}
-  </View>;
+const DAY_MINUTES = 24 * 60;
+const FREE_MINUTES = FREE_HOURS * 60;
+const DAY_RING = 220;
+const DAY_STROKE = 28;
+const DAY_R = (DAY_RING - DAY_STROKE) / 2;
+const DAY_CIRC = 2 * Math.PI * DAY_R;
+/** 2px surface gap between arcs, as a share of the ring. */
+const ARC_GAP = 2 / DAY_CIRC;
+
+type Slice = { key: 'sleep' | 'work' | 'social' | 'free'; label: string; color: string; minutes: number };
+
+/** One arc of the day ring; it draws itself once the shared sweep (0–1) passes `start`. */
+function DayArc({ start, length, color, sweep }: { start: number; length: number; color: string; sweep: SharedValue<number> }) {
+  const props = useAnimatedProps(() => ({ strokeDashoffset: DAY_CIRC * (1 - Math.min(length, Math.max(0, sweep.value - start))) }));
+  return <G rotation={-90 + start * 360} origin={`${DAY_RING / 2}, ${DAY_RING / 2}`}>
+    <AnimatedCircle cx={DAY_RING / 2} cy={DAY_RING / 2} r={DAY_R} stroke={color} strokeWidth={DAY_STROKE} fill="none" strokeDasharray={`${DAY_CIRC} ${DAY_CIRC}`} animatedProps={props} />
+  </G>;
 }
 
-/** Remaining life as a dot grid; the last dots — the social-media years, group by group — fill in one by one. */
-type Group = { key: string; label: string; color: string; years: number };
-
-function LifeGrid({ remaining, groups, startDelay, animate }: { remaining: number; groups: Group[]; startDelay: number; animate: boolean }) {
+/** The 24 hours as a ring, drawn clockwise from the top; the centre counts the free hours down to what's left. */
+function DayRing({ slices, free, delay }: { slices: Slice[]; free: number; delay: number }) {
   const c = useAppTheme();
   const { t } = useTranslation();
-  const years = groups.map((g) => g.years);
-  const colors = groups.map((g) => g.color);
-  const slices = Array.from({ length: remaining }, (_, i) => dotSlices(i, remaining, years));
-  const firstIndex = slices.findIndex((x) => x.length > 0);
-  const rows = Array.from({ length: Math.ceil(remaining / 10) }, (_, r) => r);
-  return <Card style={{ padding: 18, gap: 14 }}>
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={{ flexShrink: 1, color: c.text, fontSize: 16, fontWeight: '800' }}>{t('onboarding.gridTitle', { age: LIFE_EXPECTANCY })}</Text>
-      <Text style={{ color: c.text3, fontSize: 12, fontWeight: '700' }}>{t('onboarding.gridCaption')}</Text>
-    </View>
-    <View style={{ gap: 10 }}>
-      {rows.map((r) => <View key={r} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {Array.from({ length: 10 }, (_, k) => {
-          const i = r * 10 + k;
-          return i < remaining ? <YearDot key={k} slices={slices[i]} colors={colors} animate={animate} delay={startDelay + Math.max(0, i - firstIndex) * 85} /> : <View key={k} style={{ width: DOT }} />;
-        })}
-      </View>)}
-    </View>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 6 }}>
-      {[{ color: c.off, label: t('onboarding.legendLife') }, ...groups.map((g) => ({ color: g.color, label: g.label }))].map((item) => <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color }} />
-        <Text style={{ color: c.text2, fontSize: 12, fontWeight: '700' }}>{item.label}</Text>
-      </View>)}
-    </View>
-  </Card>;
-}
-
-/** Per-app years with bars that grow to each app's share. */
-function Breakdown({ parts, delay }: { parts: { appId: OnboardingAppId; minutes: number; years: number }[]; delay: number }) {
-  const { t } = useTranslation();
-  const c = useAppTheme();
   const locale = useAppStore((s) => s.selectedLanguage);
-  const max = Math.max(...parts.map((p) => p.years));
-  const yearWords = t('onboarding.yearWords', { returnObjects: true }) as string[];
-  return <Card style={{ padding: 18, gap: 16 }}>
-    <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{t('onboarding.breakdownTitle')}</Text>
-    {parts.map((p, i) => {
-      const years = formatYears(p.years, locale);
-      return <View key={p.appId} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <AppIcon appId={p.appId} size={40} />
-        <View style={{ flex: 1, gap: 7 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-            <Text style={{ color: c.text, fontSize: 15, fontWeight: '800' }}>{appCatalog[p.appId].name}</Text>
-            <Text style={{ color: c.text2, fontSize: 13, fontWeight: '700' }}><Text style={{ color: c.apps[p.appId].ink, fontSize: 15, fontWeight: '800' }}>{years} {unitFor(locale, years, yearWords)}</Text> · {formatDuration(p.minutes, locale)}</Text>
-          </View>
-          <GrowBar share={p.years / max} color={c.apps[p.appId].ink} delay={delay + 200 + i * 150} />
-        </View>
-      </View>;
-    })}
-  </Card>;
-}
-
-function GrowBar({ share, color, delay }: { share: number; color: string; delay: number }) {
-  const c = useAppTheme();
   const reducedMotion = useReducedMotion();
-  const width = useSharedValue(reducedMotion ? share : 0);
+  const sweep = useSharedValue(reducedMotion ? 1 : 0);
   useEffect(() => {
-    if (!reducedMotion) width.value = withDelay(delay, withTiming(share, { duration: 900, easing: Easing.out(Easing.cubic) }));
-  }, [delay, reducedMotion, share, width]);
-  const fill = useAnimatedStyle(() => ({ width: `${Math.max(0.03, width.value) * 100}%` }));
-  return <View style={{ height: 8, borderRadius: 4, backgroundColor: c.card2, overflow: 'hidden' }}>
-    <Animated.View style={[{ height: 8, borderRadius: 4, backgroundColor: color }, fill]} />
+    if (!reducedMotion) sweep.value = withDelay(delay, withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.cubic) }));
+    return () => cancelAnimation(sweep);
+  }, [delay, reducedMotion, sweep]);
+  const shown = slices.filter((s) => s.minutes > 0);
+  const arcs = shown.map((s, i) => ({
+    ...s,
+    start: shown.slice(0, i).reduce((sum, p) => sum + p.minutes, 0) / DAY_MINUTES,
+    length: Math.max(0.002, s.minutes / DAY_MINUTES - ARC_GAP),
+  }));
+  return <View style={{ width: DAY_RING, height: DAY_RING, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' }}>
+    <Svg width={DAY_RING} height={DAY_RING} style={{ position: 'absolute' }}>
+      <Circle cx={DAY_RING / 2} cy={DAY_RING / 2} r={DAY_R} stroke={c.card2} strokeWidth={DAY_STROKE} fill="none" />
+      {arcs.map((a) => <DayArc key={a.key} start={a.start} length={a.length} color={a.color} sweep={sweep} />)}
+    </Svg>
+    <CountUp to={FREE_MINUTES - free} delay={delay + 700} duration={1300} format={(v) => formatDuration(Math.round(FREE_MINUTES - v), locale)} style={{ color: c.text, fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -1, fontVariant: ['tabular-nums'] }} />
+    <Text style={{ maxWidth: DAY_RING - DAY_STROKE * 2 - 24, color: c.text2, fontSize: 13, lineHeight: 17, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.freeLeft')}</Text>
   </View>;
 }
 
-/** Phase 2: the number, the grid, and what that time could be instead. */
+/** Ring + legend. Social media is one arc; with measured data its legend row splits by app (icons carry the identity). */
+function DayCard({ slices, apps, delay }: { slices: Slice[]; apps: { appId: OnboardingAppId; minutes: number }[]; delay: number }) {
+  const c = useAppTheme();
+  const { t } = useTranslation();
+  const locale = useAppStore((s) => s.selectedLanguage);
+  const free = slices.find((s) => s.key === 'free')?.minutes ?? 0;
+  return <Card style={{ padding: 18, gap: 18 }}>
+    <View style={{ gap: 3 }}>
+      <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{t('onboarding.dayTitle')}</Text>
+      <Text style={{ color: c.text3, fontSize: 12, fontWeight: '700' }}>{t('onboarding.dayCaption', { sleep: SLEEP_HOURS, work: WORK_HOURS, free: FREE_HOURS })}</Text>
+    </View>
+    <DayRing slices={slices} free={free} delay={delay} />
+    <View style={{ gap: 12 }}>
+      {slices.map((s) => <View key={s.key} style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: s.color }} />
+          <Text style={{ flex: 1, color: c.text, fontSize: 15, fontWeight: s.key === 'social' || s.key === 'free' ? '800' : '600' }}>{s.label}</Text>
+          <Text style={{ color: s.key === 'social' || s.key === 'free' ? c.text : c.text2, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{formatDuration(Math.round(s.minutes), locale)}</Text>
+        </View>
+        {s.key === 'social' && apps.length > 1 ? <View style={{ marginLeft: 22, gap: 8 }}>
+          {apps.map((a) => <View key={a.appId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <AppIcon appId={a.appId} size={22} />
+            <Text style={{ flex: 1, color: c.text2, fontSize: 13, fontWeight: '700' }}>{appCatalog[a.appId].name}</Text>
+            <Text style={{ color: c.text2, fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{formatDuration(Math.round(a.minutes), locale)}</Text>
+          </View>)}
+        </View> : null}
+      </View>)}
+    </View>
+  </Card>;
+}
+
+/** Phase 2: the share of free time, the day ring, and what a year of it could be instead. */
 function Result() {
   const { t } = useTranslation();
   const c = useAppTheme();
@@ -173,16 +162,24 @@ function Result() {
   const byApp = useOnboardingStore(useShallow(measuredMinutes));
   const source = useOnboardingStore((s) => s.source);
   const measuredDays = useOnboardingStore((s) => s.measured?.days ?? 0);
-  const age = useOnboardingStore((s) => s.age);
-  const p = useMemo(() => projectLifetime(dailyMinutes, age), [age, dailyMinutes]);
-  const parts = useMemo(() => projectByApp(byApp, age), [age, byApp]);
+  const day = useMemo(() => splitDay(dailyMinutes), [dailyMinutes]);
+  const year = useMemo(() => yearCost(dailyMinutes), [dailyMinutes]);
   const measured = source === 'measured';
-  const groups: Group[] = measured
-    ? parts.map((x) => ({ key: x.appId, label: appCatalog[x.appId].name, color: c.apps[x.appId].ink, years: x.years }))
-    : [{ key: 'short', label: t('onboarding.legendShort'), color: c.red, years: p.years }];
+  // The ring caps social media at sleep + free time; scale the per-app rows to match.
+  const scale = dailyMinutes > 0 ? day.social / dailyMinutes : 0;
+  const apps = measured ? ONBOARDING_APPS.filter((id) => (byApp[id] ?? 0) > 0).map((id) => ({ appId: id, minutes: (byApp[id] ?? 0) * scale })) : [];
+  const slices: Slice[] = [
+    { key: 'sleep', label: t('onboarding.legendSleep'), color: c.blue, minutes: day.sleep },
+    { key: 'work', label: t('onboarding.legendWork'), color: c.text3, minutes: day.work },
+    { key: 'social', label: t(measured ? 'onboarding.legendSocial' : 'onboarding.legendShort'), color: c.red, minutes: day.social },
+    { key: 'free', label: t('onboarding.legendFree'), color: c.mint, minutes: day.free },
+  ];
   const words = (key: string) => t(`onboarding.${key}`, { returnObjects: true }) as string[];
-  const counted = (n: number, key: string) => `${formatInteger(n, locale)} ${unitFor(locale, String(n), words(key))}`;
-  const yearsText = formatYears(p.years, locale);
+  const counted = (n: number, key: string) => {
+    const text = formatInteger(n, locale);
+    return `${text} ${unitFor(locale, text, words(key))}`;
+  };
+  const percent = Math.round(day.freeShare * 100);
   const glow = useSharedValue(0);
   useEffect(() => {
     if (!reducedMotion) glow.value = withDelay(400, withRepeat(withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }), -1, true));
@@ -191,36 +188,37 @@ function Result() {
   const glowStyle = useAnimatedStyle(() => ({ opacity: 0.55 + glow.value * 0.45, transform: [{ scale: 0.92 + glow.value * 0.12 }] }));
   const enter = (delay: number) => (reducedMotion ? undefined : FadeInDown.delay(delay).duration(550).easing(Easing.out(Easing.cubic)));
   const stats = [
-    { value: formatInteger(p.daysPerYear, locale), label: t('onboarding.statDays') },
-    { value: `${Math.round(p.wakingShare * 100)}%`, label: t('onboarding.statWaking') },
-    { value: formatInteger(p.totalHours, locale), label: t('onboarding.statHours') },
+    { value: formatDuration(Math.round(year.weekHours * 60), locale), label: t('onboarding.statWeek') },
+    { value: formatInteger(year.yearHours, locale), label: t('onboarding.statYear') },
+    { value: formatInteger(year.freeDays, locale), label: t('onboarding.statFreeDays', { hours: FREE_HOURS }) },
   ];
   const instead: { icon: IconName; tone: 'accent' | 'blue' | 'mint'; text: string }[] = [
-    { icon: 'book', tone: 'accent', text: t('onboarding.books', { value: counted(p.books, 'bookWords') }) },
-    { icon: 'globe', tone: 'blue', text: t('onboarding.languages', { value: counted(p.languages, 'languageWords') }) },
-    { icon: 'run', tone: 'mint', text: t('onboarding.workouts', { value: counted(p.workouts, 'workoutWords') }) },
+    { icon: 'book', tone: 'accent', text: t('onboarding.books', { value: counted(year.books, 'bookWords') }) },
+    { icon: 'run', tone: 'mint', text: t('onboarding.workouts', { value: counted(year.workouts, 'workoutWords') }) },
+    { icon: 'moon', tone: 'blue', text: t('onboarding.evenings', { value: counted(year.evenings, 'eveningWords') }) },
   ];
   return <View>
     <Animated.View entering={enter(0)} style={{ marginTop: 22, alignSelf: 'center', height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: 'center', backgroundColor: c.redSoft }}>
-      <Text style={{ color: c.red, fontSize: 13, fontWeight: '800', letterSpacing: 0.2 }}>{t('onboarding.ifNothingChanges')}</Text>
+      <Text style={{ color: c.red, fontSize: 13, fontWeight: '800', letterSpacing: 0.2 }}>{t('onboarding.everyDay')}</Text>
     </Animated.View>
-    <Animated.View entering={enter(120)}><Text style={{ marginTop: 14, color: c.text2, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.youWillSpend')}</Text></Animated.View>
+    <Animated.View entering={enter(120)}><Text style={{ marginTop: 14, color: c.text2, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>{t(measured ? 'onboarding.socialTakesApps' : 'onboarding.socialTakesShort')}</Text></Animated.View>
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 300, height: 220, borderRadius: 150, backgroundImage: c.isDark ? 'radial-gradient(closest-side, rgba(255,107,117,0.28), rgba(255,107,117,0))' : 'radial-gradient(closest-side, rgba(201,42,53,0.14), rgba(201,42,53,0))' }, glowStyle]} />
-      <Animated.View entering={reducedMotion ? undefined : ZoomIn.delay(200).duration(500).easing(Easing.out(Easing.back(1.6)))} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-        <CountUp to={p.years} delay={300} duration={1900} format={(v) => formatYears(v, locale)} onDone={() => { if (!reducedMotion) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); }} style={{ color: c.red, fontSize: 104, lineHeight: 116, fontWeight: '800', letterSpacing: -5 }} />
-        <Text style={{ color: c.red, fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.8 }}>{unitFor(locale, yearsText, words('yearWords'))}</Text>
+      <Animated.View entering={reducedMotion ? undefined : ZoomIn.delay(200).duration(500).easing(Easing.out(Easing.back(1.6)))}>
+        <CountUp to={percent} delay={300} duration={1700} format={(v) => `${Math.round(v)}%`} onDone={() => { if (!reducedMotion) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); }} style={{ color: c.red, fontSize: 104, lineHeight: 116, fontWeight: '800', letterSpacing: -5, fontVariant: ['tabular-nums'] }} />
       </Animated.View>
     </View>
-    <Animated.View entering={enter(420)}><Text style={{ marginHorizontal: 12, color: c.text, fontSize: 19, lineHeight: 26, fontWeight: '700', textAlign: 'center' }}>{t(measured ? 'onboarding.ofYourLifeApps' : 'onboarding.ofYourLifeShort')}</Text></Animated.View>
+    <Animated.View entering={enter(420)}><Text style={{ marginHorizontal: 12, color: c.text, fontSize: 19, lineHeight: 26, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.ofFreeTime', { hours: FREE_HOURS })}</Text></Animated.View>
 
-    <Animated.View entering={enter(2000)} style={{ marginTop: 28 }}>
-      <LifeGrid remaining={p.remainingYears} groups={groups} startDelay={2500} animate={!reducedMotion} />
+    <Animated.View entering={enter(1700)} style={{ marginTop: 28 }}>
+      <DayCard slices={slices} apps={apps} delay={2100} />
     </Animated.View>
-    {measured && parts.length > 1 ? <Animated.View entering={enter(2700)} style={{ marginTop: 14 }}><Breakdown parts={parts} delay={2700} /></Animated.View> : null}
+    {day.sleepLost > 0 ? <Animated.View entering={enter(2600)} style={{ marginTop: 14 }}>
+      <Note tone="accent" icon="moon">{t('onboarding.sleepLost', { time: formatDuration(day.sleepLost, locale) })}</Note>
+    </Animated.View> : null}
 
     <View style={{ marginTop: 14, flexDirection: 'row', gap: 10 }}>
-      {stats.map((s, i) => <Animated.View key={s.label} entering={enter(2900 + i * 110)} style={{ flex: 1 }}>
+      {stats.map((s, i) => <Animated.View key={s.label} entering={enter(2800 + i * 110)} style={{ flex: 1 }}>
         <Card style={{ flex: 1, padding: 14, gap: 4 }}>
           <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color: c.text, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.6 }}>{s.value}</Text>
           <Text numberOfLines={3} style={{ color: c.text2, fontSize: 12, lineHeight: 16, fontWeight: '600' }}>{s.label}</Text>
@@ -228,17 +226,17 @@ function Result() {
       </Animated.View>)}
     </View>
 
-    <Animated.View entering={enter(3300)}><Text style={{ marginTop: 28, color: c.text, fontSize: 20, lineHeight: 28, fontWeight: '800', letterSpacing: -0.4 }}>{t('onboarding.couldInstead')}</Text></Animated.View>
+    <Animated.View entering={enter(3200)}><Text style={{ marginTop: 28, color: c.text, fontSize: 20, lineHeight: 28, fontWeight: '800', letterSpacing: -0.4 }}>{t('onboarding.couldInstead')}</Text></Animated.View>
     <View style={{ marginTop: 12, gap: 10 }}>
-      {instead.map((row, i) => <Animated.View key={row.icon} entering={enter(3450 + i * 140)}>
+      {instead.map((row, i) => <Animated.View key={row.icon} entering={enter(3350 + i * 140)}>
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 }}>
           <IconTile name={row.icon} tone={row.tone} size={44} />
           <Text style={{ flex: 1, color: c.text, fontSize: 16, lineHeight: 22, fontWeight: '700' }}>{row.text}</Text>
         </Card>
       </Animated.View>)}
     </View>
-    <Animated.View entering={reducedMotion ? undefined : FadeIn.delay(3900).duration(500)}>
-      <Text style={{ marginTop: 16, color: c.text3, fontSize: 12, lineHeight: 17, fontWeight: '500' }}>{measured ? t('onboarding.basisMeasured', { days: counted(measuredDays, 'dayWords') }) : t('onboarding.basisEstimate')} {t('onboarding.footnote', { age: LIFE_EXPECTANCY, waking: WAKING_HOURS_PER_DAY, book: HOURS_PER_BOOK, language: HOURS_PER_LANGUAGE, workout: MINUTES_PER_WORKOUT })}</Text>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.delay(3800).duration(500)}>
+      <Text style={{ marginTop: 16, color: c.text3, fontSize: 12, lineHeight: 17, fontWeight: '500' }}>{measured ? t('onboarding.basisMeasured', { days: counted(measuredDays, 'dayWords') }) : t('onboarding.basisEstimate')} {t('onboarding.footnote', { sleep: SLEEP_HOURS, work: WORK_HOURS, book: HOURS_PER_BOOK, workout: MINUTES_PER_WORKOUT, evening: HOURS_PER_EVENING })}</Text>
     </Animated.View>
   </View>;
 }
@@ -253,7 +251,7 @@ export default function RevealScreen() {
     ? <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(2600).duration(500)}><ActionButton title={t('onboarding.resultCta')} arrow onPress={() => router.push('/onboarding/reclaim')} /></Animated.View>
     : undefined;
   return <Screen glow={420} contentStyle={{ gap: 0 }} footer={footer}>
-    <OnboardingHeader step={4} back={phase === 'result'} />
+    <OnboardingHeader step={2} back={phase === 'result'} />
     {phase === 'calc' ? <Calculating apps={apps} onDone={done} /> : <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)}><Result /></Animated.View>}
   </Screen>;
 }

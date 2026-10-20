@@ -4,6 +4,8 @@ import { hasProEntitlement } from '../entitlements';
 import { calculateAnnualSavings, canAccessFeature, canUseFeature } from '../subscriptionService';
 import { normalizeSubscriptionError } from '../types';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 jest.mock('react-native-purchases', () => ({ __esModule: true, default: {}, LOG_LEVEL: { INFO: 'INFO' }, PACKAGE_TYPE: { MONTHLY: 'MONTHLY', ANNUAL: 'ANNUAL' }, PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: 'PURCHASE_CANCELLED_ERROR', PRODUCT_ALREADY_PURCHASED_ERROR: 'PRODUCT_ALREADY_PURCHASED_ERROR' } }));
 jest.mock('react-native-purchases-ui', () => ({ __esModule: true, default: { presentCustomerCenter: jest.fn() } }));
 

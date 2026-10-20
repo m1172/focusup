@@ -16,6 +16,7 @@ import type { OAuthProvider } from '../../services/backend/types';
 import { getConfiguredLegalUrl, SUBSCRIPTION_PRIVACY_URL, SUBSCRIPTION_TERMS_URL } from '../../services/subscription/subscriptionConfig';
 import { BrandLogo } from './BrandLogo';
 import { AuthError, MIN_PASSWORD_LENGTH, useAuthProviders } from './components';
+import { PostHogMaskView } from 'posthog-react-native';
 
 /*
  * Building blocks for the "16 · Sign in" and "17 · Register" designs.
@@ -79,7 +80,7 @@ export function AuthInput({ label, value, onChange, kind, placeholder, disabled 
     style={{ height: 60, paddingTop: 9, paddingLeft: 16, paddingRight: secret ? 56 : 16, borderRadius: 18, backgroundColor: c.card, boxShadow: focused ? `0px 0px 0px 2px ${c.accent}` : c.sh, opacity: disabled ? 0.6 : 1 }}
   >
     <Text style={{ color: c.text2, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{label}</Text>
-    <TextInput
+    <PostHogMaskView><TextInput
       ref={ref} accessibilityLabel={label} value={value} onChangeText={onChange} editable={!disabled} autoFocus={autoFocus}
       placeholder={placeholder} placeholderTextColor={c.text3} selectionColor={c.accent}
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
@@ -90,7 +91,7 @@ export function AuthInput({ label, value, onChange, kind, placeholder, disabled 
       maxLength={kind === 'email' ? 254 : kind === 'code' ? 10 : 128}
       returnKeyType={returnKeyType} onSubmitEditing={onSubmitEditing} submitBehavior={keepKeyboard ? 'submit' : 'blurAndSubmit'}
       style={{ height: 28, padding: 0, margin: 0, color: c.text, fontSize: 16, fontFamily: 'Manrope-600', includeFontPadding: false }}
-    />
+    /></PostHogMaskView>
     {secret ? <Pressable
       accessibilityRole="button" accessibilityLabel={t(visible ? 'cloudAuth.hidePasswordLabel' : 'cloudAuth.showPasswordLabel')} accessibilityState={{ selected: visible }}
       onPress={() => setVisible((shown) => !shown)}
@@ -162,6 +163,7 @@ export function AuthUnavailable() {
   const { t } = useTranslation();
   return <View style={{ marginTop: 26, padding: 18, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
     <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22 }}>{t('cloudAuth.unavailable')}</Text>
+    <AuthTextLink title={t('support')} onPress={() => router.push('/help')} />
   </View>;
 }
 
@@ -221,10 +223,7 @@ function SocialButton({ provider, onPress, disabled, style }: { provider: OAuthP
 
 const providerName = { apple: 'Apple', google: 'Google', telegram: 'Telegram' } as const;
 
-/** Social sign-in comes first: full-width Apple button, Google + Telegram side by side, then an
- * "or" divider leading into the email form. All three are always shown, as in the design; a provider
- * the backend has not enabled (AUTH_OAUTH_PROVIDERS) reports `onUnavailable` instead of starting a flow.
- * `top` is the gap above the buttons, `spacing` the gap around the divider. */
+/** Show only providers enabled by the backend. Email remains available when none are enabled. */
 export function AuthSocialButtons({ providers, nativeApple, busy, run, onUnavailable, top, spacing }: ReturnType<typeof useAuthProviders> & {
   busy: boolean; run: (action: () => Promise<void>) => Promise<void>; onUnavailable: (message: string) => void; top: number; spacing: number;
 }) {
@@ -233,11 +232,13 @@ export function AuthSocialButtons({ providers, nativeApple, busy, run, onUnavail
     if (!providers.includes(provider)) { onUnavailable(t('cloudAuth.providerUnavailable', { provider: providerName[provider] })); return; }
     void run(() => provider === 'apple' && nativeApple ? signInWithApple() : signInWithProvider(provider));
   };
+  if (!providers.length) return null;
+  const secondary = (['google', 'telegram'] as const).filter((provider) => providers.includes(provider));
   return <>
-    <SocialButton provider="apple" disabled={busy} onPress={() => signIn('apple')} style={{ marginTop: top }} />
-    <View style={{ marginTop: 12, flexDirection: 'row', gap: 12 }}>
-      {(['google', 'telegram'] as const).map((provider) => <SocialButton key={provider} provider={provider} disabled={busy} onPress={() => signIn(provider)} style={{ flex: 1 }} />)}
-    </View>
+    {providers.includes('apple') ? <SocialButton provider="apple" disabled={busy} onPress={() => signIn('apple')} style={{ marginTop: top }} /> : null}
+    {secondary.length ? <View style={{ marginTop: providers.includes('apple') ? 12 : top, flexDirection: 'row', gap: 12 }}>
+      {secondary.map((provider) => <SocialButton key={provider} provider={provider} disabled={busy} onPress={() => signIn(provider)} style={{ flex: 1 }} />)}
+    </View> : null}
     <AuthDivider style={{ marginTop: spacing }} />
   </>;
 }

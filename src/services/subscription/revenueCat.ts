@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import { Platform } from 'react-native';
 import Purchases, { LOG_LEVEL, PACKAGE_TYPE, PURCHASES_ERROR_CODE, type CustomerInfo, type PurchasesOffering, type PurchasesPackage } from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
@@ -37,6 +38,7 @@ function isCancelledError(error: unknown): boolean {
 
 export const revenueCatSubscriptionService: SubscriptionService = {
   async initialize() {
+    if (!PRO_ENABLED) return;
     if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
     if (configured) return;
     const configurationError = getRevenueCatConfigurationError();
@@ -50,7 +52,7 @@ export const revenueCatSubscriptionService: SubscriptionService = {
   },
 
   async getOfferings() {
-    if (!configured) return null;
+    if (!PRO_ENABLED || !configured) return null;
     const offerings = await Purchases.getOfferings();
     const current = offerings.current ?? offerings.all[DEFAULT_OFFERING_ID] ?? null;
     if (!current) {
@@ -62,12 +64,12 @@ export const revenueCatSubscriptionService: SubscriptionService = {
   },
 
   async getCustomerInfo() {
-    if (!configured) throw new Error('RevenueCat is not initialized.');
+    if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
     return Purchases.getCustomerInfo();
   },
 
   async purchasePackage(packageId: string): Promise<PurchaseResult> {
-    if (!configured) return { status: 'unavailable', message: 'RevenueCat is not initialized.' };
+    if (!PRO_ENABLED || !configured) return { status: 'unavailable', message: 'RevenueCat is not initialized.' };
     const offering = (await Purchases.getOfferings()).current;
     const pkg = offering?.availablePackages.find((item) => item.identifier === packageId || item.product.identifier === packageId);
     if (!pkg) return { status: 'unavailable', message: 'This subscription plan is currently unavailable.' };
@@ -88,25 +90,27 @@ export const revenueCatSubscriptionService: SubscriptionService = {
   },
 
   async restorePurchases() {
-    if (!configured) throw new Error('RevenueCat is not initialized.');
+    if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
     return Purchases.restorePurchases();
   },
 
   async isPro() {
+    if (!PRO_ENABLED) return false;
     return hasProEntitlement(await this.getCustomerInfo());
   },
 };
 
 export function setRevenueCatCustomerInfoListener(listener: (info: CustomerInfo) => void) {
+  if (!PRO_ENABLED) return;
   customerInfoListener = listener;
-  if (configured && !listenerInstalled) {
+  if (PRO_ENABLED && configured && !listenerInstalled) {
     Purchases.addCustomerInfoUpdateListener(revenueCatCustomerInfoListener);
     listenerInstalled = true;
   }
 }
 
 export function installRevenueCatCustomerInfoListener() {
-  if (configured && !listenerInstalled) {
+  if (PRO_ENABLED && configured && !listenerInstalled) {
     Purchases.addCustomerInfoUpdateListener(revenueCatCustomerInfoListener);
     listenerInstalled = true;
   }
@@ -118,16 +122,16 @@ export function removeRevenueCatCustomerInfoListener() {
   customerInfoListener = undefined;
 }
 
-export function isRevenueCatConfigured() { return configured; }
+export function isRevenueCatConfigured() { return PRO_ENABLED && configured; }
 
 export async function presentSubscriptionCustomerCenter(): Promise<void> {
-  if (!configured) throw new Error('RevenueCat is not initialized.');
+  if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
   await RevenueCatUI.presentCustomerCenter();
 }
 
 /** Reserved for a future FocusUp account system; never pass social-platform identities. */
 export async function identifySubscriptionUser(userId: string): Promise<CustomerInfo> {
-  if (!configured) throw new Error('RevenueCat is not initialized.');
+  if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
   const safeId = userId.trim();
   if (!safeId || safeId.length > 100) throw new Error('A valid FocusUp account ID is required.');
   const result = await Purchases.logIn(safeId);
@@ -136,7 +140,7 @@ export async function identifySubscriptionUser(userId: string): Promise<Customer
 }
 
 export async function resetSubscriptionUser(): Promise<CustomerInfo> {
-  if (!configured) throw new Error('RevenueCat is not initialized.');
+  if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
   const customerInfo = await Purchases.logOut();
   customerInfoListener?.(customerInfo);
   return customerInfo;

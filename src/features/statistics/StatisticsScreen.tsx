@@ -17,7 +17,7 @@ import { useAppStore } from '../../store/appStore';
 import { useAppTheme } from '../../theme';
 import { formatDurationMs } from '../../utils/duration';
 import { useSubscription } from '../../hooks/useSubscription';
-import { canUseFeature } from '../../services/subscription/subscriptionService';
+import { canUseFeature, isFeatureAvailable } from '../../services/subscription/subscriptionService';
 import type { Period } from '../../types/app';
 import { timeEquivalents } from './timeEquivalents';
 import { withCount } from '../../utils/plural';
@@ -82,14 +82,14 @@ export function StatisticsScreen() {
   return (
     <Screen glow={340} contentStyle={{ gap: 14 }}>
       <Heading size="large" title={t('stats')} />
-      <Segmented<Period>
+      {isFeatureAvailable('advancedStatistics') ? <Segmented<Period>
         value={visiblePeriod}
         options={(['day', 'week', 'month', 'year'] as const).map((period) => ({ value: period, label: t(period) }))}
         onChange={(period) => {
           if (period !== 'day' && !canUseFeature(isPro, 'advancedStatistics')) setShowProSheet(true);
           else setPeriod(period);
         }}
-      />
+      /> : null}
 
       <HeroCard style={{ paddingVertical: 20 }}>
         <Text style={{ color: c.onHero, fontSize: 15, lineHeight: 20, fontWeight: '600' }}>{t(`ui.savedPeriod.${visiblePeriod}`)}</Text>
@@ -110,7 +110,7 @@ export function StatisticsScreen() {
         </View>)}
       </View>
 
-      <View style={{ gap: 10 }}>
+      {isFeatureAvailable('advancedInsights') ? <View style={{ gap: 10 }}>
         <SectionTitle size={18} title={t('ui.withThisTime')} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           {equivalents.map((item) => <View key={item.icon} style={{ flex: 1, minWidth: 0, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 22, backgroundColor: item.bg, boxShadow: item.ring || undefined, gap: 8 }}>
@@ -119,9 +119,9 @@ export function StatisticsScreen() {
             <Text style={{ color: c.text, fontWeight: '800', ...(Math.max(...item.label.split(/\s+/).map((word) => word.length)) > 9 ? { fontSize: 12, lineHeight: 17 } : { fontSize: 14, lineHeight: 19 }) }}>{item.label}</Text>
           </View>)}
         </View>
-      </View>
+      </View> : null}
 
-      <Sheet visible={showProSheet} onClose={() => setShowProSheet(false)} title={t('subscription.advancedStatsTitle')} message={t('subscription.advancedStatsMessage')}>
+      <Sheet visible={isFeatureAvailable('advancedStatistics') && showProSheet} onClose={() => setShowProSheet(false)} title={t('subscription.advancedStatsTitle')} message={t('subscription.advancedStatsMessage')}>
         <SheetActions cancel={t('subscription.notNow')} confirm={t('subscription.viewPro')} onCancel={() => setShowProSheet(false)} onConfirm={() => { setShowProSheet(false); router.push({ pathname: '/pro', params: { source: 'advanced_statistics' } }); }} />
       </Sheet>
     </Screen>

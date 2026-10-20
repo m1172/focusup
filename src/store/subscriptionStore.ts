@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../config/release';
 import { create } from 'zustand';
 import type { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 import { revenueCatSubscriptionService, hasProEntitlement, installRevenueCatCustomerInfoListener, setRevenueCatCustomerInfoListener } from '../services/subscription/revenueCat';
@@ -18,7 +19,7 @@ type SubscriptionState = {
 let initialization: Promise<void> | null = null;
 
 export const useSubscriptionStore = create<SubscriptionState>((set, get) => {
-  const setCustomerInfo = (customerInfo: CustomerInfo) => set({ customerInfo, isPro: hasProEntitlement(customerInfo), error: null });
+  const setCustomerInfo = (customerInfo: CustomerInfo) => set({ customerInfo, isPro: PRO_ENABLED && hasProEntitlement(customerInfo), error: null });
 
   return {
     isInitialized: false,
@@ -29,6 +30,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => {
     error: null,
     setCustomerInfo,
     initialize: async () => {
+      if (!PRO_ENABLED) { set({ isInitialized: true, isLoading: false, isPro: false, offering: null, error: null }); return; }
       if (get().isInitialized) return;
       if (initialization) return initialization;
       initialization = (async () => {
@@ -63,6 +65,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => {
       return initialization;
     },
     refresh: async () => {
+      if (!PRO_ENABLED) { set({ isInitialized: true, isLoading: false, isPro: false, offering: null, error: null }); return; }
       if (!get().isInitialized) return get().initialize();
       if (get().isLoading) return;
       set({ isLoading: true, error: null });

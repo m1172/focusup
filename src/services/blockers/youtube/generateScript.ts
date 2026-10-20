@@ -2,6 +2,7 @@ import type { YouTubeBlockerConfig } from '../../../types/social';
 import { normalizeYouTubeBlockerConfig } from './config';
 import { youtubeNavigationListener } from './navigation';
 import { youtubeSelectors } from './selectors';
+import { youtubeNavigationLayoutScript } from './navigationLayout';
 import { socialBrowserRouteScript } from '../../social-browser/routeScript';
 import type { RemotePlatformRule } from '../../../store/remoteBlockerConfigStore';
 
@@ -10,7 +11,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
   const registry = JSON.stringify({ ...youtubeSelectors, ...rule?.selectors });
   return `(function(){
     'use strict';
-    var CONFIG = ${JSON.stringify({ ...config, enabled, ruleKey: JSON.stringify([rule?.selectors, rule?.routes]) })};
+    var CONFIG = ${JSON.stringify({ ...config, enabled, behaviorVersion: 1, ruleKey: JSON.stringify([rule?.selectors, rule?.routes]) })};
     var REMOTE_ROUTES = ${JSON.stringify(rule?.routes ?? [])};
     var SELECTORS = ${registry};
     var MARKER = 'data-focusup-youtube-hidden';
@@ -25,10 +26,16 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
     function ensureStyle() {
       var style = document.getElementById(STYLE_ID);
       if (!style) { var parent = document.head || document.documentElement; if (!parent) return; style = document.createElement('style'); style.id = STYLE_ID; parent.appendChild(style); }
-      var css = '[' + MARKER + '] { display: none !important; }';
+      var css = '[' + MARKER + '] { display: none !important; }'
+        + '[data-focusup-youtube-nav-row] { display: flex !important; flex-direction: row !important; justify-content: space-around !important; gap: 0 !important; }'
+        + '[data-focusup-youtube-nav-row] > :not([' + MARKER + ']):not(style):not(script) { flex: 1 1 0% !important; width: 0 !important; min-width: 0 !important; max-width: none !important; margin-left: 0 !important; margin-right: 0 !important; }';
       if (style.textContent !== css) style.textContent = css;
     }
-    function restoreHidden() { document.querySelectorAll('[' + MARKER + ']').forEach(function(node) { node.removeAttribute(MARKER); }); root.processed = new WeakMap(); }
+    function restoreHidden() {
+      document.querySelectorAll('[' + MARKER + ']').forEach(function(node) { node.removeAttribute(MARKER); });
+      document.querySelectorAll('[data-focusup-youtube-nav-row]').forEach(function(node) { node.removeAttribute('data-focusup-youtube-nav-row'); });
+      root.processed = new WeakMap();
+    }
     function textOf(node) { return ((node.getAttribute && (node.getAttribute('aria-label') || node.getAttribute('title'))) || (node.textContent || '')).trim().slice(0, 160).toLowerCase(); }
     function semanticHeading(node, terms) {
       if (!node || !node.querySelectorAll) return false;
@@ -36,7 +43,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       for (var i = 0; i < list.length && i < 24; i++) { var label = textOf(list[i]); if (terms.some(function(term) { return label === term || label.indexOf(term) === 0; })) return true; }
       return false;
     }
-    function isShortsLink(node) { var href = node.getAttribute('href') || ''; return href.indexOf('/shorts/') !== -1 || href === '/shorts' || (node.closest('nav') && textOf(node).indexOf('shorts') !== -1); }
+    ${youtubeNavigationLayoutScript}
     function isShortsShelf(node) {
       var tag = (node.tagName || '').toLowerCase();
       if (tag === 'a' && (node.getAttribute('href') || '').indexOf('/shorts/') !== -1) return true;
@@ -59,8 +66,10 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       try {
         selectors.forEach(function(selector) { matches(rootNode, selector).forEach(function(node) {
           var parent = node.querySelector && node.querySelector('[role="heading"], h1, h2, h3');
-          var key = CONFIG.enabled + ':' + Object.keys(CONFIG).filter(function(k) { return k !== 'enabled' && CONFIG[k]; }).join(',') + ':' + (node.getAttribute('href') || '') + ':' + textOf(parent || node);
-          if (root.processed.get(node) === key) return;
+          var navigation = selectors === SELECTORS.shortsNavigation;
+          var key = feature + ':' + navigation + ':' + CONFIG.enabled + ':' + Object.keys(CONFIG).filter(function(k) { return k !== 'enabled' && CONFIG[k]; }).join(',') + ':' + (node.getAttribute('href') || '') + ':' + textOf(parent || node);
+          // Navigation labels can arrive inside an existing slot after its first pass.
+          if (!navigation && root.processed.get(node) === key) return;
           root.processed.set(node, key);
           var target = predicate(node) ? targetFor(node) : null;
           if (target && mark(target, feature)) count++;
@@ -75,7 +84,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       if (root.configKey !== JSON.stringify(CONFIG)) { restoreHidden(); root.configKey = JSON.stringify(CONFIG); }
       if (!CONFIG.enabled) return;
       var shortsPath = location.pathname === '/shorts' || location.pathname.indexOf('/shorts/') === 0;
-      hide('shorts', SELECTORS.shortsNavigation, rootNode, CONFIG.shorts && !shortsPath, isShortsLink, function(node) { return node.closest('ytd-guide-entry-renderer, ytm-pivot-bar-item-renderer, nav [role="listitem"], nav li') || node.closest('ytd-reel-item-renderer, ytm-shorts-lockup-view-model, ytd-rich-item-renderer, ytd-video-renderer, ytm-video-with-context-renderer, ytd-compact-video-renderer, [role="listitem"]') || node; });
+      hide('shorts', SELECTORS.shortsNavigation, rootNode, CONFIG.shorts && !shortsPath, isShortsLink, shortsNavigationTarget);
       hide('shorts', SELECTORS.shortsShelves, rootNode, CONFIG.shorts && !shortsPath, isShortsShelf, function(node) { return node.closest('ytd-reel-shelf-renderer, ytm-reel-shelf-renderer, ytd-shorts, ytm-shorts-lockup-view-model, ytd-rich-item-renderer, ytd-reel-item-renderer, ytd-video-renderer, ytm-video-with-context-renderer, ytd-compact-video-renderer') || node; });
       var homePage = ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(location.hostname) !== -1 && (location.pathname === '/' || location.pathname === '/home');
       hide('homeRecommendations', SELECTORS.homeRecommendations, rootNode, CONFIG.homeRecommendations && homePage, function(node) { return true; }, function(node) { return node; });
@@ -99,7 +108,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
         var roots = pendingRoots; pendingRoots = []; pendingSeen = new WeakSet(); passScheduled = false;
         roots.forEach(function(rootNode) {
           applyFocusUpYouTubeFilters(rootNode);
-          var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('ytd-watch-next-secondary-results-renderer, ytm-watch-next-secondary-results-renderer, ytd-comments, ytd-rich-grid-renderer, ytm-rich-grid-renderer, ytd-reel-shelf-renderer, ytm-reel-shelf-renderer');
+          var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('ytm-pivot-bar-renderer, ytd-watch-next-secondary-results-renderer, ytm-watch-next-secondary-results-renderer, ytd-comments, ytd-rich-grid-renderer, ytm-rich-grid-renderer, ytd-reel-shelf-renderer, ytm-reel-shelf-renderer');
           if (semanticParent) applyFocusUpYouTubeFilters(semanticParent);
         });
       });
@@ -110,7 +119,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
         additions.forEach(scheduleFilterPass);
       });
     });
-    var initialize = function() { if (!document.documentElement) return; if (CONFIG.enabled) root.observer.observe(document.documentElement, { childList: true, characterData: true, attributes: true, attributeFilter: ['href', 'aria-label', 'title'], subtree: true }); applyFocusUpYouTubeFilters(document); root.post({ type: 'READY', observerActive: Boolean(CONFIG.enabled) }); };
+    var initialize = function() { if (!document.documentElement) return; if (CONFIG.enabled) root.observer.observe(document.documentElement, { childList: true, characterData: true, attributes: true, attributeFilter: ['href', 'aria-label', 'title', 'tab-identifier', 'pivot-identifier'], subtree: true }); applyFocusUpYouTubeFilters(document); root.post({ type: 'READY', observerActive: Boolean(CONFIG.enabled) }); };
     if (document.documentElement) initialize(); else document.addEventListener('DOMContentLoaded', initialize, { once: true });
     ${youtubeNavigationListener}
   })(); true;`;

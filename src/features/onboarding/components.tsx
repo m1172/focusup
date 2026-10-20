@@ -6,10 +6,9 @@ import Animated, { Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSh
 import { Text } from '../../components/Typography';
 import { BackButton } from '../../components/ui';
 import { useAppTheme } from '../../theme';
-import { isBackendConfigured } from '../../services/backend/accountSession';
 
-/** The final "save your progress" step exists only when cloud accounts are configured. */
-export const ONBOARDING_STEPS = isBackendConfigured() ? 7 : 6;
+/** Authentication is the required final onboarding step. */
+export const ONBOARDING_STEPS = 6;
 
 /** Back button + a progress bar that grows from the previous step on mount. */
 /** `step` may be fractional (per-app questions); `from` is where the bar starts, the previous step by default. */
@@ -70,7 +69,7 @@ export function CountUp({ to, duration = 1600, delay = 0, format, style, onDone 
 }
 
 /** Large value that gives a small spring "pop" each time it changes. */
-export function PoppingValue({ children, value }: { children: ReactNode; value: number }) {
+export function PoppingValue({ children, value, align = 'center' }: { children: ReactNode; value: number; align?: 'center' | 'flex-start' }) {
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const first = useRef(true);
@@ -79,7 +78,7 @@ export function PoppingValue({ children, value }: { children: ReactNode; value: 
     if (!reducedMotion) scale.value = withSequence(withTiming(1.06, { duration: 70 }), withSpring(1, { damping: 12, stiffness: 260 }));
   }, [reducedMotion, scale, value]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return <Animated.View style={[{ alignItems: 'center' }, style]}>{children}</Animated.View>;
+  return <Animated.View style={[{ alignItems: align, transformOrigin: align === 'center' ? 'center' : 'left' }, style]}>{children}</Animated.View>;
 }
 
 const TICK = 14;

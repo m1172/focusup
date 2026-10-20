@@ -1,5 +1,7 @@
 # FocusUp Pro subscription setup
 
+Current release: `PRO_ENABLED = false`. Premium functionality described below is retained in source but hidden and inactive. Billing setup is for a future release; it is not required to run the current free features. See [release readiness](release-readiness.md).
+
 FocusUp uses `react-native-purchases` and `react-native-purchases-ui` 10.14 with one RevenueCat entitlement named `pro`. Monthly and Annual packages grant the same entitlement. Purchases are completed by RevenueCat and store customer information is the source of truth; FocusUp does not persist an independent Pro flag.
 
 ## App Store Connect

@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,11 +23,11 @@ export default function HowItWorksScreen() {
   const reducedMotion = useReducedMotion();
   const enter = (delay: number) => (reducedMotion ? undefined : FadeInDown.delay(delay).duration(450).easing(Easing.out(Easing.cubic)));
   const columns = [
-    { title: 'design.removed', color: c.red, dot: c.red, bg: c.redSoft, kind: 'x' as const, items: ['reels', 'shorts', 'explore', 'ui.onboardingRecommendations'] },
+    { title: 'design.removed', color: c.red, dot: c.red, bg: c.redSoft, kind: 'x' as const, items: PRO_ENABLED ? ['reels', 'shorts', 'explore', 'ui.onboardingRecommendations'] : ['reels', 'shorts'] },
     { title: 'kept', color: c.mintInk, dot: c.mint, bg: c.mintSoft, kind: 'check' as const, items: ['messages', 'friends', 'profiles', 'regularVideos'] },
   ];
   return <Screen glow={380} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={() => router.push('/onboarding/choose-apps')} />}>
-    <OnboardingHeader step={5} />
+    <OnboardingHeader step={4} />
     <Text accessibilityRole="header" style={{ marginTop: 24, color: c.text, fontSize: 38, lineHeight: 44, fontWeight: '800', letterSpacing: -1.33 }}>{t('design.onboardingTitle')}</Text>
     <Text style={{ marginTop: 12, maxWidth: 320, color: c.text2, fontSize: 16, lineHeight: 24, fontWeight: '500' }}>{t('design.onboardingBody')}</Text>
     <View style={{ marginTop: 32, flexDirection: 'row', gap: 16 }}>

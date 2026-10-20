@@ -26,7 +26,7 @@ site_url = "http://localhost:8081"
 additional_redirect_urls = ["focusup://auth/callback"]
 jwt_expiry = 3600
 enable_signup = true
-minimum_password_length = 12
+minimum_password_length = 8
 
 [auth.email]
 enable_signup = true
@@ -39,3 +39,24 @@ content_path = "./supabase/templates/confirmation.html"
 [auth.email.template.recovery]
 subject = "Your FocusUp password recovery code"
 content_path = "./supabase/templates/recovery.html"
+
+# Supabase's built-in mailer only delivers to project-team addresses (~2 emails/hour),
+# so public sign-up codes need a real provider. Values come from supabase/.env (see .env.example).
+[auth.email.smtp]
+enabled = true
+host = "env(SUPABASE_AUTH_SMTP_HOST)"
+port = 465
+user = "env(SUPABASE_AUTH_SMTP_USER)"
+pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+admin_email = "env(SUPABASE_AUTH_SMTP_ADMIN_EMAIL)"
+sender_name = "FocusUp"
+
+[auth.rate_limit]
+# Emails per hour across the project; only adjustable once custom SMTP is on.
+email_sent = 30
+
+[functions.focusup-api]
+# Login, refresh and health are public. The handler verifies every private route
+# using Auth.getUser(), and all account queries still use the user's RLS token.
+verify_jwt = false
+entrypoint = "./functions/focusup-api/index.ts"

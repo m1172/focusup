@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 export type HeroBar = { key: string | number; label: string; value: number; current?: boolean };
 
-/** "2 soat 34 daqiqa" big metric used on Home (52px) and Statistics (48px). */
+/** "2 soat 34 minut" big metric used on Home (52px) and Statistics (48px). */
 export function HeroDuration({ durationMs, size = 52 }: { durationMs: number; size?: 52 | 48 }) {
   const c = useAppTheme();
   const { t } = useTranslation();

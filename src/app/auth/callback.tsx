@@ -7,6 +7,7 @@ import { authRedirectUrl, oauthFlow } from '../../services/backend/authenticatio
 import { accountSession } from '../../services/backend/accountSession';
 import { leaveAuth } from '../../features/auth/components';
 import { useAppStore } from '../../store/appStore';
+import { captureProductEvent } from '../../services/analytics/productAnalytics';
 
 export default function AuthCallbackScreen() {
   const { t } = useTranslation();
@@ -22,11 +23,11 @@ export default function AuthCallbackScreen() {
     void accountSession.initialize().then(() => oauthFlow().complete(url.toString())).then(() => {
       if (!mounted) return;
       // Web OAuth reloads the app, so the onboarding step that started it is gone.
-      if (useAppStore.getState().onboardingCompleted) router.replace('/account'); else leaveAuth(true);
-    }).catch(() => { if (mounted) setFailed(true); });
+      leaveAuth(!useAppStore.getState().onboardingCompleted);
+    }).catch(() => { captureProductEvent('auth_failed', { provider: 'oauth', failure_code: 'CALLBACK_FAILED' }); if (mounted) setFailed(true); });
     return () => { mounted = false; };
   }, [code, error]);
   return <Screen><Heading title={t('cloudAuth.title')} subtitle={t(failed ? 'cloudAuth.callbackFailed' : 'cloudAuth.loading')} />
-    {failed ? <ActionButton title={t('cloudAuth.backToSignIn')} onPress={() => router.replace('/account')} /> : <ActivityIndicator accessibilityLabel={t('cloudAuth.loading')} />}
+    {failed ? <ActionButton title={t('cloudAuth.backToSignIn')} onPress={() => router.replace('/auth/sign-in')} /> : <ActivityIndicator accessibilityLabel={t('cloudAuth.loading')} />}
   </Screen>;
 }

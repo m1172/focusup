@@ -6,6 +6,8 @@ import { captureSettingsBackup } from '../settingsBackup';
 import { isCloudBackup, isCloudSettings } from '../settingsValidation';
 import { restoreCloudSettings } from '../restoreSettings';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }) }));
 jest.mock('../../protection/controller', () => ({ reconcileProtection: jest.fn().mockResolvedValue(undefined) }));
 

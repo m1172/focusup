@@ -1,22 +1,23 @@
+import { leaveAuth } from './navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../components/Typography';
 import { Icon } from '../../components/Icon';
 import { useAppTheme } from '../../theme';
 import { useAccountStore } from '../../store/accountStore';
-import { useAppStore } from '../../store/appStore';
 import { accountApi, accountSession, isBackendConfigured } from '../../services/backend/accountSession';
 import { signInWithApple, signInWithProvider } from '../../services/backend/authentication';
 import type { OAuthProvider } from '../../services/backend/types';
 import { accountErrorKey } from '../account/errors';
 import { BrandLogo } from './BrandLogo';
+import { PostHogMaskView } from 'posthog-react-native';
 
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const MIN_PASSWORD_LENGTH = 12;
+export const MIN_PASSWORD_LENGTH = 8;
 
 /** Single-flight async action whose failure is shown inline instead of as an alert. */
 export function useAuthAction() {
@@ -39,15 +40,7 @@ export function useFromOnboarding() {
   return useLocalSearchParams<{ from?: string }>().from === 'onboarding';
 }
 
-/** Leaves the auth flow after a successful sign-in. From onboarding this finishes onboarding;
- * a verified recovery code still needs a new password, which the account screen asks for. */
-export function leaveAuth(fromOnboarding: boolean) {
-  if (!fromOnboarding) { router.dismissTo('/account'); return; }
-  useAppStore.getState().completeOnboarding();
-  router.replace('/(tabs)');
-  if (useAccountStore.getState().recoveryRequired) router.push('/account');
-}
-
+export { leaveAuth } from './navigation';
 /** Any successful sign-in on an auth page (email, code, Apple, OAuth) leaves the page. */
 export function useLeaveWhenSignedIn(fromOnboarding: boolean) {
   const user = useAccountStore((state) => state.user);
@@ -59,7 +52,7 @@ type FieldKind = 'text' | 'email' | 'password' | 'code';
 export function AuthField({ label, value, onChange, kind = 'text', maxLength = 128, disabled = false, newPassword = false, onSubmit }: { label: string; value: string; onChange: (text: string) => void; kind?: FieldKind; maxLength?: number; disabled?: boolean; newPassword?: boolean; onSubmit?: () => void }) {
   const { t } = useTranslation(); const c = useAppTheme();
   const [hidden, setHidden] = useState(true);
-  return <View style={{ gap: 6 }}><Text style={{ color: c.text, fontWeight: '600' }}>{label}</Text>
+  return <PostHogMaskView style={{ gap: 6 }}><Text style={{ color: c.text, fontWeight: '600' }}>{label}</Text>
     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.card2, borderColor: c.border, borderWidth: 1, borderRadius: 14, minHeight: 52 }}>
       <TextInput
         accessibilityLabel={label} value={value} onChangeText={onChange} maxLength={maxLength} autoCapitalize={kind === 'text' ? 'words' : 'none'} autoCorrect={false} editable={!disabled}
@@ -73,7 +66,7 @@ export function AuthField({ label, value, onChange, kind = 'text', maxLength = 1
         <Text style={{ color: c.ink, fontWeight: '700', fontSize: 14 }}>{t(hidden ? 'cloudAuth.showPassword' : 'cloudAuth.hidePassword')}</Text>
       </Pressable> : null}
     </View>
-  </View>;
+  </PostHogMaskView>;
 }
 
 export function AuthError({ message }: { message: string | null }) {
@@ -109,8 +102,9 @@ export function useAuthProviders() {
     if (Platform.OS === 'ios') void AppleAuthentication.isAvailableAsync().then((available) => { if (mounted) setNativeApple(available); }).catch(() => undefined);
     return () => { mounted = false; };
   }, []);
+  // Apple only where the native sheet works: browser OAuth needs an Apple secret key the project doesn't configure.
   // Apple first, as on the platform sign-in sheets.
-  return { providers: [...providers].sort((a, b) => Number(b === 'apple') - Number(a === 'apple')), nativeApple };
+  return { providers: providers.filter((provider) => provider !== 'apple' || nativeApple).sort((a, b) => Number(b === 'apple') - Number(a === 'apple')), nativeApple };
 }
 
 const providerLabel = { apple: 'cloudAuth.continueApple', google: 'cloudAuth.continueGoogle', telegram: 'cloudAuth.continueTelegram' } as const;

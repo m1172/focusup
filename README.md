@@ -2,6 +2,8 @@
 
 FocusUp is an Uzbekistan-first digital wellbeing app. It keeps useful parts of social sites within an in-app browser and lets people hide distracting sections. The interface ships in Uzbek, Russian and English, with distinct light and dark themes.
 
+See [release readiness](docs/release-readiness.md) for verified checks, deployment blockers and the remaining device matrix.
+
 ## Run locally
 
 Requirements: Node.js 22.13 or newer, npm, Xcode for the iOS simulator, and Android Studio for Android builds.
@@ -24,9 +26,9 @@ npx expo-doctor
 
 ## Product behavior
 
-The first run introduces the idea, lets users choose apps, then opens the dashboard. Instagram and YouTube have settings and an in-app browser. TikTok, Snapchat, X, Facebook, LinkedIn and Reddit have separate capability entries; optimized browser integrations are not claimed available. Theme, language, app preferences, schedules and daily goal persist on the device with AsyncStorage. Pro status is read from RevenueCat's active `pro` entitlement and is never persisted as a local purchase flag.
+The first run introduces the idea and lets users choose apps, then requires sign-in or verified registration before entering the app. Existing guests must also sign in; securely restored accounts can continue offline. Instagram and YouTube have settings and an in-app browser. TikTok, Snapchat, X, Facebook, LinkedIn and Reddit have separate capability entries; optimized browser integrations are not claimed available. Theme, language, app preferences, schedules and daily goal persist on the device with AsyncStorage. The current release sets `PRO_ENABLED = false`: premium features and purchase surfaces are hidden, RevenueCat is not initialized, and saved premium preferences remain stored but inactive. The retained Pro implementation reads RevenueCat's active `pro` entitlement rather than persisting a purchase flag.
 
-Dashboard and statistics are based on local Clean Mode WebView sessions and explicit blocked Reels/Shorts navigation attempts. Session timing pauses when the app backgrounds. Raw events are retained for 30 days and daily aggregates for 400 days; no browsing URLs or social-site content is stored or sent to a backend. FocusUp does not estimate saved time and does not measure activity in other apps. RevenueCat receives store transactions for purchase validation; FocusUp does not send social activity, browsing history, passwords, receipts, or payment details to its own analytics. Family mode is not included in the Pro promise.
+Dashboard and statistics are based on local Clean Mode WebView sessions and explicit blocked Reels/Shorts navigation attempts. Session timing pauses when the app backgrounds. Raw events are retained for 30 days and daily aggregates for 400 days; no browsing URLs or social-site content is stored or sent to a backend. FocusUp does not estimate saved time and does not measure activity in other apps. When Pro is enabled in a future release, RevenueCat receives store transactions for purchase validation; FocusUp does not send social activity, browsing history, passwords, receipts, or payment details to its own analytics. Family mode is not included in the Pro promise.
 
 ## Structure
 
@@ -94,7 +96,7 @@ Only one FocusUp social browser session can be active at a time. Sessions shorte
 
 ## Privacy
 
-Analytics is stored on the device. It contains platform, event kind, coarse blocked feature, timestamps and durations. It does not contain full URLs, page text, video titles, search terms, account names, cookies, tokens or authentication data. Blocked-attempt counts come from explicit Reels/Shorts navigation callbacks; automatic DOM hiding is never counted as a user attempt. Similar callbacks for the same platform and feature within 800 ms are deduplicated.
+Detailed usage statistics are stored on the device. They contain platform, event kind, coarse blocked feature, timestamps and durations. Optional PostHog product analytics, masked session replay and error reporting are configured separately; see [observability setup](docs/observability.md). It does not contain full URLs, page text, video titles, search terms, account names, cookies, tokens or authentication data. Blocked-attempt counts come from explicit Reels/Shorts navigation callbacks; automatic DOM hiding is never counted as a user attempt. Similar callbacks for the same platform and feature within 800 ms are deduplicated.
 
 ## Aggregation
 
@@ -120,7 +122,7 @@ Schedules apply inside FocusUp. Strict Mode is a Pro feature that stores its sta
 
 The native blocker interface now connects to `modules/focusup-protection`, a local Expo module. Its iOS source implements FamilyControls selection, ManagedSettings shields, DeviceActivity monitoring and an optional ActivityKit widget. Its Android source implements package-only Accessibility detection and a FocusUp shield Activity. The module and four iOS extensions must be included in a new signed native build. Existing binaries and Expo Go report unsupported until the module is linked; native behavior has not been compiled or tested on a device in this continuation.
 
-Strict Mode analytics events store only event kind, duration, selected-platform count, and timestamp on the device. They do not include app usage outside FocusUp, browsing content, URLs, or account data.
+Local Strict Mode analytics events store event kind, duration, selected-platform count, and timestamp on the device. When PostHog is configured and enabled, coarse event summaries are also sent remotely. They do not include app usage outside FocusUp, browsing content, URLs, or account data.
 
 ## iOS Native Blocking
 
@@ -208,6 +210,6 @@ See [product-capabilities.md](docs/product-capabilities.md) for current status a
 
 ## Optional backend and cloud accounts
 
-An independent Fastify / TypeScript API with Supabase PostgreSQL and Auth lives in `backend/`. It supports email/password, Apple, Google and Telegram OIDC authentication, profiles, revision-controlled settings backups, account export/deletion and a public blocker-config endpoint. Run `npm --prefix backend ci`, configure `backend/.env`, apply the SQL migration, then run `npm run backend:dev`. See [backend setup](docs/backend-setup.md) for provider configuration, API routes, deployment and the Supabase Free plan limits.
+The API runs on Supabase Edge Functions alongside Supabase PostgreSQL and Auth. Shared TypeScript API code and an optional local Fastify server live in `backend/`. See [Supabase deployment](docs/production-deployment.md); no Render account or purchased domain is required. It supports email/password, Apple, Google and Telegram OIDC authentication, profiles, revision-controlled settings backups, account export/deletion and a public blocker-config endpoint. Run `npm --prefix backend ci`, configure `backend/.env`, apply the SQL migration, then run `npm run backend:dev`. See [backend setup](docs/backend-setup.md) for provider configuration, API routes, deployment and the Supabase Free plan limits.
 
-Settings → Your account provides email/password and configured provider sign-in, secure refresh-token storage, OAuth callbacks, profile editing, explicit backup/restore, export, sign-out and account deletion. Set `EXPO_PUBLIC_API_URL`, configure the provider credentials and email code templates, and rebuild the native app after installing dependencies. Existing activity statistics stay local; no cloud upload runs automatically. Run `npm run backend:check` to lint, typecheck and test the backend independently of Expo.
+Settings → Your account provides email/password and configured provider sign-in, secure refresh-token storage, OAuth callbacks, profile editing, automatic settings backup and restore, sign-out and account deletion. Set `EXPO_PUBLIC_API_URL`, configure the provider credentials and email code templates, and rebuild the native app after installing dependencies. Full activity statistics stay local; cloud settings backup is explicit. When configured, PostHog sends product events and masked session recordings according to the Privacy tracking switch; see [observability setup](docs/observability.md). Run `npm run backend:check` to lint, typecheck and test the backend independently of Expo.

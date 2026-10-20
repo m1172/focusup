@@ -29,6 +29,8 @@ export class SessionManager {
   private refreshPromise: Promise<string | null> | null = null;
   constructor(private options: { origin: string; storage: SecretStorage; refresh: (token: string) => Promise<AuthSession>; onChange: (state: SessionState) => void; now?: () => number }) {}
   getState() { return this.state; }
+  /** Best-effort server sign-out must never delay clearing the local account. */
+  getCachedAccessToken(): string | null { return this.session?.accessToken ?? null; }
   private publish(state: SessionState) { this.state = state; this.options.onChange(state); }
   private enqueue(operation: () => Promise<void>) { const next = this.writes.then(operation); this.writes = next.catch(() => undefined); return next; }
   initialize(): Promise<void> {

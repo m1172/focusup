@@ -2,8 +2,10 @@ import { appendAnalyticsEvent, cleanupOldAnalyticsEvents, getAnalyticsStorage } 
 import type { BlockedNavigationDestination, FocusUpAnalyticsEvent, PaywallSource, SavedTimeEstimate, SocialPlatform } from './types';
 import { useStatisticsStore } from '../../store/statisticsStore';
 import { BLOCKED_ATTEMPT_DEDUP_WINDOW_MS } from './constants';
+import { captureLocalProductEvent } from './productAnalytics';
 
 export async function track(event: FocusUpAnalyticsEvent): Promise<boolean> {
+  captureLocalProductEvent(event);
   try {
     await appendAnalyticsEvent(event);
     useStatisticsStore.getState().notifyChanged();

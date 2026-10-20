@@ -4,7 +4,11 @@ export const youtubeSelectors = {
     'a[href^="/shorts"]',
     'a[href*="/shorts/"]',
     'ytd-guide-entry-renderer a[title="Shorts"]',
-    'ytm-pivot-bar-item-renderer[tab-identifier="shorts"]',
+    'ytm-pivot-bar-item-renderer',
+    'yt-pivot-bar-item-view-model',
+    'ytm-pivot-bar-renderer a',
+    'ytm-pivot-bar-renderer button',
+    'ytm-pivot-bar-renderer [role="tab"]',
   ],
   shortsShelves: [
     'ytd-reel-shelf-renderer',

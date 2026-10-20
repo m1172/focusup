@@ -36,3 +36,4 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npx --yes deno@2.9.6 check --config ../supabase/functions/focusup-api/deno.json ../supabase/functions/focusup-api/index.ts

@@ -29,6 +29,8 @@ export function classifySocialBrowserNavigation(platform: SocialAppId, value: st
     const hosts = platform === 'instagram' ? ['instagram.com'] : platform === 'youtube' ? ['youtube.com', 'youtu.be'] : [];
     if (hosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) return url.protocol === 'https:' ? 'internal' : 'reject';
     if (platform === 'instagram' && isInstagramMetaAuthRedirect(value)) return 'internal';
+    if (platform === 'youtube' && isYouTubeGoogleAuthUrl(value)) return 'internal';
+    if (isAppHandoffUrl(value)) return 'reject';
     return 'external';
   } catch { return 'reject'; }
 }
@@ -68,6 +70,30 @@ export function isInstagramMetaAuthRedirect(url: string): boolean {
       || /^\/(?:login|checkpoint|recover|consent)(?:\/|$)/i.test(parsed.pathname)
       || /^\/(?:dialog\/oauth|v\d+\.\d+\/dialog\/oauth)(?:\/|$)/i.test(parsed.pathname);
     return parsed.protocol === 'https:' && isFacebookHost && isAuthPath;
+  } catch {
+    return false;
+  }
+}
+
+/** Keeps YouTube's Google account sign-in and sign-up in the same WebView session. */
+export function isYouTubeGoogleAuthUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    // Google finishes sign-in by setting cookies on regional hosts such as accounts.google.co.uk.
+    return parsed.hostname === 'accounts.youtube.com' || /^accounts\.google\.(?:com|[a-z]{2,3})(?:\.[a-z]{2})?$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+const appStoreHosts = ['apps.apple.com', 'itunes.apple.com', 'play.google.com', 'app.link', 'onelink.me'];
+
+/** App-store and deep links would leave FocusUp for the native Instagram or YouTube app. */
+export function isAppHandoffUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return appStoreHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`));
   } catch {
     return false;
   }

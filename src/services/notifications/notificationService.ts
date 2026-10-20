@@ -1,7 +1,9 @@
+import { PRO_ENABLED } from '../../config/release';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance, IosAuthorizationStatus, SchedulableTriggerInputTypes } from 'expo-notifications';
 import i18n from '../../i18n';
+import { captureProductEvent } from '../analytics/productAnalytics';
 
 const STRICT_END_KIND = 'strict-mode-end';
 let channelReady: Promise<void> | null = null;
@@ -14,6 +16,7 @@ export function initializeNotificationHandler(): void {
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  let requested = false;
   try {
     if (Platform.OS === 'android' && !channelReady) {
       channelReady = Notifications.setNotificationChannelAsync('default', { name: 'FocusUp', importance: AndroidImportance.DEFAULT, vibrationPattern: [0, 180, 100, 180], lightColor: '#6C47FF' }).then(() => undefined);
@@ -21,13 +24,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
     await channelReady;
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && permission.ios?.status !== IosAuthorizationStatus.PROVISIONAL) {
+      requested = true;
+      captureProductEvent('notification_permission_requested');
       permission = await Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowBadge: false, allowSound: false } });
     }
-    return permission.granted || permission.ios?.status === IosAuthorizationStatus.PROVISIONAL;
-  } catch { return false; }
+    const granted = permission.granted || permission.ios?.status === IosAuthorizationStatus.PROVISIONAL;
+    captureProductEvent('notification_permission_result', { requested, granted, status: permission.status });
+    return granted;
+  } catch { captureProductEvent('notification_permission_result', { requested, granted: false, status: 'error' }); return false; }
 }
 
 export async function scheduleStrictModeCompletion(endsAt: number): Promise<void> {
+  if (!PRO_ENABLED) { await cancelStrictModeCompletion(); return; }
   try {
     if (scheduledEndAt === endsAt) return;
     const permission = await Notifications.getPermissionsAsync();

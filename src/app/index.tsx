@@ -7,6 +7,8 @@ import { FocusLogo } from '../components/FocusLogo';
 import { Icon } from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
+import { useAccountStore } from '../store/accountStore';
+import { entryDestination } from '../services/backend/accessPolicy';
 import { useWellbeingStore } from '../store/wellbeingStore';
 import { useAppTheme } from '../theme';
 import { ActionButton, BackgroundGlow } from '../components/ui';
@@ -36,6 +38,7 @@ export default function SplashScreen() {
   const { height } = useWindowDimensions();
   const language = useAppStore((state) => state.selectedLanguage);
   const setLanguage = useAppStore((state) => state.setLanguage);
+  const account = useAccountStore();
   const completed = useAppStore((state) => state.onboardingCompleted);
   const destination = useWellbeingStore((state) => state.launchDestination);
   const [hydrated, setHydrated] = useState(useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated());
@@ -49,14 +52,10 @@ export default function SplashScreen() {
     return () => { a(); b(); };
   }, []);
   useEffect(() => {
-    if (hydrated && completed) {
-      if (destination === 'instagram' || destination === 'youtube') {
-        router.replace({ pathname: '/browser/[appId]', params: { appId: destination } });
-      } else {
-        router.replace('/(tabs)');
-      }
-    }
-  }, [completed, destination, hydrated]);
+    if (!hydrated || !account.ready) return;
+    const target = entryDestination(account, completed, destination);
+    if (target) router.replace(target);
+  }, [account, completed, destination, hydrated]);
 
   // Design places the logo 162px below the status bar on an 844pt screen; shorter screens pull it up.
   const logoTop = insets.top + Math.max(24, 162 - Math.max(0, 844 - height));
@@ -87,7 +86,7 @@ export default function SplashScreen() {
         <ActionButton
           title={completed ? t('home') : t('start')}
           arrow
-          onPress={() => (completed ? router.replace('/(tabs)') : router.push('/onboarding'))}
+          onPress={() => { const target = entryDestination(account, completed, destination); router.push(target ?? '/onboarding'); }}
         />
         <View accessibilityRole="radiogroup" style={{ alignSelf: 'center', flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: c.seg }}>
           {(['uz', 'ru', 'en'] as const).map((lang) => {

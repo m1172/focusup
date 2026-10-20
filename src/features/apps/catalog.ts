@@ -11,6 +11,9 @@ export const appCatalog: Record<SocialAppId, { name: string; descriptionKey: str
   linkedin: { name: 'LinkedIn', descriptionKey: 'wellbeing.nativeOnly', color: '#3479A3', glyph: 'in', filters: [], supported: false },
 };
 
+/** The apps FocusUp offers right now, in display order. The rest of the catalog stays for saved settings. */
+export const AVAILABLE_APPS = ['instagram', 'youtube'] as const satisfies readonly SocialAppId[];
+
 export function filterLabelKey(appId: SocialAppId, filter: string): string {
   const labels: Record<string, string> = { homeFeed: 'wellbeing.feed', reels: 'reels', explore: 'explore', recommendations: 'recommendations', suggestedPosts: 'suggestedPosts', ads: 'ads', sponsoredPosts: 'ads', sponsoredContent: 'ads', shorts: 'shorts', homeRecommendations: 'homeRecommendations', comments: 'comments' };
   return labels[filter] ?? filter;

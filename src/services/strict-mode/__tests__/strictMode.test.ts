@@ -5,6 +5,8 @@ import { MockNativeAppBlocker } from '../../native-blocking/mockNativeBlocker';
 import { reconcileStrictModeState, startStrictMode } from '../strictModeController';
 import { useRemoteBlockerConfigStore } from '../../../store/remoteBlockerConfigStore';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 jest.mock('../../../store/subscriptionStore', () => ({ useSubscriptionStore: { getState: () => ({ isPro: true }) } }));
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),

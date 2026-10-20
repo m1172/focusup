@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import * as Notifications from 'expo-notifications';
 import { useAppStore } from '../../store/appStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
@@ -10,7 +11,7 @@ import { isCloudSettings } from './settingsValidation';
 export function assertRestoreAllowed() {
   const app = useAppStore.getState();
   if (!useAppStore.persist.hasHydrated() || !useWellbeingStore.persist.hasHydrated()) throw new BackendError(0, 'LOCAL_NOT_READY', 'Local settings are still loading.');
-  if (app.strictSession && app.strictSession.endsAt > Date.now() || activeRoutines(app.schedules).some((item) => item.strict)) throw new BackendError(409, 'STRICT_ACTIVE', 'Wait until Strict Mode or your strict routine ends before restoring.');
+  if (PRO_ENABLED && (app.strictSession && app.strictSession.endsAt > Date.now() || activeRoutines(app.schedules).some((item) => item.strict))) throw new BackendError(409, 'STRICT_ACTIVE', 'Wait until Strict Mode or your strict routine ends before restoring.');
 }
 /** Explicit restore only. Device permissions, active sessions, native selections
  * and purchase entitlements are preserved. Native-application failure rolls back. */
@@ -22,7 +23,7 @@ export async function restoreCloudSettings(value: unknown): Promise<void> {
   assertRestoreAllowed();
   const previous = captureSettingsBackup();
   const next = JSON.parse(JSON.stringify(value)) as typeof value;
-  if (!remindersAllowed) {
+  if (PRO_ENABLED && !remindersAllowed) {
     next.preferences.completionNotifications = false;
     next.preferences.schedules = next.preferences.schedules.map((item) => ({ ...item, notify: false }));
     next.wellbeing.sleep.notify = false;

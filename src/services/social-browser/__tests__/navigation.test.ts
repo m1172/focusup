@@ -1,4 +1,4 @@
-import { classifySocialBrowserNavigation, getSocialBrowserRoute, isInstagramMetaAuthRedirect, isSameDocumentLocation, normalizeSocialBrowserLink } from '../navigation';
+import { classifySocialBrowserNavigation, getSocialBrowserRoute, isInstagramMetaAuthRedirect, isSameDocumentLocation, isYouTubeGoogleAuthUrl, normalizeSocialBrowserLink } from '../navigation';
 
 describe('classifySocialBrowserNavigation', () => {
   it('keeps secure embedded pages inside the WebView without opening Safari', () => {
@@ -7,6 +7,30 @@ describe('classifySocialBrowserNavigation', () => {
     expect(classifySocialBrowserNavigation('instagram', 'https://example.com/', true)).toBe('external');
     expect(classifySocialBrowserNavigation('instagram', 'https://www.instagram.com/', true)).toBe('internal');
     expect(classifySocialBrowserNavigation('instagram', 'https://www.facebook.com/login/', true)).toBe('internal');
+  });
+  it.each([
+    'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin',
+    'https://accounts.google.com/lifecycle/steps/signup/name?continue=https%3A%2F%2Fwww.youtube.com%2F',
+    'https://accounts.youtube.com/accounts/SetSID',
+    'https://accounts.google.co.uk/accounts/SetSID',
+  ])('keeps YouTube sign-in and sign-up inside the WebView: %s', (url) => {
+    expect(classifySocialBrowserNavigation('youtube', url, true)).toBe('internal');
+  });
+  it('does not treat Google sign-in as part of Instagram or lookalike hosts', () => {
+    expect(classifySocialBrowserNavigation('instagram', 'https://accounts.google.com/ServiceLogin', true)).toBe('external');
+    expect(isYouTubeGoogleAuthUrl('https://accounts.google.com.evil.test/')).toBe(false);
+    expect(isYouTubeGoogleAuthUrl('http://accounts.google.com/')).toBe(false);
+  });
+  it.each([
+    'https://apps.apple.com/app/instagram/id389801252',
+    'https://play.google.com/store/apps/details?id=com.google.android.youtube',
+    'https://instagram.app.link/open',
+    'instagram://user?username=focusup',
+    'intent://instagram.com/#Intent;scheme=https;package=com.instagram.android;end',
+    'vnd.youtube://watch?v=abc',
+  ])('never hands off to the native app or its store page: %s', (url) => {
+    expect(classifySocialBrowserNavigation('instagram', url, true)).toBe('reject');
+    expect(classifySocialBrowserNavigation('youtube', url, true)).toBe('reject');
   });
   it.each(['javascript:alert(1)', 'file:///etc/passwd', 'https://user:secret@instagram.com/', 'invalid'])('rejects unsafe navigation for any frame: %s', (url) => {
     expect(classifySocialBrowserNavigation('instagram', url, false)).toBe('reject');

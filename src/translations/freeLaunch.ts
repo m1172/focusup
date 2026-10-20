@@ -1,0 +1,66 @@
+/** Copy for the free-feature release; Pro copy stays available for later activation. */
+export const freeLaunchCopy = {
+  en: {
+    promise: 'Without Reels or Shorts.', instagramDesc: 'Hide Reels',
+    privacyText: 'FocusUp stores preferences on this device. A FocusUp account is required and uses Supabase Auth. Social website sign-in stays within the social platform; its passwords are not sent to FocusUp.',
+    design: { instagramDesc: 'Hide Reels inside FocusUp', youtubeDesc: 'Hide Shorts inside FocusUp', onboardingBody: 'Open Instagram and YouTube in FocusUp to hide Reels and Shorts.' },
+    cloudAuth: {
+      intro: 'Manage your FocusUp account. Your settings are backed up automatically.',
+      unavailable: 'Sign-in is unavailable in this build. An account is required to continue. Try again with an updated app or contact support.',
+      signedOutBody: 'Sign in or create a free account to use FocusUp.',
+      onboardingTitle: 'Your account, your focus', onboardingBody: 'Sign in or create a free account to start using FocusUp. Your setup will be kept.',
+      benefitBackup: 'Back up your filters and goals',
+      signOutDescription: 'Your settings stay on this device and your cloud backup is kept. Sign in again to use FocusUp.',
+      deleteAccountDescription: 'This deletes your FocusUp cloud account, profile and backup. Local settings are kept. Sign in or create another account to use FocusUp again.',
+      restoreDescription: 'Your current settings will be replaced with this cloud backup. Saved settings for unavailable features remain inactive. Device permissions and website sessions are kept.',
+      freePermissions: 'Reels and Shorts filtering works inside FocusUp. No permission to block other apps is needed.',
+      requiredHelp: 'A FocusUp account is required. Create an account, confirm your email code, then sign in. If sign-in fails, check your connection or reset your password. Social websites have their own separate sign-in.',
+    },
+    wellbeing: {
+      faqPrivacyAnswer: 'Preferences, local usage time and blocking events stay on this device. A required FocusUp account uses Supabase Auth. Your profile and a copy of your settings (language, theme, filters, routines and goals) are stored in the cloud and update automatically while you’re signed in. Website passwords and social content are not uploaded.',
+      clearDescription: 'Remove local preferences, statistics and supported browser sessions, and sign out on this device. Your cloud account and backups are kept; manage them in Your account.',
+    },
+  },
+  ru: {
+    promise: 'Без Reels и Shorts.', instagramDesc: 'Скрыть Reels',
+    privacyText: 'FocusUp хранит настройки на устройстве. Для работы нужен аккаунт FocusUp с Supabase Auth. Вход на социальные сайты остаётся внутри платформы; их пароли не передаются FocusUp.',
+    design: { instagramDesc: 'Скрыть Reels внутри FocusUp', youtubeDesc: 'Скрыть Shorts внутри FocusUp', onboardingBody: 'Открывайте Instagram и YouTube в FocusUp, чтобы скрыть Reels и Shorts.' },
+    cloudAuth: {
+      intro: 'Управляйте аккаунтом FocusUp. Настройки сохраняются в облаке автоматически.',
+      unavailable: 'Вход недоступен в этой версии. Для продолжения нужен аккаунт. Попробуйте обновить приложение или обратитесь в поддержку.',
+      signedOutBody: 'Войдите или создайте бесплатный аккаунт, чтобы пользоваться FocusUp.',
+      onboardingTitle: 'Ваш аккаунт, ваш фокус', onboardingBody: 'Войдите или создайте бесплатный аккаунт, чтобы начать пользоваться FocusUp. Ваши настройки сохранятся.',
+      benefitBackup: 'Резервная копия фильтров и целей',
+      signOutDescription: 'Настройки останутся на устройстве, а резервная копия — в облаке. Для работы с FocusUp войдите снова.',
+      deleteAccountDescription: 'Облачный аккаунт FocusUp, профиль и резервная копия будут удалены. Локальные настройки сохранятся. Чтобы снова пользоваться FocusUp, войдите или создайте другой аккаунт.',
+      restoreDescription: 'Текущие настройки будут заменены облачной копией. Настройки недоступных функций останутся неактивными. Разрешения устройства и сеансы сайтов сохранятся.',
+      freePermissions: 'Фильтрация Reels и Shorts работает внутри FocusUp. Разрешение на блокировку других приложений не требуется.',
+      requiredHelp: 'Для работы нужен аккаунт FocusUp. Создайте аккаунт, подтвердите код из письма и войдите. При ошибке проверьте соединение или сбросьте пароль. Вход на социальные сайты выполняется отдельно.',
+    },
+    wellbeing: {
+      faqPrivacyAnswer: 'Настройки, локальное время и события блокировок остаются на устройстве. Обязательный аккаунт FocusUp использует Supabase Auth. Профиль и копия настроек (язык, тема, фильтры, расписания и цели) хранятся в облаке и обновляются автоматически, пока вы вошли в аккаунт. Пароли сайтов и социальный контент не загружаются.',
+      clearDescription: 'Удалить локальные настройки, статистику и поддерживаемые сеансы браузера, а также выйти на этом устройстве. Облачный аккаунт и копии сохранятся; управляйте ими в разделе «Ваш аккаунт».',
+    },
+  },
+  uz: {
+    promise: 'Reels va Shorts’siz.', instagramDesc: 'Reels’ni yashirish',
+    privacyText: 'FocusUp sozlamalarni qurilmada saqlaydi. Ishlash uchun Supabase Auth orqali FocusUp hisobi talab qilinadi. Ijtimoiy saytlarga kirish o‘sha platformada qoladi; ularning parollari FocusUp’ga yuborilmaydi.',
+    design: { instagramDesc: 'FocusUp ichida Reels’ni yashirish', youtubeDesc: 'FocusUp ichida Shorts’ni yashirish', onboardingBody: 'Reels va Shorts’ni yashirish uchun Instagram va YouTube’ni FocusUp’da oching.' },
+    cloudAuth: {
+      intro: 'FocusUp hisobingizni boshqaring. Sozlamalaringiz avtomatik saqlanadi.',
+      unavailable: 'Bu versiyada hisobga kirish mavjud emas. Davom etish uchun hisob kerak. Ilovani yangilang yoki yordam xizmatiga murojaat qiling.',
+      signedOutBody: 'FocusUp’dan foydalanish uchun kiring yoki bepul hisob yarating.',
+      onboardingTitle: 'Hisobingiz, diqqatingiz', onboardingBody: 'FocusUp’dan foydalanishni boshlash uchun kiring yoki bepul hisob yarating. Sozlamalaringiz saqlanadi.',
+      benefitBackup: 'Filtrlar va maqsadlarni zaxiralash',
+      signOutDescription: 'Sozlamalaringiz qurilmada, zaxirangiz esa bulutda saqlanadi. FocusUp’dan foydalanish uchun qayta kiring.',
+      deleteAccountDescription: 'FocusUp bulutli hisobingiz, profilingiz va zaxirangiz o‘chiriladi. Mahalliy sozlamalar saqlanadi. Qayta foydalanish uchun kiring yoki boshqa hisob yarating.',
+      restoreDescription: 'Joriy sozlamalar bulutli nusxa bilan almashtiriladi. Mavjud bo‘lmagan funksiyalarning sozlamalari faol bo‘lmaydi. Qurilma ruxsatlari va sayt seanslari saqlanadi.',
+      freePermissions: 'Reels va Shorts filtrlari FocusUp ichida ishlaydi. Boshqa ilovalarni bloklash uchun ruxsat kerak emas.',
+      requiredHelp: 'FocusUp hisobi talab qilinadi. Hisob yarating, pochtadagi kodni tasdiqlang va kiring. Xatolik bo‘lsa, internetni tekshiring yoki parolni tiklang. Ijtimoiy saytlarga alohida kiriladi.',
+    },
+    wellbeing: {
+      faqPrivacyAnswer: 'Sozlamalar, mahalliy vaqt va bloklash hodisalari qurilmada qoladi. Majburiy FocusUp hisobi Supabase Auth’dan foydalanadi. Profilingiz va sozlamalaringiz nusxasi (til, mavzu, filtrlar, jadvallar va maqsadlar) bulutda saqlanadi va hisobingizga kirgan paytda avtomatik yangilanadi. Sayt parollari va ijtimoiy kontent yuklanmaydi.',
+      clearDescription: 'Mahalliy sozlamalar, statistika va qo‘llab-quvvatlanadigan brauzer seanslarini o‘chirib, bu qurilmada hisobdan chiqish. Bulutli hisob va zaxiralar saqlanadi; ularni «Hisobingiz» bo‘limida boshqaring.',
+    },
+  },
+} as const;

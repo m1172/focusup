@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../../components/Typography';
 import { normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
 import type { SocialAppId } from '../../types/app';
+import { PostHogMaskView } from 'posthog-react-native';
 
 export function BrowserLinkSheet({ appId, name, visible, onClose, onOpen }: {
   appId: SocialAppId; name: string; visible: boolean; onClose: () => void; onOpen: (url: string) => void;
@@ -27,10 +28,10 @@ export function BrowserLinkSheet({ appId, name, visible, onClose, onOpen }: {
           <Pressable accessibilityRole="button" accessibilityLabel={t('cancel')} onPress={onClose} style={styles.close}><Ionicons name="close" size={24} color="#FFFFFF" /></Pressable>
         </View>
         <Text style={styles.body}>{t('browser.linkBody', { name })}</Text>
-        <TextInput autoFocus accessibilityLabel={t('browser.openLink')} value={value} onChangeText={(text) => { setValue(text); setInvalid(false); }}
+        <PostHogMaskView><TextInput autoFocus accessibilityLabel={t('browser.openLink')} value={value} onChangeText={(text) => { setValue(text); setInvalid(false); }}
           placeholder={t('browser.linkPlaceholder', { domain: appId === 'instagram' ? 'instagram.com' : 'youtube.com' })}
           placeholderTextColor="#9993A2" autoCapitalize="none" autoCorrect={false} keyboardType="url" returnKeyType="go" onSubmitEditing={submit}
-          selectionColor="#D7C3EA" style={styles.input} />
+          selectionColor="#D7C3EA" style={styles.input} /></PostHogMaskView>
         {invalid ? <Text accessibilityRole="alert" style={styles.error}>{t('browser.invalidLink', { name })}</Text> : null}
         <Pressable accessibilityRole="button" disabled={!value.trim()} accessibilityState={{ disabled: !value.trim() }} onPress={submit} style={[styles.open, !value.trim() && { opacity: 0.5 }]}>
           <Text style={styles.openText}>{t('browser.openLink')}</Text>

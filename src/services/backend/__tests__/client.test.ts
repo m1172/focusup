@@ -37,7 +37,26 @@ test('handles deletion responses, offline failures, and unsafe origins', async (
   fetcher.mockRejectedValue(new Error('network failed'));
   await expect(api.getAccount()).rejects.toBeInstanceOf(BackendError);
   expect(() => createBackendClient({ baseUrl: 'http://api.example.com' })).toThrow('HTTPS');
-  expect(() => createBackendClient({ baseUrl: 'https://api.example.com?token=secret' })).toThrow('origin');
+  expect(() => createBackendClient({ baseUrl: 'https://api.example.com?token=secret' })).toThrow('base path');
+});
+
+test('preserves the Supabase function mount for public and authenticated routes', async () => {
+  for (const suffix of ['', '/']) {
+    const fetcher = jest.fn().mockResolvedValue(response(200, {}));
+    const api = createBackendClient({ baseUrl: `https://project.supabase.co/functions/v1/focusup-api${suffix}`, getAccessToken: () => 'session-token', fetch: fetcher });
+    await api.getProviders();
+    await api.getSettings();
+    expect(fetcher.mock.calls[0][0]).toBe('https://project.supabase.co/functions/v1/focusup-api/v1/auth/providers');
+    expect(fetcher.mock.calls[1][0]).toBe('https://project.supabase.co/functions/v1/focusup-api/v1/me/settings');
+    expect(fetcher.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    expect(fetcher.mock.calls[1][1].headers.Authorization).toBe('Bearer session-token');
+  }
+});
+
+test('rejects credentials, query strings and encoded path separators in API URLs', () => {
+  for (const baseUrl of ['https://user:password@api.example.com', 'https://api.example.com/functions%2fv1/api', 'https://api.example.com/api#token', 'https://api.example.com//another-host']) {
+    expect(() => createBackendClient({ baseUrl })).toThrow();
+  }
 });
 
 test('backup capture excludes active enforcement, onboarding answers and analytics', () => {

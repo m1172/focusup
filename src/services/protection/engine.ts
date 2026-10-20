@@ -1,3 +1,4 @@
+import { canUseFeature } from '../subscription/subscriptionService';
 import type { FocusSchedule, SocialAppId, StrictSession } from '../../types/app';
 import { isScheduleActive, parseClock } from '../schedules/time';
 import type { SleepPlan, TemporaryAccess, ProtectionReason, NativeProtectionPlan } from './types';
@@ -33,6 +34,7 @@ export function activeRoutines(routines: FocusSchedule[], now = new Date()): Foc
 }
 
 export function protectionReason(platform: SocialAppId, input: { baseline: SocialAppId[]; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean }, now = new Date()): ProtectionReason {
+  if (!canUseFeature(input.isPro, 'nativeProtection')) return 'unprotected';
   const strict = input.isPro && input.strict && input.strict.endsAt > now.getTime() && (input.strict.protectedPlatforms ?? input.strict.appIds).includes(platform);
   if (strict || input.isPro && activeRoutines(input.routines, now).some((routine) => routine.strict && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'strict';
   if (input.temporary?.platform === platform && input.temporary.endsAt > now.getTime()) return 'temporary';
@@ -42,5 +44,6 @@ export function protectionReason(platform: SocialAppId, input: { baseline: Socia
 }
 
 export function buildNativePlan(input: { baseline: SocialAppId[]; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean }): NativeProtectionPlan {
-  return { schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline: input.isPro ? input.baseline : [], routines: input.isPro ? [...input.routines, sleepRoutine(input.sleep)].filter((item) => item.enabled) : [], strict: input.isPro && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => input.baseline.includes(platform)) } : null, temporary: input.temporary };
+  const allowed = canUseFeature(input.isPro, 'nativeProtection');
+  return { schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline: allowed ? input.baseline : [], routines: allowed ? [...input.routines, sleepRoutine(input.sleep)].filter((item) => item.enabled) : [], strict: allowed && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => input.baseline.includes(platform)) } : null, temporary: allowed ? input.temporary : null };
 }

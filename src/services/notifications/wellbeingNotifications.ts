@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { useAppStore } from '../../store/appStore';
@@ -10,7 +11,7 @@ export async function scheduleWellbeingNotifications(plan: NativeProtectionPlan)
   try {
     const pending = await Notifications.getAllScheduledNotificationsAsync();
     await Promise.all(pending.filter((item) => item.identifier.startsWith(PREFIX)).map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
-    if (!useAppStore.getState().completionNotifications || !(await Notifications.getPermissionsAsync()).granted) return;
+    if (!PRO_ENABLED || !useAppStore.getState().completionNotifications || !(await Notifications.getPermissionsAsync()).granted) return;
     const requests: { id: string; at: Date; title: string; body: string }[] = [];
     if (plan.temporary && plan.temporary.endsAt > Date.now()) requests.push({ id: 'access', at: new Date(plan.temporary.endsAt), title: i18n.t('wellbeing.accessEnded'), body: i18n.t('wellbeing.protectionRestored') });
     for (const routine of plan.routines.filter((item) => item.notify)) {

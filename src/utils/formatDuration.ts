@@ -1,7 +1,8 @@
 import type { Locale } from '../types/app';
 
+// Uzbek reads as words ("4 soat 30 minut"); Russian and English keep compact units ("4ч 30м", "4h 30m").
 const units: Record<Locale, { hour: string; minute: string }> = {
-  uz: { hour: 's', minute: 'd' },
+  uz: { hour: ' soat', minute: ' minut' },
   ru: { hour: 'ч', minute: 'м' },
   en: { hour: 'h', minute: 'm' },
 };

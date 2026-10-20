@@ -3,6 +3,8 @@ import { useAppStore } from '../../../store/appStore';
 import { useSubscriptionStore } from '../../../store/subscriptionStore';
 import { useRemoteBlockerConfigStore } from '../../../store/remoteBlockerConfigStore';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 jest.mock('../../../store/subscriptionStore', () => ({ useSubscriptionStore: { getState: jest.fn() } }));
 
 describe('Instagram Clean Mode entitlement', () => {

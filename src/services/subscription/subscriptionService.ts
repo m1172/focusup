@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import type { PurchasesPackage } from 'react-native-purchases';
 
 export const FEATURE_ACCESS = {
@@ -22,8 +23,13 @@ export const FEATURE_ACCESS = {
 
 export type SubscriptionFeature = keyof typeof FEATURE_ACCESS;
 
-export function canUseFeature(isPro: boolean, feature: SubscriptionFeature): boolean {
-  return FEATURE_ACCESS[feature] === 'free' || isPro;
+/** Visibility differs from entitlement access: a future Pro release can show locked controls. */
+export function isFeatureAvailable(feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
+  return FEATURE_ACCESS[feature] === 'free' || proEnabled;
+}
+
+export function canUseFeature(isPro: boolean, feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
+  return FEATURE_ACCESS[feature] === 'free' || (proEnabled && isPro);
 }
 
 export function calculateAnnualSavings(monthly: PurchasesPackage | null | undefined, annual: PurchasesPackage | null | undefined): number | null {

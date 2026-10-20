@@ -5,15 +5,23 @@
   },
   "build": {
     "development": {
+      "env": { "EXPO_PUBLIC_APP_ENV": "development" },
       "developmentClient": true,
       "distribution": "internal",
       "ios": { "simulator": true },
       "android": { "buildType": "apk" }
     },
     "preview": {
+      "env": { "EXPO_PUBLIC_APP_ENV": "preview" },
       "distribution": "internal",
       "android": { "buildType": "apk" }
     },
-    "production": {}
+    "production": {
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api"
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 import type { Locale } from '../types/app';
 
 const units: Record<Locale, { hour: string; minute: string; lessThanMinute: string }> = {
-  uz: { hour: 's', minute: 'd', lessThanMinute: '<1 daq' },
+  uz: { hour: ' soat', minute: ' minut', lessThanMinute: '<1 minut' },
   ru: { hour: 'ч', minute: 'м', lessThanMinute: '<1 мин' },
   en: { hour: 'h', minute: 'm', lessThanMinute: '<1 min' },
 };

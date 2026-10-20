@@ -2,6 +2,8 @@ import { activeRoutines, buildNativePlan, createTemporaryAccess, protectionReaso
 import { defaultSleepPlan } from '../../../store/wellbeingStore';
 import type { FocusSchedule } from '../../../types/app';
 
+jest.mock('../../../config/release', () => ({ PRO_ENABLED: true }));
+
 const monday = new Date(2026, 9, 12, 22, 0);
 const routine: FocusSchedule = { id: 'work', name: 'Work', enabled: true, start: '22:00', end: '07:00', weekdays: [1], apps: ['instagram', 'youtube'], allowedApps: ['youtube'] };
 const input = { baseline: ['instagram'] as const, routines: [routine], sleep: defaultSleepPlan, strict: null, temporary: null, isPro: true };

@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../config/release';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -65,11 +66,11 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setLanguage: (selectedLanguage) => set({ selectedLanguage }),
   setTheme: (themeMode) => set({ themeMode }),
   setAppEnabled: (appId, enabled) => set((state) => {
-    if (state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
+    if (PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], enabled } } };
   }),
   setFilter: (appId, filter, enabled) => set((state) => {
-    if (state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
+    if (PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], filters: { ...state.apps[appId].filters, [filter]: enabled } } } };
   }),
   completeOnboarding: () => set({ onboardingCompleted: true }),
@@ -77,6 +78,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   deleteSchedule: (id) => set((state) => ({ schedules: state.schedules.filter((item) => item.id !== id) })),
   setScheduleEnabled: (id, enabled) => set((state) => ({ schedules: state.schedules.map((item) => item.id === id ? { ...item, enabled } : item) })),
   startStrict: (minutes) => {
+    if (!PRO_ENABLED) return;
     const appIds = supportedAppIds.filter((id) => get().apps[id].enabled);
     if (appIds.length === 0) return;
     const apps = get().apps;

@@ -60,6 +60,14 @@ test('upstream database failures do not expose details', async (t) => {
   await assert.rejects(createGateway(config).getSettings(user), { statusCode: 503, code: 'DATABASE_UNAVAILABLE', message: 'Cloud storage is temporarily unavailable.' });
 });
 
+test('settings revision conflicts retain their actionable status', async (t) => {
+  const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
+  for (const code of ['PT409', '40001']) {
+    globalThis.fetch = async () => Response.json({ code, message: 'Settings revision conflict' }, { status: 409 });
+    await assert.rejects(createGateway(config).saveSettings(user, 0, null), { statusCode: 409, code: 'REVISION_CONFLICT' });
+  }
+});
+
 test('readiness rejects a missing migration without reading user data', async (t) => {
   const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
   let migrated = false;

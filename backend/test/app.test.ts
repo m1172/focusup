@@ -53,10 +53,10 @@ test('revision conflicts are explicit and backup deletion keeps the expected rev
   assert.equal(response.json().revision, 2); assert.equal(deleted, true);
 });
 
-test('signup requires a strong password and represents email confirmation', async (t) => {
+test('signup requires at least 8 characters and represents email confirmation', async (t) => {
   const app = await buildApp(config, fakeGateway({ signUp: async () => ({ session: null, confirmationRequired: true }) })); t.after(() => app.close());
-  assert.equal((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { email: 'user@example.com', password: 'short' } })).statusCode, 400);
-  const response = await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { email: 'user@example.com', password: 'twelve-characters' } });
+  assert.equal((await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { email: 'user@example.com', password: 'seven-7' } })).statusCode, 400);
+  const response = await app.inject({ method: 'POST', url: '/v1/auth/sign-up', payload: { email: 'user@example.com', password: 'eight-88' } });
   assert.equal(response.statusCode, 201); assert.deepEqual(response.json(), { session: null, confirmationRequired: true });
 });
 

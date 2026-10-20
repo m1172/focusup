@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { requireOptionalNativeModule } from 'expo';
-import { ONBOARDING_APPS, type OnboardingAppId } from '../../features/onboarding/lifeProjection';
+import { ONBOARDING_APPS, type OnboardingAppId } from '../../features/onboarding/dayBudget';
 
 type UsageModule = {
   hasUsageAccess?: () => Promise<boolean>;

@@ -1,3 +1,4 @@
+import { PRO_ENABLED } from '../../config/release';
 import { Platform } from 'react-native';
 import { useAppStore } from '../../store/appStore';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
@@ -17,7 +18,7 @@ let queue: Promise<void> = Promise.resolve();
 export function reconcileProtection(requireNative = false): Promise<void> {
   const operation = queue.then(async () => {
     const app = useAppStore.getState(), wellbeing = useWellbeingStore.getState();
-    if (wellbeing.temporary && wellbeing.temporary.endsAt <= Date.now()) {
+    if (PRO_ENABLED && wellbeing.temporary && wellbeing.temporary.endsAt <= Date.now()) {
       const ended = wellbeing.temporary;
       wellbeing.setTemporary(null);
       void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_completed', platform: ended.platform, durationMs: ended.endsAt - ended.startedAt, timestamp: ended.endsAt, eventId: ended.id + ':completed' });
@@ -25,7 +26,7 @@ export function reconcileProtection(requireNative = false): Promise<void> {
     const latest = useWellbeingStore.getState();
     const plan = buildNativePlan({ baseline: latest.nativeApps, routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
     plan.locale = app.selectedLanguage;
-    plan.liveActivity = latest.liveActivity;
+    plan.liveActivity = PRO_ENABLED && latest.liveActivity;
     plan.utcOffsetMinutes = new Date().getTimezoneOffset();
     const json = JSON.stringify(plan);
     const status = await protectionBridge.getStatus();
