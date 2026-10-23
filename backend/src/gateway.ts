@@ -8,6 +8,7 @@ export type Backup = { revision: number; payload: Settings | null; updatedAt: st
 export type Profile = { displayName: string; updatedAt: string | null };
 export type Identity = { id: string; email: string | null; token: string };
 export type Credentials = { email: string; password: string; captchaToken?: string };
+export type SupportMessage = { id: number; sender: 'user' | 'support'; body: string; createdAt: string };
 export interface Gateway {
   authenticate(token: string): Promise<Identity>;
   signUp(credentials: Credentials): Promise<{ session: Session | null; confirmationRequired: boolean }>;
@@ -26,6 +27,20 @@ export interface Gateway {
   getSettings(identity: Identity): Promise<Backup>;
   saveSettings(identity: Identity, expectedRevision: number, payload: Settings | null): Promise<Backup>;
   deleteAccount(identity: Identity): Promise<void>;
+  /** The newest 200 messages of the user's own thread with an id above `after`, oldest first. */
+  listSupportMessages(identity: Identity, after: number): Promise<SupportMessage[]>;
+  /** Server-role writes: the caller has already taken `userId` from a verified token or a known Telegram thread. */
+  addSupportMessage(userId: string, sender: SupportMessage['sender'], body: string, telegramMessageId?: number): Promise<SupportMessage | null>;
+  linkSupportMessage(id: number, telegramMessageId: number): Promise<void>;
+  removeSupportMessage(id: number): Promise<void>;
+  /** The user whose message the team replied to, if that Telegram message belongs to a thread. */
+  findSupportThread(telegramMessageId: number): Promise<string | null>;
+  /** Server-role writes for reply notifications; a token moves to whoever registers it last. */
+  saveSupportPushToken(userId: string, token: string, platform: 'ios' | 'android'): Promise<void>;
+  /** Removes the token only while it still belongs to `userId`. */
+  removeSupportPushToken(userId: string, token: string): Promise<void>;
+  listSupportPushTokens(userId: string): Promise<string[]>;
+  forgetSupportPushTokens(tokens: string[]): Promise<void>;
   ready(): Promise<void>;
 }
 
@@ -44,6 +59,9 @@ function authError(error: { status?: number } | null, fallback = 'Authentication
 function sessionDto(session: { access_token: string; refresh_token: string; expires_at?: number; expires_in?: number; user: { id: string; email?: string } } | null): Session {
   if (!session) throw new ApiError(401, 'SESSION_REQUIRED', 'A valid session is required.');
   return { accessToken: session.access_token, refreshToken: session.refresh_token, expiresAt: session.expires_at ?? (typeof session.expires_in === 'number' ? Math.floor(Date.now() / 1000) + session.expires_in : null), user: { id: session.user.id, email: session.user.email ?? null } };
+}
+function supportDto(row: { id: number; sender: SupportMessage['sender']; body: string; created_at: string }): SupportMessage {
+  return { id: Number(row.id), sender: row.sender, body: row.body, createdAt: row.created_at };
 }
 function backupDto(row: { revision: number; payload: Settings | null; updated_at: string } | null): Backup {
   return { revision: row?.revision ?? 0, payload: row?.payload ?? null, updatedAt: row?.updated_at ?? null };
@@ -155,6 +173,52 @@ export function createGateway(config: Config): Gateway {
       if (!config.SUPABASE_SECRET_KEY) throw new ApiError(503, 'ACCOUNT_DELETION_UNAVAILABLE', 'Account deletion is not configured on this server.');
       const { error } = await client(undefined, true).auth.admin.deleteUser(identity.id);
       authError(error, 'Unable to delete this account.');
+    },
+    async listSupportMessages(identity, after) {
+      const { data, error } = await client(identity.token).from('support_messages').select('id, sender, body, created_at')
+        .eq('user_id', identity.id).gt('id', after).order('id', { ascending: false }).limit(200);
+      databaseError(error);
+      return (data ?? []).map(supportDto).reverse();
+    },
+    async addSupportMessage(userId, sender, body, telegramMessageId) {
+      const { data, error } = await client(undefined, true).from('support_messages')
+        .insert({ user_id: userId, sender, body, telegram_message_id: telegramMessageId ?? null }).select('id, sender, body, created_at').single();
+      // Telegram retries webhooks; the unique Telegram id makes a repeated reply a no-op.
+      if (error?.code === '23505') return null;
+      databaseError(error);
+      return supportDto(data!);
+    },
+    async linkSupportMessage(id, telegramMessageId) {
+      const { error } = await client(undefined, true).from('support_messages').update({ telegram_message_id: telegramMessageId }).eq('id', id);
+      databaseError(error);
+    },
+    async removeSupportMessage(id) {
+      const { error } = await client(undefined, true).from('support_messages').delete().eq('id', id);
+      databaseError(error);
+    },
+    async findSupportThread(telegramMessageId) {
+      const { data, error } = await client(undefined, true).from('support_messages').select('user_id').eq('telegram_message_id', telegramMessageId).maybeSingle();
+      databaseError(error);
+      return data?.user_id ?? null;
+    },
+    async saveSupportPushToken(userId, token, platform) {
+      const { error } = await client(undefined, true).from('support_push_tokens')
+        .upsert({ token, user_id: userId, platform, updated_at: new Date().toISOString() }, { onConflict: 'token' });
+      databaseError(error);
+    },
+    async removeSupportPushToken(userId, token) {
+      const { error } = await client(undefined, true).from('support_push_tokens').delete().eq('token', token).eq('user_id', userId);
+      databaseError(error);
+    },
+    async listSupportPushTokens(userId) {
+      const { data, error } = await client(undefined, true).from('support_push_tokens').select('token').eq('user_id', userId).order('updated_at', { ascending: false }).limit(5);
+      databaseError(error);
+      return (data ?? []).map((row) => row.token as string);
+    },
+    async forgetSupportPushTokens(tokens) {
+      if (!tokens.length) return;
+      const { error } = await client(undefined, true).from('support_push_tokens').delete().in('token', tokens);
+      databaseError(error);
     },
     async ready() {
       // Check table access without reading rows. A GET preserves upstream errors

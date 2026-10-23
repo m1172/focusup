@@ -13,6 +13,10 @@ const envSchema = z.object({
   TRUST_PROXY: z.string().default(''),
   AUTH_REDIRECT_URL: z.url().optional(),
   AUTH_OAUTH_PROVIDERS: z.string().default(''),
+  // Support chat relay. All three are needed; without them the chat routes answer 503.
+  TELEGRAM_BOT_TOKEN: z.string().regex(/^\d+:[A-Za-z0-9_-]{30,}$/).optional(),
+  TELEGRAM_SUPPORT_CHAT_ID: z.string().regex(/^-?\d{1,20}$/).optional(),
+  TELEGRAM_WEBHOOK_SECRET: z.string().regex(/^[A-Za-z0-9_-]{24,256}$/).optional(),
 });
 export type Config = z.infer<typeof envSchema>;
 

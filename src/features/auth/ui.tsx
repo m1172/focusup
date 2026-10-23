@@ -163,7 +163,6 @@ export function AuthUnavailable() {
   const { t } = useTranslation();
   return <View style={{ marginTop: 26, padding: 18, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
     <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22 }}>{t('cloudAuth.unavailable')}</Text>
-    <AuthTextLink title={t('support')} onPress={() => router.push('/help')} />
   </View>;
 }
 

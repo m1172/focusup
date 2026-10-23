@@ -14,7 +14,8 @@
     "lint": "eslint src test",
     "test": "node --import tsx --test test/*.test.ts",
     "test:database": "node --import tsx --test test/database.test.ts",
-    "auth:telegram": "node --env-file-if-exists=.env --import tsx src/configure-telegram.ts"
+    "auth:telegram": "node --env-file-if-exists=.env --import tsx src/configure-telegram.ts",
+    "support:telegram": "node --env-file-if-exists=.env --import tsx src/configure-support-bot.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",

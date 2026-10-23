@@ -7,7 +7,7 @@ import { isBackendConfigured, refreshAccountSession } from '../services/backend/
 import i18n from '../i18n';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
-import { ActivityIndicator, AppState, View } from 'react-native';
+import { ActivityIndicator, Appearance, AppState, View } from 'react-native';
 import { router, Stack, useRootNavigationState } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -28,6 +28,8 @@ import { useNativeAppHandoff } from '../hooks/useNativeAppHandoff';
 import { AnalyticsObserver } from '../components/AnalyticsObserver';
 import { startSettingsSync } from '../services/backend/settingsSyncRuntime';
 import { BrowserLayer } from '../features/webview/BrowserLayer';
+import { SupportReplyOpener } from '../features/support/SupportReplyOpener';
+import { syncSupportPush } from '../features/support/push';
 import { perfLogsEnabled, recordTap, startMainThreadSampler } from '../services/performance/tapTiming';
 if (perfLogsEnabled) startMainThreadSampler(); // TEMP-PERF-SAMPLER
 import { captureProductEvent, flushProductAnalytics, initializeProductAnalytics, setProductAnalyticsIdentity } from '../services/analytics/productAnalytics';
@@ -51,6 +53,9 @@ export default function RootLayout() {
   const appAllowed = canEnterApp(account, completed, hydrated, isBackendConfigured());
 
   const language = useAppStore((state) => state.selectedLanguage);
+  const themeMode = useAppStore((state) => state.themeMode);
+  // Tell the OS the chosen appearance too, so Instagram and YouTube (which follow prefers-color-scheme) switch with the app.
+  useEffect(() => { Appearance.setColorScheme(themeMode === 'system' ? 'unspecified' : themeMode); }, [themeMode]);
   // Apply the saved language on every entry point (cold start, deep link, notification), not only the splash.
   useEffect(() => {
     if (i18n.language !== language) void i18n.changeLanguage(language);
@@ -91,6 +96,11 @@ export default function RootLayout() {
     if (useAppStore.persist.hasHydrated()) void reconcileStrictModeState();
     const reconcileTimer = PRO_ENABLED ? setInterval(() => { if (!isClearingFocusUpData()) { void reconcileStrictModeState(); reconcileNative(); } }, 15_000) : undefined;
     const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { void reconcileStrictModeState(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
+    // Signed-in devices that already allow notifications register for support replies without a prompt.
+    const supportPush = useAccountStore.subscribe((state, previous) => { if (state.user && state.user.id !== previous.user?.id) void syncSupportPush(); });
+    if (useAccountStore.getState().user) void syncSupportPush();
+    const pushTokenListener = Notifications.addPushTokenListener(() => { void syncSupportPush(); });
+    // Support-reply taps ('support-reply') are opened by SupportReplyOpener, which also covers a cold start.
     const notificationListener = Notifications.addNotificationResponseReceivedListener((response) => {
       if (!PRO_ENABLED || !useAccountStore.getState().user || useAccountStore.getState().recoveryRequired) return;
       const data = response.notification.request.content.data;
@@ -98,10 +108,10 @@ export default function RootLayout() {
       if (data?.kind === 'strict-mode-end') router.push('/strict-mode');
       if (data?.kind === 'wellbeing') router.push('/(tabs)/focus');
     });
-    return () => { stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); notificationListener.remove(); };
+    return () => { stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
   }, []);
   if ((!fontsLoaded && !fontError) || !hydrated || !account.ready) return <View style={{ flex: 1, backgroundColor: c.background, justifyContent: 'center' }}><ActivityIndicator accessibilityLabel={i18n.t('cloudAuth.loading')} /></View>;
-  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed && PRO_ENABLED} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
+  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed && PRO_ENABLED} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
       <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/choose-apps" /><Stack.Screen name="onboarding/account" />
@@ -110,9 +120,9 @@ export default function RootLayout() {
       <Stack.Screen name="auth/sign-in" /><Stack.Screen name="auth/sign-up" />
     </Stack.Protected>
     <Stack.Screen name="auth/callback" />
-    <Stack.Screen name="privacy" /><Stack.Screen name="help" /><Stack.Screen name="capabilities" />
+    <Stack.Screen name="privacy" /><Stack.Screen name="capabilities" />
     <Stack.Protected guard={Boolean(account.user) && isBackendConfigured()} redirectTo="/start">
-      <Stack.Screen name="account" />
+      <Stack.Screen name="account" /><Stack.Screen name="support" />
     </Stack.Protected>
     <Stack.Protected guard={appAllowed} redirectTo="/start">
       <Stack.Screen name="(tabs)" />

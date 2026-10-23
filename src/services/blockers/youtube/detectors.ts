@@ -1,3 +1,6 @@
+/** /shorts and /shorts/<id>, plus a channel's Shorts tab (/@name/shorts, /channel/<id>/shorts, /c/…, /user/…). */
+export const youtubeShortsPathPattern = /^\/(?:(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)\/)?shorts(?:\/|$)/i;
+
 export function isHomeYouTubeUrl(url: string): boolean {
   try {
     const parsed = new URL(url, 'https://m.youtube.com');
@@ -15,6 +18,6 @@ export function isWatchYouTubeUrl(url: string): boolean {
 export function isYouTubeShortsUrl(url: string): boolean {
   try {
     const parsed = new URL(url, 'https://m.youtube.com');
-    return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(parsed.hostname) && /^\/shorts(?:\/|$)/i.test(parsed.pathname);
+    return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(parsed.hostname) && youtubeShortsPathPattern.test(parsed.pathname);
   } catch { return false; }
 }

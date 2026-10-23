@@ -1,5 +1,6 @@
 import type { YouTubeBlockerConfig } from '../../../types/social';
 import { normalizeYouTubeBlockerConfig } from './config';
+import { youtubeShortsPathPattern } from './detectors';
 import { youtubeNavigationListener } from './navigation';
 import { youtubeSelectors } from './selectors';
 import { youtubeNavigationLayoutScript } from './navigationLayout';
@@ -12,6 +13,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
   return `(function(){
     'use strict';
     var CONFIG = ${JSON.stringify({ ...config, enabled, behaviorVersion: 1, ruleKey: JSON.stringify([rule?.selectors, rule?.routes]) })};
+    var SHORTS_PATH = new RegExp(${JSON.stringify(youtubeShortsPathPattern.source)}, 'i');
     var REMOTE_ROUTES = ${JSON.stringify(rule?.routes ?? [])};
     var SELECTORS = ${registry};
     var MARKER = 'data-focusup-youtube-hidden';
@@ -83,7 +85,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       ensureStyle();
       if (root.configKey !== JSON.stringify(CONFIG)) { restoreHidden(); root.configKey = JSON.stringify(CONFIG); }
       if (!CONFIG.enabled) return;
-      var shortsPath = location.pathname === '/shorts' || location.pathname.indexOf('/shorts/') === 0;
+      var shortsPath = SHORTS_PATH.test(location.pathname);
       hide('shorts', SELECTORS.shortsNavigation, rootNode, CONFIG.shorts && !shortsPath, isShortsLink, shortsNavigationTarget);
       hide('shorts', SELECTORS.shortsShelves, rootNode, CONFIG.shorts && !shortsPath, isShortsShelf, function(node) { return node.closest('ytd-reel-shelf-renderer, ytm-reel-shelf-renderer, ytd-shorts, ytm-shorts-lockup-view-model, ytd-rich-item-renderer, ytd-reel-item-renderer, ytd-video-renderer, ytm-video-with-context-renderer, ytd-compact-video-renderer') || node; });
       var homePage = ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(location.hostname) !== -1 && (location.pathname === '/' || location.pathname === '/home');
@@ -94,7 +96,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       // Sponsored content remains a no-op until a high-confidence marker is verified.
     }
     root.apply = applyFocusUpYouTubeFilters;
-    root.shouldBlock = function(url, currentConfig) { try { var parsed = new URL(url); return Boolean(currentConfig && currentConfig.enabled && currentConfig.shorts && (parsed.hostname === 'youtube.com' || parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && (parsed.pathname === '/shorts' || parsed.pathname.indexOf('/shorts/') === 0 || REMOTE_ROUTES.some(function(route) { return parsed.pathname === route || parsed.pathname.indexOf(route.endsWith('/') ? route : route + '/') === 0; }))); } catch (_) { return false; } };
+    root.shouldBlock = function(url, currentConfig) { try { var parsed = new URL(url); return Boolean(currentConfig && currentConfig.enabled && currentConfig.shorts && (parsed.hostname === 'youtube.com' || parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && (SHORTS_PATH.test(parsed.pathname) || REMOTE_ROUTES.some(function(route) { return parsed.pathname === route || parsed.pathname.indexOf(route.endsWith('/') ? route : route + '/') === 0; }))); } catch (_) { return false; } };
     if (root.observer) root.observer.disconnect();
     var passScheduled = false;
     var pendingRoots = [];

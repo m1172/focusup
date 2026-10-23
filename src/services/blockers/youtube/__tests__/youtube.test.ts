@@ -61,12 +61,18 @@ describe('isBlockedYouTubeNavigation', () => {
     expect(isBlockedYouTubeNavigation('https://www.youtube.com/shorts/abc', config)).toBe(true);
   });
 
+  it.each(['/@creator/shorts', 'https://m.youtube.com/@creator/shorts/', '/channel/UC123/shorts', '/c/creator/shorts', '/user/creator/shorts'])('blocks a channel Shorts tab: %s', (url) => {
+    expect(isBlockedYouTubeNavigation(url, config)).toBe(true);
+  });
+
   it.each([
     'https://m.youtube.com/watch?v=abc',
     'https://m.youtube.com/results?search_query=react',
     'https://m.youtube.com/feed/subscriptions',
     'https://m.youtube.com/playlist?list=abc',
     'https://www.youtube.com/@creator',
+    'https://www.youtube.com/@creator/videos',
+    'https://www.youtube.com/@shorts',
     'https://example.com/shorts/abc',
   ])('allows intentional URL %s', (url) => expect(isBlockedYouTubeNavigation(url, config)).toBe(false));
 

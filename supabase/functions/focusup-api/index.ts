@@ -12,6 +12,9 @@ const config = readConfig({
   AUTH_REDIRECT_URL: Deno.env.get('AUTH_REDIRECT_URL') ?? 'focusup://auth/callback',
   AUTH_OAUTH_PROVIDERS: Deno.env.get('AUTH_OAUTH_PROVIDERS'),
   CORS_ORIGINS: Deno.env.get('CORS_ORIGINS'),
+  TELEGRAM_BOT_TOKEN: Deno.env.get('TELEGRAM_BOT_TOKEN'),
+  TELEGRAM_SUPPORT_CHAT_ID: Deno.env.get('TELEGRAM_SUPPORT_CHAT_ID'),
+  TELEGRAM_WEBHOOK_SECRET: Deno.env.get('TELEGRAM_WEBHOOK_SECRET'),
 });
 
 Deno.serve(createEdgeHandler(config, createEdgeRateLimit(config)));

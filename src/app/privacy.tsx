@@ -1,34 +1,44 @@
 import { PRO_ENABLED } from '../config/release';
-import { Text } from '../components/Typography';
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Alert, Switch, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { BackButton, ActionButton, Card, Heading, Screen } from '../components/ui';
+import { Text } from '../components/Typography';
+import { Icon, type IconName } from '../components/Icon';
+import { Screen } from '../components/ui';
+import { PageHeader, Panel } from '../features/settings/components';
 import { useAppTheme } from '../theme';
 import { clearFocusUpData } from '../services/privacy/clearFocusUpData';
-import { getAnalyticsConsent, initializeProductAnalytics, isProductAnalyticsConfigured, setAnalyticsConsent, subscribeAnalyticsConsent } from '../services/analytics/productAnalytics';
 
-function TrackingPreference() {
-  const { t } = useTranslation(); const c = useAppTheme();
-  const enabled = useSyncExternalStore(subscribeAnalyticsConsent, getAnalyticsConsent, () => false);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => { void initializeProductAnalytics(); }, []);
-  return <Card><Heading size="card" title={t('observability.title')} />
-    <Text style={{ color: c.text2, lineHeight: 22 }}>{t('observability.description')}</Text>
-    {!isProductAnalyticsConfigured ? <Text style={{ color: c.text2, lineHeight: 22 }}>{t('observability.unavailable')}</Text> : null}
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 48 }}>
-      <Text style={{ flex: 1, color: c.text, fontWeight: '600' }}>{t('observability.enabled')}</Text>
-      <Switch accessibilityLabel={t('observability.enabled')} disabled={saving} value={enabled} onValueChange={(value) => {
-        setSaving(true);
-        void setAnalyticsConsent(value).catch(() => Alert.alert(t('privacy'), t('observability.saveFailed'))).finally(() => setSaving(false));
-      }} />
-    </View>
-  </Card>;
+function Fact({ icon, text }: { icon: IconName; text: string }) {
+  const c = useAppTheme();
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+    <View style={{ width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.mintSoft }}><Icon name={icon} size={17} color={c.mintInk} strokeWidth={2.2} /></View>
+    <Text style={{ flex: 1, color: c.text, fontSize: 15, lineHeight: 21, fontWeight: '600' }}>{text}</Text>
+  </View>;
 }
 
 export default function PrivacyScreen() {
   const { t } = useTranslation(); const c = useAppTheme(); const [busy, setBusy] = useState(false);
   const confirm = () => Alert.alert(t('wellbeing.clearConfirm'), t('wellbeing.clearDescription'), [{ text: t('cancel'), style: 'cancel' }, { text: t('wellbeing.clearAction'), style: 'destructive', onPress: () => { setBusy(true); void clearFocusUpData().then(({ browserDataCleared }) => { if (!browserDataCleared) Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearPartial')); router.dismissAll(); router.replace('/'); }).catch(() => Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearFailed'))).finally(() => setBusy(false)); } }]);
-  return <Screen><BackButton label={t('back')} /><Heading title={t('privacy')} /><Card><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqPrivacyAnswer')}</Text></Card><TrackingPreference />{PRO_ENABLED ? <Card><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqNativeAnswer')}</Text></Card> : null}<Card><Heading size="card" title={t('wellbeing.clearData')} /><Text style={{ color: c.muted, lineHeight: 21 }}>{t('wellbeing.clearDescription')}</Text><ActionButton secondary disabled={busy} title={t('wellbeing.clearData')} onPress={confirm} /></Card></Screen>;
+  return <Screen contentStyle={{ gap: 18 }}>
+    <PageHeader icon="shield" tone="mint" title={t('privacy')} subtitle={t('settingsPages.privacySubtitle')} />
+    <Panel label={t('settingsPages.storedTitle')}>
+      <Fact icon="lock" text={t('settingsPages.storedLocal')} />
+      <Fact icon="cloud" text={t('settingsPages.storedBackup')} />
+      <Fact icon="eyeOff" text={t('settingsPages.storedSocial')} />
+      <Fact icon="stats" text={t('settingsPages.analyticsFact')} />
+    </Panel>
+    {PRO_ENABLED ? <Panel><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqNativeAnswer')}</Text></Panel> : null}
+    <View style={{ gap: 14, padding: 18, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh, borderWidth: 1, borderColor: c.redSoft }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.redSoft }}><Icon name="close" size={20} color={c.red} strokeWidth={2.4} /></View>
+        <Text style={{ flex: 1, color: c.text, fontSize: 16, lineHeight: 21, fontWeight: '800' }}>{t('settingsPages.clearTitle')}</Text>
+      </View>
+      <Text style={{ color: c.text2, fontSize: 14, lineHeight: 20, fontWeight: '500' }}>{t('settingsPages.clearShort')}</Text>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={confirm} style={({ pressed }) => ({ height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.red, opacity: busy ? 0.5 : pressed ? 0.7 : 1 })}>
+        <Text style={{ color: c.red, fontSize: 15, fontWeight: '800' }}>{t('wellbeing.clearData')}</Text>
+      </Pressable>
+    </View>
+  </Screen>;
 }

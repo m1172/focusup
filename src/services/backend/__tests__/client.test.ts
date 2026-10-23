@@ -71,3 +71,26 @@ test('backup capture excludes active enforcement, onboarding answers and analyti
   snapshot.preferences.apps.instagram.filters.reels = !original;
   expect(useAppStore.getState().apps.instagram.filters.reels).toBe(original);
 });
+
+test('reads the support thread after a cursor and sends messages with diagnostics', async () => {
+  const fetcher = jest.fn().mockResolvedValue(response(200, { available: true, messages: [] }));
+  const api = createBackendClient({ baseUrl: 'https://project.supabase.co/functions/v1/focusup-api', getAccessToken: () => 'token', fetch: fetcher });
+  await api.getSupportMessages(41.7);
+  expect(fetcher.mock.calls[0][0]).toBe('https://project.supabase.co/functions/v1/focusup-api/v1/support/messages?after=41');
+  await api.sendSupportMessage('Reels came back', 'FocusUp 1.0.0');
+  expect(fetcher.mock.calls[1][1].method).toBe('POST');
+  expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ body: 'Reels came back', context: 'FocusUp 1.0.0' });
+  await api.sendSupportMessage('Hi');
+  expect(JSON.parse(fetcher.mock.calls[2][1].body)).toEqual({ body: 'Hi' });
+});
+
+test('registers and removes the reply-notification push token on the private route', async () => {
+  const fetcher = jest.fn().mockResolvedValue(response(204));
+  const api = createBackendClient({ baseUrl: 'https://project.supabase.co/functions/v1/focusup-api', getAccessToken: () => 'token', fetch: fetcher });
+  await api.saveSupportPushToken('ExponentPushToken[abc]', 'android');
+  expect(fetcher.mock.calls[0][0]).toBe('https://project.supabase.co/functions/v1/focusup-api/v1/support/push-token');
+  expect(fetcher.mock.calls[0][1]).toEqual(expect.objectContaining({ method: 'PUT', body: JSON.stringify({ token: 'ExponentPushToken[abc]', platform: 'android' }) }));
+  expect(fetcher.mock.calls[0][1].headers.Authorization).toBe('Bearer token');
+  await api.removeSupportPushToken('ExponentPushToken[abc]');
+  expect(fetcher.mock.calls[1][1]).toEqual(expect.objectContaining({ method: 'DELETE', body: JSON.stringify({ token: 'ExponentPushToken[abc]' }) }));
+});

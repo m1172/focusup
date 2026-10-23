@@ -4,8 +4,9 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, View } from '
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../components/Typography';
-import { ActionButton, BackButton, Card, GroupLabel, Heading, IconTile, Note, Screen, SettingRow } from '../../components/ui';
+import { ActionButton, Card, GroupLabel, Heading, IconTile, Note, Screen, SettingRow } from '../../components/ui';
 import { Icon } from '../../components/Icon';
+import { PageHeader } from '../settings/components';
 import { useAppTheme } from '../../theme';
 import { useAccountStore } from '../../store/accountStore';
 import { accountApi, accountSession, forgetAccountSession, isBackendConfigured, signOutAccount } from '../../services/backend/accountSession';
@@ -38,7 +39,7 @@ function CardHeader({ icon, tone, title, subtitle }: { icon: Parameters<typeof I
 }
 
 /** Initials on the brand gradient; a key glyph when there is no name or email yet. */
-function Avatar({ label }: { label: string }) {
+export function Avatar({ label }: { label: string }) {
   const c = useAppTheme();
   const initials = label.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join('');
   return <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundImage: c.grad }}>
@@ -51,7 +52,7 @@ export function AccountScreen() {
   const { user, ready, recoveryRequired } = useAccountStore();
   useEffect(() => { void accountSession.initialize().catch(() => undefined); }, []);
   return <PostHogMaskView style={{ flex: 1 }}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Screen>
-    {!recoveryRequired ? <BackButton label={t('back')} /> : null}<Heading title={t('cloudAuth.title')} subtitle={t('cloudAuth.intro')} />
+    <PageHeader back={!recoveryRequired} icon="key" tone="blue" title={t('cloudAuth.title')} subtitle={t('cloudAuth.intro')} />
     {!isBackendConfigured() ? <Card><Body>{t('cloudAuth.unavailable')}</Body></Card> : !ready ? <ActivityIndicator accessibilityLabel={t('cloudAuth.loading')} /> : user && recoveryRequired ? <ResetPasswordForm /> : user ? <SignedInAccount key={user.id} userId={user.id} /> : <SignedOutAccount />}
     <Note tone="accent" icon="shieldCheck">{t('cloudAuth.localNote')}</Note>
   </Screen></KeyboardAvoidingView></PostHogMaskView>;

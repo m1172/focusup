@@ -23,6 +23,8 @@ export function fakeGateway(overrides: Partial<Gateway> = {}): Gateway {
     signUp: unused, signIn: unused, refresh: unused, exchangeOAuth: unused, signInWithIdToken: unused,
     verify: unused, verifyCode: unused, resendConfirmation: unused, recover: unused, changePassword: unused, signOut: unused,
     getProfile: unused, saveProfile: unused, getSettings: unused, saveSettings: unused,
-    deleteAccount: unused, ready: async () => {}, ...overrides,
+    deleteAccount: unused, listSupportMessages: unused, addSupportMessage: unused, linkSupportMessage: unused, removeSupportMessage: unused, findSupportThread: unused,
+    saveSupportPushToken: unused, removeSupportPushToken: unused, listSupportPushTokens: unused, forgetSupportPushTokens: unused,
+    ready: async () => {}, ...overrides,
   };
 }

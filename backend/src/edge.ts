@@ -3,10 +3,12 @@ import type { Config } from './config.ts';
 import { ApiError } from './errors.ts';
 import { createGateway, type Gateway, type Identity } from './gateway.ts';
 import { RateLimitError, rateLimitSubject, type ConsumeLimit } from './edgeRateLimit.ts';
-import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, recoverySchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, verifyCodeSchema, verifySchema } from './schemas.ts';
+import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, pushTokenSchema, recoverySchema, removePushTokenSchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, supportCursorSchema, supportMessageSchema, verifyCodeSchema, verifySchema } from './schemas.ts';
+import { createExpoPush, supportReplyPreview, type PushSender } from './push.ts';
+import { createSupportRelay, supportPostText, type SupportRelay, type TelegramUpdate } from './telegram.ts';
 
 type Result = { data?: unknown; status?: number };
-type Route = { private?: boolean; auth?: boolean; body?: boolean; run: (body: unknown, user: Identity) => Promise<Result> };
+type Route = { private?: boolean; auth?: boolean; body?: boolean; run: (body: unknown, user: Identity, request: Request) => Promise<Result> };
 const BODY_LIMIT = 65_536;
 
 async function jsonBody(request: Request): Promise<unknown> {
@@ -40,7 +42,7 @@ async function jsonBody(request: Request): Promise<unknown> {
 /** Fetch-based API used by the Supabase runtime. Public login routes deliberately
  * have no platform JWT requirement; every private route verifies the user's
  * token through Auth, and the gateway uses that token for RLS-scoped data access. */
-export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config)) {
+export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config), relay: SupportRelay = createSupportRelay(config), push: PushSender = createExpoPush()) {
   if (!config.SUPABASE_SECRET_KEY) throw new Error('Edge API requires a server secret key');
   const secret = config.SUPABASE_SECRET_KEY;
   const origins = config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean);
@@ -97,6 +99,62 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
     await consumeLimit(`edge:delete:${await rateLimitSubject(secret, user.id)}`, 3);
     await gateway.deleteAccount(user); return { status: 204 };
   }, privateRoute);
+
+  // Support chat: users write here, the bot posts each message to the team's
+  // Telegram chat, and a Telegram reply to that post comes back via the webhook.
+  const supportUnavailable = () => new ApiError(503, 'SUPPORT_UNAVAILABLE', 'Support chat is not available right now.');
+  route('GET', '/v1/support/messages', async (_body, user, request) => {
+    const after = supportCursorSchema.parse(new URL(request.url).searchParams.get('after') ?? 0);
+    return { data: { available: relay.configured, messages: await gateway.listSupportMessages(user, after) } };
+  }, privateRoute);
+  route('POST', '/v1/support/messages', async (body, user) => {
+    const value = supportMessageSchema.parse(body);
+    if (!relay.configured) throw supportUnavailable();
+    await consumeLimit(`edge:support:${await rateLimitSubject(secret, user.id)}`, 8);
+    const profile = await gateway.getProfile(user).catch(() => ({ displayName: '' }));
+    const message = await gateway.addSupportMessage(user.id, 'user', value.body);
+    if (!message) throw supportUnavailable();
+    try {
+      const telegramId = await relay.post(supportPostText({ userId: user.id, email: user.email, displayName: profile.displayName, body: value.body, context: value.context }));
+      await gateway.linkSupportMessage(message.id, telegramId);
+    } catch (error) {
+      // A message the team never received must not look sent in the app.
+      await gateway.removeSupportMessage(message.id).catch(() => undefined);
+      throw error;
+    }
+    return { status: 201, data: message };
+  }, privateBody);
+  // Reply notifications: the app registers its Expo push token once the user allows it.
+  route('PUT', '/v1/support/push-token', async (body, user) => {
+    const value = pushTokenSchema.parse(body);
+    await gateway.saveSupportPushToken(user.id, value.token, value.platform); return { status: 204 };
+  }, privateBody);
+  route('DELETE', '/v1/support/push-token', async (body, user) => {
+    await gateway.removeSupportPushToken(user.id, removePushTokenSchema.parse(body).token); return { status: 204 };
+  }, privateBody);
+  // A missed notification must never fail the webhook: the reply is saved and the chat shows it.
+  const notifyReply = async (userId: string, body: string) => {
+    try {
+      const tokens = await gateway.listSupportPushTokens(userId);
+      const gone = await push(tokens, { title: 'FocusUp', body: supportReplyPreview(body), data: { kind: 'support-reply', url: '/support' } });
+      await gateway.forgetSupportPushTokens(gone);
+    } catch { /* Ignored. */ }
+  };
+  route('POST', '/v1/support/telegram', async (body, _user, request) => {
+    if (!relay.verifyWebhook(request.headers.get('x-telegram-bot-api-secret-token'))) throw new ApiError(401, 'INVALID_WEBHOOK', 'Unknown webhook.');
+    await consumeLimit('edge:telegram', 600);
+    const ok = { data: { ok: true } };
+    const message = (body && typeof body === 'object' ? (body as TelegramUpdate).message : undefined);
+    // Only replies inside the team chat become answers; everything else is acknowledged and dropped.
+    if (!message?.reply_to_message || !relay.isTeamChat(message.chat.id)) return ok;
+    const userId = await gateway.findSupportThread(message.reply_to_message.message_id);
+    if (!userId) return ok;
+    const text = message.text?.trim();
+    if (!text) { await relay.reply(message.chat.id, message.message_id, 'Only text replies reach the app.'); return ok; }
+    const saved = await gateway.addSupportMessage(userId, 'support', text.slice(0, 2000), message.message_id);
+    if (saved) await Promise.all([relay.acknowledge(message.message_id), notifyReply(userId, saved.body)]);
+    return ok;
+  }, { body: true });
   route('GET', '/v1/blocker-config', async () => ({ data: { schemaVersion: 1, platforms: {} } }));
 
   return async (request: Request): Promise<Response> => {
@@ -136,7 +194,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
         if (subject) await consumeLimit(`edge:auth:${await rateLimitSubject(secret, subject)}`, 10);
       }
       // Private handlers only receive identities returned by Auth, never body IDs.
-      const result = await handler.run(body, user!);
+      const result = await handler.run(body, user!, request);
       if (path === '/v1/blocker-config') headers.set('Cache-Control', 'public, max-age=900');
       return respond(result.data, result.status);
     } catch (error) {

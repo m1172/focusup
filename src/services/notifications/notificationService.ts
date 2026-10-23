@@ -9,19 +9,31 @@ const STRICT_END_KIND = 'strict-mode-end';
 let channelReady: Promise<void> | null = null;
 let scheduledEndAt: number | null = null;
 
+let foregroundFilter: ((notification: Notifications.Notification) => boolean) | null = null;
+/** Lets a screen that already shows a notification's content keep it out of the banner. */
+export function setForegroundNotificationFilter(filter: typeof foregroundFilter): void { foregroundFilter = filter; }
+
 export function initializeNotificationHandler(): void {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }),
+    handleNotification: async (notification) => {
+      const show = !foregroundFilter?.(notification);
+      return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: false, shouldSetBadge: false };
+    },
   });
+}
+
+/** Android shows nothing (and issues no push token) until a channel exists; pushes name this one. */
+export async function ensureNotificationChannel(): Promise<void> {
+  if (Platform.OS === 'android' && !channelReady) {
+    channelReady = Notifications.setNotificationChannelAsync('default', { name: 'FocusUp', importance: AndroidImportance.DEFAULT, vibrationPattern: [0, 180, 100, 180], lightColor: '#6C47FF' }).then(() => undefined, (error) => { channelReady = null; throw error; });
+  }
+  await channelReady;
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
   let requested = false;
   try {
-    if (Platform.OS === 'android' && !channelReady) {
-      channelReady = Notifications.setNotificationChannelAsync('default', { name: 'FocusUp', importance: AndroidImportance.DEFAULT, vibrationPattern: [0, 180, 100, 180], lightColor: '#6C47FF' }).then(() => undefined);
-    }
-    await channelReady;
+    await ensureNotificationChannel();
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && permission.ios?.status !== IosAuthorizationStatus.PROVISIONAL) {
       requested = true;

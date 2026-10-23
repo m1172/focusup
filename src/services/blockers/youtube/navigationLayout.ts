@@ -1,5 +1,8 @@
+import { youtubeShortsPathPattern } from './detectors';
+
 /** Page-world helpers: hide a whole Shorts tab and let the remaining mobile tabs share the row. */
 export const youtubeNavigationLayoutScript = String.raw`
+    var SHORTS_PATH = new RegExp(${JSON.stringify(youtubeShortsPathPattern.source)}, 'i');
     var PIVOT_ITEM = 'ytm-pivot-bar-item-renderer, yt-pivot-bar-item-view-model';
     function isShortsLink(node) {
       if (node.matches('[tab-identifier="shorts"], [pivot-identifier="shorts"]')) return true;
@@ -7,7 +10,7 @@ export const youtubeNavigationLayoutScript = String.raw`
       if (links.some(function(link) {
         try {
           var url = new URL(link.getAttribute('href'), location.origin);
-          return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(url.hostname) !== -1 && /^\/shorts(?:\/|$)/i.test(url.pathname);
+          return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(url.hostname) !== -1 && SHORTS_PATH.test(url.pathname);
         } catch (_) { return false; }
       })) return true;
       var navigation = node.closest('ytm-pivot-bar-renderer, nav, [role="navigation"]');

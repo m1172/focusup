@@ -152,6 +152,33 @@ The privacy screen clears local data and secure account/pending-login storage. C
 
 The public blocker config initially has empty platform overrides, preserving the app's tested bundled rules. Set `EXPO_PUBLIC_BLOCKER_CONFIG_URL=https://YOUR_API/v1/blocker-config` to connect the existing client. Only ship reviewed data-only overrides; no client config-write endpoint exists.
 
+## Support chat (free, via Telegram)
+
+Help → **Chat with the team** opens an in-app chat (`src/app/support.tsx`) for signed-in users. Each message is stored in `public.support_messages` and the bot posts it to your team's Telegram chat; **reply to that post in Telegram** and the answer appears in the app within a few seconds. Users can only read their own thread (RLS); all writes go through the Edge API with the server key. No paid service is involved: the Telegram Bot API is free, and the chat fits in the Supabase Free plan (the app polls every 5 s only while the chat is open).
+
+Routes: `GET /v1/support/messages?after=<id>` and `POST /v1/support/messages` (private, 8 sends/minute per user), and `POST /v1/support/telegram` (Telegram webhook, checked against `TELEGRAM_WEBHOOK_SECRET`).
+
+Setup:
+
+1. In @BotFather create a bot (`/newbot`), or reuse one, and copy its token. Use a bot whose token has not been shared anywhere.
+2. Create a Telegram group for support, add the bot, and send any message in the group.
+3. In `backend/.env` set `TELEGRAM_BOT_TOKEN` and a random `TELEGRAM_WEBHOOK_SECRET` (for example `openssl rand -hex 32`), then run `npm --prefix backend run support:telegram`. It prints the chats the bot has seen; copy the group's id (it starts with `-100`) into `TELEGRAM_SUPPORT_CHAT_ID`.
+4. Apply the migration and give the Edge Function the same three values:
+   ```bash
+   npx supabase db push
+   npx supabase secrets set TELEGRAM_BOT_TOKEN=... TELEGRAM_SUPPORT_CHAT_ID=... TELEGRAM_WEBHOOK_SECRET=...
+   npx supabase functions deploy focusup-api
+   ```
+5. Run `npm --prefix backend run support:telegram` again. It sets the webhook and posts a "connected" message to the group.
+
+Each post shows the user's name/email, a short `#u…` tag per user, the message and the app/rule versions. Only text replies are delivered (the bot says so for other kinds), and a 👍 reaction confirms that a reply reached the app. Messages are removed with the account.
+
+### Reply notifications (free, via Expo push)
+
+When a reply is saved, the webhook also sends a push notification ("FocusUp" plus the first 100 characters of the answer) through Expo's free push service (`https://exp.host/--/api/v2/push/send`); tapping it opens the chat. The app asks for notification permission once, the first time the user writes in the chat; devices that already allow notifications register silently after sign-in. Tokens are stored in `public.support_push_tokens` (migration `202610200002`): users can read only their own rows, the Edge API writes them through `PUT`/`DELETE /v1/support/push-token`, each user keeps at most five devices, sign-out removes the device's token, and tokens Expo reports as `DeviceNotRegistered` are dropped. A failed push never fails the webhook.
+
+Needs no new secrets, but remote push only works in a development or store build (not Expo Go on Android) with push credentials set up in EAS: run `npx eas-cli@latest credentials` for an APNs key on iOS and an FCM V1 service account key on Android. If you turn on enhanced push security in the EAS dashboard, the backend will also need an Expo access token, which it doesn't send yet.
+
 ## Deployment and checks
 
 Build and run the independent backend:

@@ -34,6 +34,8 @@ jest.mock('../../../i18n', () => ({ __esModule: true, default: { language: 'en',
 jest.mock('../../../theme', () => ({ useAppTheme: () => ({ background: '#fff' }) }));
 jest.mock('../../../components/ScreenStatusBar', () => ({ ScreenStatusBar: () => null }));
 jest.mock('../../../features/webview/BrowserLayer', () => ({ BrowserLayer: () => null }));
+jest.mock('../../../features/support/SupportReplyOpener', () => ({ SupportReplyOpener: () => null }));
+jest.mock('../../../features/support/push', () => ({ syncSupportPush: jest.fn() }));
 jest.mock('../../../services/performance/tapTiming', () => ({ perfLogsEnabled: false, recordTap: jest.fn(), startMainThreadSampler: jest.fn() }));
 jest.mock('react-native-gesture-handler', () => ({}));
 jest.mock('react-native-reanimated', () => ({ useReducedMotion: () => true }));
@@ -69,7 +71,7 @@ test('fresh users see onboarding and authentication while every app entry point 
   expect(tree).toContain('onboarding/account;');
   expect(tree).toContain('auth/sign-in;');
   for (const route of ['(tabs)', 'browser/[appId]', 'app-settings/[appId]', 'account', 'permissions']) expect(tree).not.toContain(`${route};`);
-  for (const route of ['privacy', 'help', 'auth/callback']) expect(tree).toContain(`${route};`);
+  for (const route of ['privacy', 'auth/callback']) expect(tree).toContain(`${route};`);
 });
 
 test('existing guests and pending email verification cannot enter through saved routes or deep links', () => {
@@ -96,10 +98,10 @@ test('restored accounts get free screens while premium deep links remain unavail
   for (const route of ['pro', 'protection', 'native-app/[appId]', 'sleep', 'schedule', 'strict-mode', 'temporary-access']) expect(tree).not.toContain(`${route};`);
 });
 
-test('recovery sessions expose account reset and public help, but no app screens', () => {
+test('recovery sessions expose account reset, but no app screens', () => {
   mockAccount.recoveryRequired = true;
   const tree = routes();
-  expect(tree).toContain('account;'); expect(tree).toContain('help;');
+  expect(tree).toContain('account;');
   expect(tree).not.toContain('(tabs);'); expect(tree).not.toContain('browser/[appId];');
 });
 

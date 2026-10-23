@@ -23,3 +23,6 @@ export type AuthSession = { accessToken: string; refreshToken: string; expiresAt
 export type OAuthProvider = 'apple' | 'google' | 'telegram';
 export type Credentials = { email: string; password: string; captchaToken?: string };
 export type AccountExport = { exportedAt: string; account: Pick<Account, 'id' | 'email'>; profile: AccountProfile; settings: CloudBackup };
+/** One message of the user's support thread; `support` messages are the team's Telegram replies. */
+export type SupportMessage = { id: number; sender: 'user' | 'support'; body: string; createdAt: string };
+export type SupportThread = { available: boolean; messages: SupportMessage[] };

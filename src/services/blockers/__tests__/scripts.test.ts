@@ -65,8 +65,7 @@ describe('generateInstagramBlockingScript', () => {
     expect(script).not.toMatch(/document\.cookie|localStorage|\[type=['\"]password['\"]\]|name=['\"]password['\"]/i);
     // Cross-document navigation flags may use only these FocusUp-owned keys.
     expect(script).toContain("var SEARCH_REQUEST_KEY = 'focusup-instagram-open-search';");
-    expect(script).toContain("var dmReelSwipeStorageKey = 'focusup-instagram-dm-reel-swipe';");
-    const storageCalls = Array.from(script.matchAll(/sessionStorage\.(?:getItem|setItem|removeItem)\((SEARCH_REQUEST_KEY|dmReelSwipeStorageKey)(?:\)|, '1'\))/g));
+    const storageCalls = Array.from(script.matchAll(/sessionStorage\.(?:getItem|setItem|removeItem)\((SEARCH_REQUEST_KEY)(?:\)|, '1'\))/g));
     expect(storageCalls.length).toBeGreaterThan(0);
     expect(script.match(/sessionStorage/g)).toHaveLength(storageCalls.length);
     expect(script.length).toBeGreaterThan(500);

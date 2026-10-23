@@ -1,26 +1,16 @@
-/** Lock the video list inside Instagram's DM Reel overlay, including viewers that keep the DM URL. */
+/**
+ * No Reel scrolling anywhere: a Reel opened from DMs, the feed, a profile, Explore or a link plays,
+ * but swiping to the next one is stopped. Covers individual Reel pages and any viewport-sized,
+ * vertically snapping video list (Instagram's Reels viewer), including overlays that keep the URL.
+ */
 export const instagramDmReelSwipeScript = String.raw`
     var isIndividualReelPath = function(path) { return /^\/(?:[^/]+\/)?(?:reel|reels)\/[^/]+\/?$/i.test(path); };
-    var isDirectPath = function(path) { return /^\/direct(?:\/|$)/i.test(path); };
-    var dmReelSwipeStorageKey = 'focusup-instagram-dm-reel-swipe';
     var dmReelLockAttribute = 'data-focusup-dm-reel-lock';
     root.dmReelSwipeGuardEnabled = Boolean(CONFIG.enabled && CONFIG.reels);
     if (!root.dmReelScrollLocks) root.dmReelScrollLocks = new Map();
-    root.updateDmReelSwipeState = function(path) {
-      var previousPath = root.dmReelPreviousPath;
-      root.dmReelPreviousPath = path;
-      if (isIndividualReelPath(path)) {
-        if (isDirectPath(previousPath || '')) root.dmReelSwipeActive = true;
-        if (!root.dmReelSwipeActive) {
-          try { root.dmReelSwipeActive = sessionStorage.getItem(dmReelSwipeStorageKey) === '1'; } catch (_) { root.dmReelSwipeActive = false; }
-        }
-      } else root.dmReelSwipeActive = false;
-      try { sessionStorage.removeItem(dmReelSwipeStorageKey); } catch (_) {}
-    };
-    root.updateDmReelSwipeState(location.pathname);
-    root.isDmReelContext = function() {
-      return root.dmReelSwipeGuardEnabled && (isDirectPath(location.pathname) || (root.dmReelSwipeActive && isIndividualReelPath(location.pathname)));
-    };
+    // Kept for the navigation listener; the lock no longer depends on where the Reel was opened from.
+    root.updateDmReelSwipeState = function() {};
+    root.isDmReelContext = function() { return Boolean(root.dmReelSwipeGuardEnabled) && !root.authenticationPage; };
     root.syncDmReelScrollLocks = function() {
       var inContext = root.isDmReelContext();
       var viewportHeight = window.innerHeight, viewportWidth = window.innerWidth;
@@ -35,9 +25,12 @@ export const instagramDmReelSwipeScript = String.raw`
         }
       });
       if (!inContext) return;
-      // Shared Reels use a viewport-sized, vertically snapping list inside /direct/t/.
-      // The conversation and inline attachments are ordinary, non-snapping scrollers.
+      // Reels viewers are viewport-sized, vertically snapping lists of videos.
+      // The Home feed, DM threads and inline attachments are ordinary, non-snapping scrollers.
       document.querySelectorAll('video').forEach(function(video) {
+        // Only on-screen videos can be a Reel being watched; skipping the rest keeps feed scrolling cheap.
+        var box = video.getBoundingClientRect();
+        if (box.bottom <= 0 || box.top >= viewportHeight || box.height === 0) return;
         for (var node = video.parentElement; node && node !== document.body; node = node.parentElement) {
           if (root.dmReelScrollLocks.has(node)) break;
           var style = getComputedStyle(node);
@@ -56,22 +49,15 @@ export const instagramDmReelSwipeScript = String.raw`
     };
     root.isDmReelGestureTarget = function(target) {
       if (!root.isDmReelContext()) return false;
-      if (root.dmReelSwipeActive && isIndividualReelPath(location.pathname)) return true;
-      return Boolean(target && target.closest && target.closest('[' + dmReelLockAttribute + ']'));
+      var element = target && (target.nodeType === 1 ? target : target.parentElement);
+      if (!element || !element.closest) return false;
+      // Comment sheets and text fields on a Reel page still scroll and type normally.
+      if (isIndividualReelPath(location.pathname)) return !element.closest('[role="dialog"], textarea, input, [contenteditable="true"]');
+      return Boolean(element.closest('[' + dmReelLockAttribute + ']'));
     };
     root.scheduleDmReelScrollLocks();
     if (!root.dmReelOverlayListenerInstalled) {
       root.dmReelOverlayListenerInstalled = true;
-      document.addEventListener('click', function(event) {
-        if (!isDirectPath(location.pathname)) return;
-        var target = event.target && (event.target.nodeType === 1 ? event.target : event.target.parentElement);
-        var link = target && target.closest('a[href]');
-        if (!link) return;
-        try {
-          var destination = new URL(link.href, location.origin);
-          if (destination.origin === location.origin && isIndividualReelPath(destination.pathname)) sessionStorage.setItem(dmReelSwipeStorageKey, '1');
-        } catch (_) {}
-      }, true);
       var touchStart = null;
       document.addEventListener('touchstart', function(event) {
         root.syncDmReelScrollLocks();

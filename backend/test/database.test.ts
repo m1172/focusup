@@ -12,7 +12,7 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await db.exec(`
     create role anon;
     create role authenticated;
-    create role service_role;
+    create role service_role bypassrls; -- as on Supabase
     create schema auth;
     create table auth.users (id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$
@@ -64,12 +64,51 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [2, JSON.stringify({ schemaVersion: 1, data: 'x'.repeat(70_000) })]), /bounded_settings/);
   await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [2, JSON.stringify({ schemaVersion: 99 })]), /bounded_settings/);
 
+  // Support threads: users read only their own messages and never write or see Telegram ids.
+  await db.exec('reset role; set role service_role');
+  await db.query("insert into public.support_messages (user_id, sender, body, telegram_message_id) values ($1, 'user', 'Reels came back', 501), ($1, 'support', 'Fixed now', 502), ($2, 'user', 'Other thread', 503)", [user.id, otherId]);
+  await assert.rejects(db.query("insert into public.support_messages (user_id, sender, body, telegram_message_id) values ($1, 'support', 'Retried webhook', 502)", [user.id]), { code: '23505' });
+  await assert.rejects(db.query("insert into public.support_messages (user_id, sender, body) values ($1, 'team', 'x')", [user.id]), /sender_check/);
+  await assert.rejects(db.query("insert into public.support_messages (user_id, sender, body) values ($1, 'user', '')", [user.id]), /body_check/);
+  await asUser(user.id);
+  const thread = await db.query<{ body: string }>('select id, sender, body, created_at from public.support_messages order by id');
+  assert.deepEqual(thread.rows.map((row) => row.body), ['Reels came back', 'Fixed now']);
+  await assert.rejects(db.query('select telegram_message_id from public.support_messages'), /permission denied/);
+  await assert.rejects(db.query("insert into public.support_messages (user_id, sender, body) values ($1, 'support', 'Forged answer')", [user.id]), /permission denied/);
+  await assert.rejects(db.query("update public.support_messages set body = 'Edited'"), /permission denied/);
+
+  // Reply-notification tokens: owner-only reads, server-only writes, one owner per device, five devices per user.
+  await db.exec('reset role; set role service_role');
+  const token = (n: number) => `ExponentPushToken[device${n}]`;
+  await db.query("insert into public.support_push_tokens (token, user_id, platform) values ($1, $2, 'ios'), ($3, $4, 'android')", [token(0), user.id, token(9), otherId]);
+  await assert.rejects(db.query("insert into public.support_push_tokens (token, user_id, platform) values ('not-a-token', $1, 'ios')", [user.id]), /token_check/);
+  await assert.rejects(db.query("insert into public.support_push_tokens (token, user_id, platform) values ($1, $2, 'web')", [token(1), user.id]), /platform_check/);
+  for (let n = 1; n <= 6; n++) {
+    await db.query("insert into public.support_push_tokens (token, user_id, platform, updated_at) values ($1, $2, 'ios', now() + make_interval(secs => $3))", [token(n), user.id, n]);
+  }
+  const kept = await db.query<{ token: string }>('select token from public.support_push_tokens where user_id = $1 order by token', [user.id]);
+  assert.deepEqual(kept.rows.map((row) => row.token), [2, 3, 4, 5, 6].map(token));
+  // Another account signs in on device 6, so its token moves to that user.
+  await db.query("insert into public.support_push_tokens as existing (token, user_id, platform) values ($1, $2, 'ios') on conflict (token) do update set user_id = excluded.user_id, updated_at = now() + interval '1 hour'", [token(6), otherId]);
+  assert.equal((await db.query('select * from public.support_push_tokens where user_id = $1', [otherId])).rows.length, 2);
+  await asUser(user.id);
+  const mine = await db.query<{ token: string }>('select token, platform, updated_at from public.support_push_tokens order by token');
+  assert.deepEqual(mine.rows.map((row) => row.token), [2, 3, 4, 5].map(token));
+  await assert.rejects(db.query("insert into public.support_push_tokens (token, user_id, platform) values ($1, $2, 'ios')", [token(7), user.id]), /permission denied/);
+  await assert.rejects(db.query('update public.support_push_tokens set user_id = $1', [otherId]), /permission denied/);
+  await assert.rejects(db.query('delete from public.support_push_tokens'), /permission denied/);
+
   await db.exec('reset role; set role anon');
   assert.equal((await db.query('select user_id from public.user_settings')).rows.length, 0);
+  await assert.rejects(db.query('select body from public.support_messages'), /permission denied/);
+  await assert.rejects(db.query('select token from public.support_push_tokens'), /permission denied/);
   await assert.rejects(db.query('select * from public.save_user_settings(0, null)'), /permission denied/);
   await db.exec('reset role');
   await db.query('delete from auth.users where id = $1', [user.id]);
   assert.equal((await db.query('select * from public.profiles')).rows.length, 0);
   assert.equal((await db.query('select * from public.user_settings where user_id = $1', [user.id])).rows.length, 0);
+  assert.equal((await db.query('select * from public.support_messages where user_id = $1', [user.id])).rows.length, 0);
+  assert.equal((await db.query('select * from public.support_push_tokens where user_id = $1', [user.id])).rows.length, 0);
+  assert.equal((await db.query('select * from public.support_push_tokens where user_id = $1', [otherId])).rows.length, 2);
   assert.equal((await db.query('select * from public.user_settings where user_id = $1', [otherId])).rows.length, 1);
 });

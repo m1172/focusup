@@ -10,7 +10,7 @@ type Browser = Window & typeof globalThis & {
   };
 };
 
-describe('Reels opened from DMs', () => {
+describe('Reel swipe lock', () => {
   let dom: JSDOM;
   let browser: Browser;
   const locked = 'data-focusup-dm-reel-lock';
@@ -27,6 +27,7 @@ describe('Reels opened from DMs', () => {
     viewer.style.cssText = 'overflow-y:scroll;scroll-snap-type:y mandatory';
     viewer.innerHTML = '<div><video></video></div><div><video></video></div>';
     viewer.getBoundingClientRect = () => new browser.DOMRect(0, 0, 402, 742);
+    viewer.querySelectorAll('video').forEach((video, index) => { video.getBoundingClientRect = () => new browser.DOMRect(0, index * 742, 402, 742); });
     browser.document.body.appendChild(viewer);
     return viewer;
   };
@@ -91,14 +92,49 @@ describe('Reels opened from DMs', () => {
     expect(thread.hasAttribute(locked)).toBe(false);
   });
 
-  it.each(['/', '/person/'])('preserves video scrolling outside DMs at %s', async (path) => {
+  it.each(['/', '/person/', '/explore/'])('locks a Reels viewer outside DMs too, at %s', async (path) => {
     browser.history.replaceState({}, '', path);
     const viewer = addViewer();
     inject();
     await settle();
-    touch(viewer, 'touchstart', 200, 500);
-    expect(touch(viewer, 'touchmove', 200, 200).defaultPrevented).toBe(false);
-    expect(viewer.hasAttribute(locked)).toBe(false);
+    expect(viewer.hasAttribute(locked)).toBe(true);
+    touch(viewer.querySelector('video')!, 'touchstart', 200, 500);
+    expect(touch(viewer.querySelector('video')!, 'touchmove', 200, 200).defaultPrevented).toBe(true);
+  });
+
+  it('keeps the Home feed scrolling: an ordinary, non-snapping list of videos is not a Reels viewer', async () => {
+    browser.history.replaceState({}, '', '/');
+    const feed = browser.document.createElement('div');
+    feed.style.cssText = 'overflow-y:auto';
+    feed.innerHTML = '<article><video></video></article><article><video></video></article>';
+    feed.getBoundingClientRect = () => new browser.DOMRect(0, 0, 402, 812);
+    feed.querySelectorAll('video').forEach((video, index) => { video.getBoundingClientRect = () => new browser.DOMRect(0, index * 500, 402, 500); });
+    browser.document.body.appendChild(feed);
+    inject();
+    await settle();
+    expect(feed.hasAttribute(locked)).toBe(false);
+    touch(feed, 'touchstart', 200, 500);
+    expect(touch(feed, 'touchmove', 200, 200).defaultPrevented).toBe(false);
+  });
+
+  it.each(['/reel/video-id/', '/person/reel/video-id/', '/reels/video-id/'])('stops swiping to the next Reel on %s, wherever it was opened from', (path) => {
+    browser.history.replaceState({}, '', path);
+    inject();
+    const video = browser.document.querySelector('video')!;
+    touch(video, 'touchstart', 200, 500);
+    expect(touch(video, 'touchmove', 200, 200).defaultPrevented).toBe(true);
+  });
+
+  it('keeps comment sheets scrollable on a Reel page', () => {
+    browser.history.replaceState({}, '', '/reel/video-id/');
+    const sheet = browser.document.createElement('div');
+    sheet.setAttribute('role', 'dialog');
+    sheet.innerHTML = '<ul><li>comment</li></ul>';
+    browser.document.body.appendChild(sheet);
+    inject();
+    const comment = sheet.querySelector('li')!;
+    touch(comment, 'touchstart', 200, 500);
+    expect(touch(comment, 'touchmove', 200, 200).defaultPrevented).toBe(false);
   });
 
   it('recognizes SPA navigation from a DM to a Reel without an anchor click', async () => {

@@ -1,4 +1,4 @@
-import type { Account, AccountExport, AccountProfile, AuthSession, CloudBackup, CloudSettings, Credentials, OAuthProvider } from './types';
+import type { Account, AccountExport, AccountProfile, AuthSession, CloudBackup, CloudSettings, Credentials, OAuthProvider, SupportMessage, SupportThread } from './types';
 
 export class BackendError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
@@ -70,5 +70,9 @@ export function createBackendClient(options: Options) {
     deleteSettings: (expectedRevision: number) => request<CloudBackup>('/v1/me/settings', 'DELETE', { expectedRevision }),
     exportAccount: () => request<AccountExport>('/v1/me/export'),
     deleteAccount: () => request<void>('/v1/me', 'DELETE'),
+    getSupportMessages: (after = 0) => request<SupportThread>(`/v1/support/messages?after=${Math.max(0, Math.floor(after))}`),
+    sendSupportMessage: (body: string, context?: string) => request<SupportMessage>('/v1/support/messages', 'POST', { body, ...(context ? { context } : {}) }),
+    saveSupportPushToken: (token: string, platform: 'ios' | 'android') => request<void>('/v1/support/push-token', 'PUT', { token, platform }),
+    removeSupportPushToken: (token: string) => request<void>('/v1/support/push-token', 'DELETE', { token }),
   };
 }

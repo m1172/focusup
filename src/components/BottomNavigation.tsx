@@ -20,16 +20,16 @@ function activeFromPath(path: string): TabKey {
   return 'home';
 }
 
-/** Floating 68px tab bar from the design: 30px radius, 16px side inset, blurred surface. */
+/** Floating 68px tab bar from the design (each tab fills a full third of the bar, so a tap anywhere near an icon counts): 30px radius, 16px side inset, blurred surface. */
 export function BottomNavigation({ active, onSelect }: { active?: TabKey; onSelect?: (key: TabKey) => void }) {
   const c = useAppTheme(); const insets = useSafeAreaInsets(); const { t } = useTranslation();
   const pathname = usePathname();
   const current = active ?? activeFromPath(pathname);
-  return <View accessibilityRole="tablist" style={{ position: 'absolute', left: 16, right: 16, bottom: Math.max(insets.bottom - 8, 12), height: 68, borderRadius: 30, backgroundColor: c.nav, boxShadow: c.navSh, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 6, zIndex: 15 }}>
+  return <View accessibilityRole="tablist" style={{ position: 'absolute', left: 16, right: 16, bottom: Math.max(insets.bottom - 8, 12), height: 68, borderRadius: 30, backgroundColor: c.nav, boxShadow: c.navSh, flexDirection: 'row', alignItems: 'stretch', paddingHorizontal: 6, zIndex: 15 }}>
     {tabs.map((tab) => {
       const selected = tab.key === current;
       const color = selected ? c.ink : c.text2;
-      return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t(tab.key)} onPress={() => { void Haptics.selectionAsync(); if (onSelect) onSelect(tab.key); else router.navigate(tab.href); }} style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: 3, opacity: pressed ? 0.7 : 1 })}>
+      return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t(tab.key)} onPress={() => { void Haptics.selectionAsync(); if (onSelect) onSelect(tab.key); else router.navigate(tab.href); }} style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.soft : 'transparent' }}><Icon name={tab.icon} size={24} color={color} /></View>
         <Text style={{ color, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{t(tab.key)}</Text>
       </Pressable>;

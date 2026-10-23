@@ -2,14 +2,18 @@ import { PRO_ENABLED } from '../../config/release';
 import { useAccountStore } from '../../store/accountStore';
 import { useStrictMode } from '../../hooks/useStrictMode';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
-import { formatDurationMs } from '../../utils/duration';
 import { Text } from '../../components/Typography';
-import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import Constants from 'expo-constants';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { Icon } from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { GroupLabel, Heading, IconTile, Pill, Screen, SettingRow, Toggle } from '../../components/ui';
+import { FocusLogo } from '../../components/FocusLogo';
+import { Avatar } from '../../features/account/AccountScreen';
+import { accountApi, isBackendConfigured } from '../../services/backend/accountSession';
+import { useSupportUnread } from '../../features/support/unread';
 import { useAppStore } from '../../store/appStore';
 import { useAppTheme } from '../../theme';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -20,9 +24,9 @@ export default function SettingsScreen() {
   const c = useAppTheme();
   const subscription = useSubscription();
   const accountUser = useAccountStore((state) => state.user);
+  const supportUnread = useSupportUnread(Boolean(accountUser) && isBackendConfigured());
   const language = useAppStore((state) => state.selectedLanguage);
   const theme = useAppStore((state) => state.themeMode);
-  const goal = useAppStore((state) => state.dailyGoalMinutes);
   const completionNotices = useAppStore((state) => state.completionNotifications);
   const setCompletionNotices = useAppStore((state) => state.setCompletionNotifications);
   const strictSession = useAppStore((state) => state.strictSession);
@@ -47,10 +51,27 @@ export default function SettingsScreen() {
 
   const nativeStatus = useProtectionStatusStore((state) => state.status);
   const strictActive = useStrictMode().active;
-  const goalPicker = () => Alert.alert(t('ui.timeGoal'), '', [60, 120, 180].map((minutes) => ({ text: formatDurationMs(minutes * 60_000, language), onPress: () => useAppStore.getState().setDailyGoal(minutes) })).concat([{ text: t('cancel'), onPress: () => undefined }]));
+  // The profile name lives on the server; show it when it loads, the email (or a generic label) until then.
+  const [profileName, setProfileName] = useState('');
+  useFocusEffect(useCallback(() => {
+    if (!accountUser) { setProfileName(''); return undefined; }
+    let active = true;
+    void accountApi().getAccount().then((account) => { if (active) setProfileName(account.profile.displayName.trim()); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [accountUser]));
   const group = (children: ReactNode) => <View style={{ paddingVertical: 4, paddingHorizontal: 12, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>{children}</View>;
-  return <Screen glow={260} glowDarkOnly contentStyle={{ gap: 12 }}>
+  const version = Constants.expoConfig?.version ?? '1.0';
+  return <Screen glow={260} glowDarkOnly contentStyle={{ gap: 18 }}>
     <Heading size="large" title={t('settings')} />
+
+    <Pressable accessibilityRole="button" accessibilityLabel={accountUser ? t('cloudAuth.title') : t('settingsPages.signInTitle')} onPress={() => router.push(accountUser ? '/account' : '/auth/sign-in')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 26, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
+      {accountUser ? <Avatar label={profileName || accountUser.email || ''} /> : <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundImage: c.grad, boxShadow: c.glow }}><Icon name="key" size={24} color="#FFFFFF" strokeWidth={2} /></View>}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: c.text, fontSize: 18, lineHeight: 24, fontWeight: '800', letterSpacing: -0.36 }}>{accountUser ? profileName || accountUser.email || t('cloudAuth.profile') : t('settingsPages.signInTitle')}</Text>
+        <Text numberOfLines={1} style={{ color: c.text2, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{accountUser ? (profileName && accountUser.email ? accountUser.email : t('settingsPages.profileBody')) : t('settingsPages.signInBody')}</Text>
+      </View>
+      <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: c.soft }}><Icon name="chevron" size={18} color={c.ink} strokeWidth={2.4} /></View>
+    </Pressable>
 
     {PRO_ENABLED ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/pro', params: { source: 'settings' } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, height: 76, paddingHorizontal: 16, borderRadius: 24, backgroundImage: c.hero, boxShadow: c.heroSh, opacity: pressed ? 0.9 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.heroIconBg, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={24} color="#FFFFFF" /></View>
@@ -62,22 +83,19 @@ export default function SettingsScreen() {
     </Pressable> : null}
 
     <View style={{ gap: 6 }}>
-      <GroupLabel title={t('ui.groupGeneral')} />
+      <GroupLabel title={t('settingsPages.groupApp')} />
       {group(<>
         <SettingRow icon={<IconTile name="globe" tone="blue" />} title={t('language')} value={currentLanguageName} onPress={() => router.push('/language')} />
-        <SettingRow icon={<IconTile name="contrast" tone="accent" />} title={t('theme')} value={t(`ui.themeValue.${theme}`)} onPress={() => router.push('/theme')} />
-        {PRO_ENABLED ? <SettingRow icon={<IconTile name="bell" tone="red" />} title={t('ui.notifications')} right={<Toggle label={t('ui.notifications')} value={completionNotices} onChange={toggleCompletionNotices} />} /> : null}
-        <SettingRow icon={<IconTile name="target" tone="mint" />} title={t('ui.timeGoal')} value={goal % 60 === 0 ? t('ui.goalValue', { hours: goal / 60 }) : formatDurationMs(goal * 60_000, language)} onPress={goalPicker} last />
+        <SettingRow icon={<IconTile name="contrast" tone="accent" />} title={t('theme')} value={t(`ui.themeValue.${theme}`)} onPress={() => router.push('/theme')} last={!PRO_ENABLED} />
+        {PRO_ENABLED ? <SettingRow icon={<IconTile name="bell" tone="red" />} title={t('ui.notifications')} right={<Toggle label={t('ui.notifications')} value={completionNotices} onChange={toggleCompletionNotices} />} last /> : null}
       </>)}
     </View>
 
     <View style={{ gap: 6 }}>
-      <GroupLabel title={t('ui.groupAccount')} />
+      <GroupLabel title={t('settingsPages.groupHelp')} />
       {group(<>
-        <SettingRow icon={<IconTile name="key" tone="blue" />} title={t('cloudAuth.title')} value={accountUser ? t('cloudAuth.profile') : t('cloudAuth.signIn')} onPress={() => router.push(accountUser ? '/account' : '/auth/sign-in')} />
-        <SettingRow icon={<IconTile name="shield" tone="accent" />} title={t('ui.privacy')} onPress={() => router.push('/privacy')} />
-        <SettingRow icon={<IconTile name="help" tone="blue" />} title={t('support')} onPress={() => router.push('/help')} />
-        <SettingRow icon={<IconTile name="info" tone="neutral" />} title={t('about')} right={<Text style={{ color: c.text2, fontSize: 14, fontWeight: '600' }}>v1.0</Text>} chevron onPress={() => router.push('/capabilities')} last />
+        <SettingRow icon={<IconTile name="shield" tone="mint" />} title={t('ui.privacy')} onPress={() => router.push('/privacy')} />
+        <SettingRow icon={<IconTile name="comment" tone="blue" />} title={t('supportChat.rowTitle')} right={supportUnread ? <View accessible={false} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : undefined} chevron onPress={() => router.push('/support')} last />
       </>)}
     </View>
 
@@ -90,5 +108,10 @@ export default function SettingsScreen() {
         <SettingRow icon={<IconTile name="shieldCheck" tone="mint" />} title={t('design.protectionStatus')} right={<Pill label={t(nativeStatus.active ? 'active' : 'off')} variant={nativeStatus.active ? 'success' : 'muted'} />} chevron onPress={() => router.push('/protection')} last />
       </>)}
     </View> : null}
+
+    <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
+      <FocusLogo size={40} glow={false} />
+      <Text style={{ color: c.text3, fontSize: 13, fontWeight: '700' }}>FocusUp · {t('settingsPages.version', { version })}</Text>
+    </View>
   </Screen>;
 }
