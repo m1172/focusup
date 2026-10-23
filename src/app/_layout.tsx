@@ -31,8 +31,8 @@ import { BrowserLayer } from '../features/webview/BrowserLayer';
 import { SupportReplyOpener } from '../features/support/SupportReplyOpener';
 import { syncSupportPush } from '../features/support/push';
 import { perfLogsEnabled, recordTap, startMainThreadSampler } from '../services/performance/tapTiming';
-if (perfLogsEnabled) startMainThreadSampler(); // TEMP-PERF-SAMPLER
 import { captureProductEvent, flushProductAnalytics, initializeProductAnalytics, setProductAnalyticsIdentity } from '../services/analytics/productAnalytics';
+if (perfLogsEnabled) startMainThreadSampler(); // TEMP-PERF-SAMPLER
 
 export { AppErrorBoundary as ErrorBoundary } from '../components/AppErrorBoundary';
 

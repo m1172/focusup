@@ -111,7 +111,7 @@ export async function initializeProductAnalytics(): Promise<void> {
         preloadFeatureFlags: false,
         disableRemoteFeatureFlags: true,
         disableGeoip: false,
-        enableSessionReplay: false && native && consent, // TEMP-REPLAY-OFF: revert after measuring
+        enableSessionReplay: native && consent,
         sessionReplayConfig: {
           maskAllTextInputs: false, maskAllImages: false, maskAllSandboxedViews: true,
           captureLog: false, captureNetworkTelemetry: false,

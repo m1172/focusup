@@ -2,7 +2,7 @@
 
 FocusUp is an Uzbekistan-first digital wellbeing app. It keeps useful parts of social sites within an in-app browser and lets people hide distracting sections. The interface ships in Uzbek, Russian and English, with distinct light and dark themes.
 
-See [release readiness](docs/release-readiness.md) for verified checks, deployment blockers and the remaining device matrix.
+See [release readiness](docs/release-readiness.md) for verified checks, deployment blockers and the remaining device matrix. To build store releases on this Mac without EAS, see [local release builds](docs/local-release-build.md).
 
 ## Run locally
 

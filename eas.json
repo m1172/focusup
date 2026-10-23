@@ -1,27 +1,47 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
-      "env": { "EXPO_PUBLIC_APP_ENV": "development" },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development"
+      },
       "developmentClient": true,
       "distribution": "internal",
-      "ios": { "simulator": true },
-      "android": { "buildType": "apk" }
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
-      "env": { "EXPO_PUBLIC_APP_ENV": "preview" },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview"
+      },
       "distribution": "internal",
-      "android": { "buildType": "apk" }
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api"
-      }
+      },
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      },
+      "ios": {}
     }
   }
 }

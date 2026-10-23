@@ -3,6 +3,7 @@ import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, TextInpu
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
+import { PostHogMaskView } from 'posthog-react-native';
 import { Text } from '../components/Typography';
 import { Icon } from '../components/Icon';
 import { FocusLogo } from '../components/FocusLogo';
@@ -126,7 +127,8 @@ export default function SupportScreen() {
         </View>
       </View>
 
-      <FlatList
+      {/* Conversations can contain personal details: keep them out of session replay. */}
+      <PostHogMaskView style={{ flex: 1 }}><FlatList
         inverted
         data={rows}
         keyExtractor={(row) => row.key}
@@ -136,7 +138,7 @@ export default function SupportScreen() {
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      />
+      /></PostHogMaskView>
 
       {notice ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 16, backgroundColor: c.redSoft }}>
         <Icon name="info" size={16} color={c.red} strokeWidth={2.3} />
@@ -151,7 +153,7 @@ export default function SupportScreen() {
 
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: keyboard ? 10 : Math.max(insets.bottom, 12) }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingLeft: 18, padding: 6, borderRadius: 26, backgroundColor: c.card, boxShadow: c.sh, opacity: blocked ? 0.6 : 1 }}>
-          <TextInput
+          <PostHogMaskView style={{ flex: 1 }}><TextInput
             value={text}
             onChangeText={setText}
             editable={!blocked}
@@ -160,8 +162,8 @@ export default function SupportScreen() {
             placeholder={t('supportChat.placeholder')}
             placeholderTextColor={c.text3}
             accessibilityLabel={t('supportChat.placeholder')}
-            style={{ flex: 1, minHeight: 40, maxHeight: 128, paddingTop: 10, paddingBottom: 10, color: c.text, fontSize: 16, lineHeight: 21, fontFamily: 'Manrope-500' }}
-          />
+            style={{ minHeight: 40, maxHeight: 128, paddingTop: 10, paddingBottom: 10, color: c.text, fontSize: 16, lineHeight: 21, fontFamily: 'Manrope-500' }}
+          /></PostHogMaskView>
           <Pressable accessibilityRole="button" accessibilityLabel={t('supportChat.send')} accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={submit} style={({ pressed }) => ({
             width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
             ...(canSend ? { backgroundImage: c.grad, boxShadow: c.sw } : { backgroundColor: c.off }),

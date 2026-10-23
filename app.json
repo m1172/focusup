@@ -15,6 +15,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.m1172.focusup",
+      "buildNumber": "1",
+      "appleTeamId": "GH6PP8FUU8",
       "infoPlist": {
         "com.posthog.posthog.CAPTURE_PUSH_NOTIFICATION_OPENED": false,
         "UIViewControllerBasedStatusBarAppearance": true,
@@ -22,10 +24,14 @@
         "NSMicrophoneUsageDescription": "Allow the social website to record audio when you choose a video or voice feature.",
         "NSPhotoLibraryUsageDescription": "Choose photos or videos to upload directly to the social website. FocusUp does not upload them to its own server."
       },
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.m1172.focusup",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -46,6 +52,7 @@
       "expo-font",
       "expo-notifications",
       "./plugins/withFocusUpProtection",
+      "./plugins/withAndroidReleaseSigning",
       "expo-secure-store",
       "expo-web-browser",
       "expo-sharing",
