@@ -27,7 +27,7 @@ public class FocusUpProtectionModule: Module {
       guard let defaults = ProtectionShared.defaults else { return "" }
       guard let request = defaults.dictionary(forKey: "pendingNativeAppLaunch") else { return "" }
       defaults.removeObject(forKey: "pendingNativeAppLaunch")
-      guard let target = request["platform"] as? String, ["instagram", "youtube", "protection"].contains(target),
+      guard let target = request["platform"] as? String, ["instagram", "youtube", "protection", "instagram:open", "instagram:link", "youtube:open", "youtube:link"].contains(target),
         let createdAt = request["createdAt"] as? Double,
         Date().timeIntervalSince1970 - createdAt >= 0, Date().timeIntervalSince1970 - createdAt <= 300 else { return "" }
       return target
@@ -43,7 +43,9 @@ public class FocusUpProtectionModule: Module {
       let count = keys.reduce(0) { sum, key in let selected = ProtectionShared.selection(String(key.dropFirst(10))); return sum + selected.applicationTokens.count + selected.categoryTokens.count + selected.webDomainTokens.count }
       let allowed = ProtectionShared.selection("__allowed").applicationTokens
       let protectedPlatforms = AuthorizationCenter.shared.authorizationStatus == .approved ? ProtectionShared.platforms().filter { platform in let selected = ProtectionShared.selection(platform); return !selected.applicationTokens.subtracting(allowed).isEmpty || !selected.categoryTokens.isEmpty || !selected.webDomainTokens.isEmpty } : []
-      return ["supported": supported, "authorized": AuthorizationCenter.shared.authorizationStatus == .approved, "selectedCount": count, "active": !protectedPlatforms.isEmpty, "protectedPlatforms": Array(protectedPlatforms)]
+      // Platforms the user has picked in Apple's list, whether or not the plan protects them right now.
+      let selectedPlatforms = ["instagram", "youtube", "tiktok", "snapchat", "x", "facebook", "linkedin", "reddit"].filter { platform in let selected = ProtectionShared.selection(platform); return !selected.applicationTokens.isEmpty || !selected.categoryTokens.isEmpty || !selected.webDomainTokens.isEmpty }
+      return ["supported": supported, "authorized": AuthorizationCenter.shared.authorizationStatus == .approved, "selectedCount": count, "active": !protectedPlatforms.isEmpty, "protectedPlatforms": Array(protectedPlatforms), "selectedPlatforms": selectedPlatforms]
     }
     AsyncFunction("requestAuthorization") { () async -> Bool in
       do { try await AuthorizationCenter.shared.requestAuthorization(for: .individual); return AuthorizationCenter.shared.authorizationStatus == .approved } catch { return false }

@@ -75,7 +75,11 @@ export async function initializeRemoteBlockerConfig(): Promise<void> {
   initialized = true;
   try {
     const cached = parseCachedConfig(await AsyncStorage.getItem(CACHE_KEY));
-    if (cached && Date.now() - cached.fetchedAt <= CACHE_MAX_AGE_MS) useRemoteBlockerConfigStore.getState().setConfig(cached.config, 'cache');
+    if (cached && Date.now() - cached.fetchedAt <= CACHE_MAX_AGE_MS) {
+      useRemoteBlockerConfigStore.getState().setConfig(cached.config, 'cache');
+      // A copy fetched within the refresh interval (e.g. before a quick restart) is current; skip the request.
+      if (cached.fetchedAt <= Date.now()) lastRequestAt = cached.fetchedAt;
+    }
   } catch { /* Bundled rules remain available when local cache is unreadable. */ }
   await refreshRemoteBlockerConfig();
 }

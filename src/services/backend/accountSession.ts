@@ -2,6 +2,7 @@ import { BackendError, createBackendClient } from './client';
 import { SessionManager } from './sessionManager';
 import { oauthSecretStorage, secretStorage } from './secretStorage';
 import { useAccountStore } from '../../store/accountStore';
+import { useProfileStore } from '../../store/profileStore';
 import { unregisterSupportPush } from '../notifications/supportPush';
 import { captureAppException, initializeProductAnalytics, setProductAnalyticsIdentity } from '../analytics/productAnalytics';
 
@@ -23,6 +24,7 @@ export async function forgetAccountSession() {
   // While the access token is still known, stop team replies for this account reaching the device.
   const token = accountSession.getCachedAccessToken();
   await unregisterSupportPush(token && validEndpoint ? createBackendClient({ baseUrl: endpoint, allowInsecureHttp: __DEV__, getAccessToken: () => token }) : null).catch(() => undefined);
+  useProfileStore.getState().setProfile(null);
   const results = await Promise.allSettled([accountSession.clear(), oauthSecretStorage().remove()]);
   if (results.some((result) => result.status === 'rejected')) throw new BackendError(0, 'STORAGE_UNAVAILABLE', 'Unable to remove the saved session.');
 }

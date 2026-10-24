@@ -1,4 +1,4 @@
-import { activeRoutines, buildNativePlan, createTemporaryAccess, protectionReason, sleepRoutine, validateSleepPlan } from '../engine';
+import { activeRoutines, buildNativePlan, createTemporaryAccess, protectionReason, shortVideoBlockedApps, sleepRoutine, validateSleepPlan } from '../engine';
 import { defaultSleepPlan } from '../../../store/wellbeingStore';
 import type { FocusSchedule } from '../../../types/app';
 
@@ -47,6 +47,15 @@ describe('local protection policy', () => {
   it('does not create native Pro protections for a Free customer', () => {
     const plan = buildNativePlan({ ...input, baseline: ['instagram'], isPro: false });
     expect(plan.baseline).toEqual([]); expect(plan.routines).toEqual([]); expect(plan.strict).toBeNull();
+  });
+  it('blocks the original app for everyone while its Reels or Shorts filter is on', () => {
+    const apps = { instagram: { enabled: true, filters: { reels: true } }, youtube: { enabled: true, filters: { shorts: false } } };
+    expect(shortVideoBlockedApps(apps)).toEqual(['instagram']);
+    expect(shortVideoBlockedApps({ ...apps, instagram: { enabled: false, filters: { reels: true } } })).toEqual([]);
+    const plan = buildNativePlan({ ...input, baseline: ['tiktok'], filterBlocked: shortVideoBlockedApps(apps), isPro: false });
+    expect(plan.baseline).toEqual(['instagram']); expect(plan.routines).toEqual([]); expect(plan.temporary).toBeNull();
+    expect(protectionReason('instagram', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('protected');
+    expect(protectionReason('youtube', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('unprotected');
   });
   it('enforces platform minimums and rejects malformed temporary durations', () => {
     expect(() => createTemporaryAccess('instagram', 5, 15)).toThrow();

@@ -13,6 +13,8 @@ import { accountApi, accountSession, forgetAccountSession, isBackendConfigured, 
 import { updatePassword } from '../../services/backend/authentication';
 import { leaveAuth, AuthField, MIN_PASSWORD_LENGTH } from '../auth/components';
 import { accountErrorKey } from './errors';
+import { clearFocusUpData } from '../../services/privacy/clearFocusUpData';
+import { cachedDisplayName, loadProfile, rememberProfile } from '../../services/backend/profileCache';
 import { PostHogMaskView } from 'posthog-react-native';
 
 function useAccountAction() {
@@ -97,18 +99,26 @@ function SignedInAccount({ userId }: { userId: string }) {
   const c = useAppTheme();
   const user = useAccountStore((state) => state.user);
   const { busy, run } = useAccountAction();
-  const [name, setName] = useState(''), [loading, setLoading] = useState(true), [deleteText, setDeleteText] = useState('');
-  const mounted = useRef(true);
+  // The saved name shows at once; the server is asked only when this device has no fresh copy.
+  const [name, setName] = useState(() => cachedDisplayName(userId)), [loading, setLoading] = useState(() => !cachedDisplayName(userId)), [deleteText, setDeleteText] = useState('');
+  const mounted = useRef(true), edited = useRef(false);
   const sameAccount = useCallback(() => mounted.current && accountSession.getState().user?.id === userId, [userId]);
   useEffect(() => {
     mounted.current = true;
     // Settings back up automatically (services/backend/settingsSyncRuntime); this page only edits the profile.
-    void accountApi().getAccount().then((account) => { if (sameAccount() && account.id === userId) setName(account.profile.displayName); })
+    void loadProfile(userId).then((displayName) => { if (sameAccount() && displayName !== null && !edited.current) setName(displayName); })
       .catch(() => undefined).finally(() => { if (sameAccount()) setLoading(false); });
     return () => { mounted.current = false; };
   }, [sameAccount, userId]);
+  const editName = (value: string) => { edited.current = true; setName(value); };
   const confirm = (title: string, body: string, action: () => Promise<void>, destructive = false) => Alert.alert(t(title), t(body), [{ text: t('cancel'), style: 'cancel' }, { text: t(destructive ? 'delete' : 'continue'), style: destructive ? 'destructive' : 'default', onPress: () => { void run(action); } }]);
   const unavailable = busy || loading;
+  // The cloud account goes first; then nothing of it stays on this phone (same wipe as "Clear FocusUp data").
+  const deleteEverything = async () => {
+    await accountApi().deleteAccount();
+    try { await clearFocusUpData(); } catch { await forgetAccountSession(); }
+    if (router.canDismiss()) router.dismissAll(); router.replace('/');
+  };
   const signOut = () => confirm('cloudAuth.signOutConfirm', 'cloudAuth.signOutDescription', async () => { if (!(await signOutAccount())) Alert.alert(t('cloudAuth.title'), t('cloudAuth.signOutLocal')); });
   return <>
     <Card style={{ gap: 20 }}>
@@ -120,8 +130,8 @@ function SignedInAccount({ userId }: { userId: string }) {
         </View>
       </View>
       <View style={{ gap: 12 }}>
-        <AuthField disabled={unavailable} label={t('cloudAuth.name')} value={name} onChange={setName} maxLength={80} />
-        <ActionButton secondary compact disabled={unavailable} title={t('save')} onPress={() => { void run(async () => { await accountApi().saveProfile(name.trim()); }); }} />
+        <AuthField disabled={unavailable} label={t('cloudAuth.name')} value={name} onChange={editName} maxLength={80} />
+        <ActionButton secondary compact disabled={unavailable} title={t('save')} onPress={() => { void run(async () => { const profile = await accountApi().saveProfile(name.trim()); rememberProfile(userId, profile.displayName); edited.current = false; }); }} />
       </View>
     </Card>
 
@@ -136,7 +146,7 @@ function SignedInAccount({ userId }: { userId: string }) {
       <CardHeader icon="close" tone="red" title={t('cloudAuth.deleteAccount')} subtitle={t('cloudAuth.deleteAccountDescription')} />
       <View style={{ gap: 12 }}>
         <AuthField disabled={busy} label={t('cloudAuth.deleteAccountHint')} value={deleteText} onChange={setDeleteText} maxLength={6} />
-        <ActionButton variant="destructive" disabled={busy || deleteText !== 'DELETE'} title={t('cloudAuth.deleteAccount')} onPress={() => confirm('cloudAuth.deleteAccountConfirm', 'cloudAuth.deleteAccountDescription', async () => { await accountApi().deleteAccount(); await forgetAccountSession(); }, true)} />
+        <ActionButton variant="destructive" disabled={busy || deleteText !== 'DELETE'} title={t('cloudAuth.deleteAccount')} onPress={() => confirm('cloudAuth.deleteAccountConfirm', 'cloudAuth.deleteAccountDescription', deleteEverything, true)} />
       </View>
     </Card>
   </>;

@@ -63,14 +63,18 @@ type ProductEvent =
   | 'temporary_access_started' | 'temporary_access_completed'
   | 'strict_mode_started' | 'strict_mode_completed' | 'strict_mode_ended_early'
   | 'paywall_viewed' | 'subscription_plan_selected' | 'purchase_started' | 'purchase_completed'
-  | 'purchase_cancelled' | 'purchase_failed' | 'restore_started' | 'purchase_restored';
+  | 'purchase_cancelled' | 'purchase_failed' | 'restore_started' | 'purchase_restored'
+  | 'usage_weekly';
 type Properties = Record<string, string | number | boolean | undefined>;
 function safely(action: () => void) { try { action(); } catch { /* Observability must never interrupt the app. */ } }
 function context() { return { screen: currentScreen ?? null, previous_screen: previousScreen ?? null }; }
 
-export function captureProductEvent(event: ProductEvent, properties: Properties = {}) {
-  if (!consentLoaded || !consent || !client) return;
-  safely(() => client?.capture(event, { ...context(), ...properties }));
+/** True when the event was handed to PostHog; false without consent or a client. */
+export function captureProductEvent(event: ProductEvent, properties: Properties = {}): boolean {
+  if (!consentLoaded || !consent || !client) return false;
+  let sent = false;
+  safely(() => { client?.capture(event, { ...context(), ...properties }); sent = true; });
+  return sent;
 }
 
 function applyIdentity() {

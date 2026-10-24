@@ -13,7 +13,7 @@ export const freeLaunchCopy = {
       signOutDescription: 'Your settings stay on this device and your cloud backup is kept. Sign in again to use FocusUp.',
       deleteAccountDescription: 'This deletes your FocusUp cloud account, profile and backup. Local settings are kept. Sign in or create another account to use FocusUp again.',
       restoreDescription: 'Your current settings will be replaced with this cloud backup. Saved settings for unavailable features remain inactive. Device permissions and website sessions are kept.',
-      freePermissions: 'Reels and Shorts filtering works inside FocusUp. No permission to block other apps is needed.',
+      freePermissions: 'Reels and Shorts filtering works inside FocusUp. Blocking the original Instagram and YouTube apps needs a new app build on this device.',
       requiredHelp: 'A FocusUp account is required. Create an account, confirm your email code, then sign in. If sign-in fails, check your connection or reset your password. Social websites have their own separate sign-in.',
     },
     wellbeing: {
@@ -34,7 +34,7 @@ export const freeLaunchCopy = {
       signOutDescription: 'Настройки останутся на устройстве, а резервная копия — в облаке. Для работы с FocusUp войдите снова.',
       deleteAccountDescription: 'Облачный аккаунт FocusUp, профиль и резервная копия будут удалены. Локальные настройки сохранятся. Чтобы снова пользоваться FocusUp, войдите или создайте другой аккаунт.',
       restoreDescription: 'Текущие настройки будут заменены облачной копией. Настройки недоступных функций останутся неактивными. Разрешения устройства и сеансы сайтов сохранятся.',
-      freePermissions: 'Фильтрация Reels и Shorts работает внутри FocusUp. Разрешение на блокировку других приложений не требуется.',
+      freePermissions: 'Фильтрация Reels и Shorts работает внутри FocusUp. Для блокировки приложений Instagram и YouTube нужна новая версия приложения на этом устройстве.',
       requiredHelp: 'Для работы нужен аккаунт FocusUp. Создайте аккаунт, подтвердите код из письма и войдите. При ошибке проверьте соединение или сбросьте пароль. Вход на социальные сайты выполняется отдельно.',
     },
     wellbeing: {
@@ -55,7 +55,7 @@ export const freeLaunchCopy = {
       signOutDescription: 'Sozlamalaringiz qurilmada, zaxirangiz esa bulutda saqlanadi. FocusUp’dan foydalanish uchun qayta kiring.',
       deleteAccountDescription: 'FocusUp bulutli hisobingiz, profilingiz va zaxirangiz o‘chiriladi. Mahalliy sozlamalar saqlanadi. Qayta foydalanish uchun kiring yoki boshqa hisob yarating.',
       restoreDescription: 'Joriy sozlamalar bulutli nusxa bilan almashtiriladi. Mavjud bo‘lmagan funksiyalarning sozlamalari faol bo‘lmaydi. Qurilma ruxsatlari va sayt seanslari saqlanadi.',
-      freePermissions: 'Reels va Shorts filtrlari FocusUp ichida ishlaydi. Boshqa ilovalarni bloklash uchun ruxsat kerak emas.',
+      freePermissions: 'Reels va Shorts filtrlari FocusUp ichida ishlaydi. Instagram va YouTube ilovalarini bloklash uchun bu qurilmada ilovaning yangi versiyasi kerak.',
       requiredHelp: 'FocusUp hisobi talab qilinadi. Hisob yarating, pochtadagi kodni tasdiqlang va kiring. Xatolik bo‘lsa, internetni tekshiring yoki parolni tiklang. Ijtimoiy saytlarga alohida kiriladi.',
     },
     wellbeing: {

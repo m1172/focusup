@@ -1,6 +1,6 @@
 import { PRO_ENABLED } from '../../../config/release';
 import { canUseFeature, FEATURE_ACCESS, isFeatureAvailable, type SubscriptionFeature } from '../../subscription/subscriptionService';
-import { buildNativePlan, protectionReason } from '../../protection/engine';
+import { buildNativePlan, protectionReason, shortVideoBlockedApps } from '../../protection/engine';
 import { defaultSleepPlan, useWellbeingStore } from '../../../store/wellbeingStore';
 import { useAppStore } from '../../../store/appStore';
 import { useSubscriptionStore } from '../../../store/subscriptionStore';
@@ -71,14 +71,16 @@ test('native plans ignore saved baseline, sleep, routines, strict and temporary 
   const temporary = { id: 'old', platform: 'instagram' as const, startedAt: Date.now(), endsAt: Date.now() + 60_000 };
   const strict = { endsAt: Date.now() + 60_000, appIds: ['instagram' as const], filters: {} };
   useWellbeingStore.setState({ nativeApps: ['instagram'], sleep: { ...defaultSleepPlan, enabled: true }, temporary, liveActivity: true });
-  useAppStore.setState({ strictSession: strict, completionNotifications: true });
+  const apps = useAppStore.getState().apps;
+  useAppStore.setState({ strictSession: strict, completionNotifications: true, apps: { ...apps, instagram: { ...apps.instagram, enabled: true }, youtube: { ...apps.youtube, enabled: true } } });
   const input = { baseline: ['instagram' as const], routines: useAppStore.getState().schedules, sleep: useWellbeingStore.getState().sleep, strict, temporary, isPro: true };
   expect(buildNativePlan(input)).toMatchObject({ baseline: [], routines: [], strict: null, temporary: null });
   expect(protectionReason('instagram', input)).toBe('unprotected');
   await reconcileStrictModeState();
   await reconcileProtection();
   expect(protectionBridge.applyPlan).toHaveBeenCalledWith(expect.any(String));
-  expect(JSON.parse(jest.mocked(protectionBridge.applyPlan).mock.calls[0][0])).toMatchObject({ baseline: [], routines: [], strict: null, temporary: null, liveActivity: false });
+  // Only the free Reels/Shorts filters block original apps; saved Pro protections stay inactive.
+  expect(JSON.parse(jest.mocked(protectionBridge.applyPlan).mock.calls[0][0])).toMatchObject({ baseline: ['instagram', 'youtube'], routines: [], strict: null, temporary: null, liveActivity: false });
   expect(useWellbeingStore.getState()).toMatchObject({ nativeApps: ['instagram'], temporary, liveActivity: true });
   expect(useAppStore.getState().strictSession).toBe(strict);
 });
@@ -106,4 +108,11 @@ test('backup restore preserves hidden preferences without activating them or ret
   expect(getEffectiveAppConfig('instagram').filters.explore).toBe(false);
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   jest.restoreAllMocks();
+});
+
+test('new users start with Instagram and YouTube uncleaned, so no original app is blocked', () => {
+  const { apps } = useAppStore.getInitialState();
+  expect(apps.instagram.enabled).toBe(false);
+  expect(apps.youtube.enabled).toBe(false);
+  expect(shortVideoBlockedApps(apps)).toEqual([]);
 });

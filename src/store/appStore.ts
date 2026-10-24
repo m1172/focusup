@@ -35,9 +35,11 @@ type AppState = {
 };
 
 export const supportedAppIds: SocialAppId[] = ['instagram', 'youtube'];
+// New users start uncleaned: they turn Clean Mode on in each app's protection screen, which blocks the original
+// app first. Saved settings are kept as they are.
 const defaults: Record<SocialAppId, SocialAppSettings> = {
-  instagram: { enabled: true, filters: { reels: true, explore: true, recommendations: true, suggestedPosts: true, sponsoredPosts: false, homeFeed: false } },
-  youtube: { enabled: true, filters: { shorts: true, recommendations: true, homeRecommendations: true, comments: false, sponsoredContent: false } },
+  instagram: { enabled: false, filters: { reels: true, explore: true, recommendations: true, suggestedPosts: true, sponsoredPosts: false, homeFeed: false } },
+  youtube: { enabled: false, filters: { shorts: true, recommendations: true, homeRecommendations: true, comments: false, sponsoredContent: false } },
   tiktok: { enabled: false, filters: { forYou: true } },
   x: { enabled: false, filters: { recommendations: true } },
   reddit: { enabled: false, filters: { recommendations: true } },

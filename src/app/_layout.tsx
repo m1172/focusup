@@ -32,6 +32,7 @@ import { SupportReplyOpener } from '../features/support/SupportReplyOpener';
 import { syncSupportPush } from '../features/support/push';
 import { perfLogsEnabled, recordTap, startMainThreadSampler } from '../services/performance/tapTiming';
 import { captureProductEvent, flushProductAnalytics, initializeProductAnalytics, setProductAnalyticsIdentity } from '../services/analytics/productAnalytics';
+import { takeUsageSnapshot } from '../services/device-usage/usageSnapshots';
 if (perfLogsEnabled) startMainThreadSampler(); // TEMP-PERF-SAMPLER
 
 export { AppErrorBoundary as ErrorBoundary } from '../components/AppErrorBoundary';
@@ -72,7 +73,8 @@ export default function RootLayout() {
     void initializeLocalAnalytics().then(() => restoreInterruptedSession());
     const stopSettingsSync = startSettingsSync();
     initializeNotificationHandler();
-    void refreshAccountSession().then(() => initializeProductAnalytics());
+    // The weekly usage summary waits for analytics consent to load; it reads Android usage at most once a day.
+    void refreshAccountSession().then(() => initializeProductAnalytics()).then(() => takeUsageSnapshot());
     if (PRO_ENABLED) void useSubscriptionStore.getState().initialize();
     void initializeRemoteBlockerConfig();
     const reconcileNative = () => { if (!isClearingFocusUpData() && useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated()) void reconcileProtection().catch(() => { if (__DEV__) console.warn('[FocusUp Protection] Native plan could not be applied'); }); };
@@ -95,7 +97,7 @@ export default function RootLayout() {
     const stopHydrationListener = useAppStore.persist.onFinishHydration(() => { void reconcileStrictModeState(); });
     if (useAppStore.persist.hasHydrated()) void reconcileStrictModeState();
     const reconcileTimer = PRO_ENABLED ? setInterval(() => { if (!isClearingFocusUpData()) { void reconcileStrictModeState(); reconcileNative(); } }, 15_000) : undefined;
-    const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { void reconcileStrictModeState(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
+    const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { void reconcileStrictModeState(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); void takeUsageSnapshot(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
     // Signed-in devices that already allow notifications register for support replies without a prompt.
     const supportPush = useAccountStore.subscribe((state, previous) => { if (state.user && state.user.id !== previous.user?.id) void syncSupportPush(); });
     if (useAccountStore.getState().user) void syncSupportPush();
@@ -111,7 +113,7 @@ export default function RootLayout() {
     return () => { stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
   }, []);
   if ((!fontsLoaded && !fontError) || !hydrated || !account.ready) return <View style={{ flex: 1, backgroundColor: c.background, justifyContent: 'center' }}><ActivityIndicator accessibilityLabel={i18n.t('cloudAuth.loading')} /></View>;
-  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed && PRO_ENABLED} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
+  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
       <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/choose-apps" /><Stack.Screen name="onboarding/account" />
@@ -130,9 +132,11 @@ export default function RootLayout() {
       {/* The page is drawn by BrowserLayer above the stack, so this route must not be a native modal, which would cover it. */}
       <Stack.Screen name="browser/[appId]" options={{ animation: 'fade', animationDuration: 120, statusBarHidden: true }} />
       <Stack.Screen name="permissions" /><Stack.Screen name="language" /><Stack.Screen name="theme" />
+      {/* Opened from a blocked original app: the iOS shield button or the Android shield. */}
+      <Stack.Screen name="native-app/[appId]" />
       <Stack.Protected guard={PRO_ENABLED} redirectTo="/(tabs)">
         <Stack.Screen name="temporary-access" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: false }} />
-        <Stack.Screen name="strict-mode" /><Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="protection" /><Stack.Screen name="native-app/[appId]" /><Stack.Screen name="pro" />
+        <Stack.Screen name="strict-mode" /><Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="protection" /><Stack.Screen name="pro" />
       </Stack.Protected>
     </Stack.Protected>
   </Stack>{appAllowed ? <BrowserLayer /> : null}</View></SafeAreaProvider>;

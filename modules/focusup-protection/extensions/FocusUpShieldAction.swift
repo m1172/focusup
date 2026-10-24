@@ -19,13 +19,18 @@ final class FocusUpShieldAction: ShieldActionDelegate {
     return "protection"
   }
 
+  // The shield is styled as FocusUp's handoff page; its one button opens the website in FocusUp directly.
+  // FocusUp reads the request once when it comes to the foreground.
   private func respond(to action: ShieldAction, destination: String, completion: @escaping (ShieldActionResponse) -> Void) {
-    guard action == .primaryButtonPressed, let defaults = defaults else { completion(.close); return }
-    defaults.set(["platform": destination, "createdAt": Date().timeIntervalSince1970], forKey: "pendingNativeAppLaunch")
+    guard let defaults = defaults else { completion(.close); return }
     if #available(iOS 26.5, *) {
+      guard action == .primaryButtonPressed else { completion(.close); return }
+      let target = destination == "protection" ? destination : "\(destination):open"
+      defaults.set(["platform": target, "createdAt": Date().timeIntervalSince1970], forKey: "pendingNativeAppLaunch")
       completion(.openParentalControlsApp)
     } else {
-      // Older iOS versions require the user to open FocusUp from their Home Screen.
+      // Older iOS versions require the user to open FocusUp from their Home Screen; it then shows the handoff page.
+      if action == .primaryButtonPressed { defaults.set(["platform": destination, "createdAt": Date().timeIntervalSince1970], forKey: "pendingNativeAppLaunch") }
       completion(.close)
     }
   }

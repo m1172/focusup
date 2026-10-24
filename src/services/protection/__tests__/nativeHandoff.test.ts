@@ -10,12 +10,12 @@ const native = jest.requireMock('expo').testNative as { consumePendingLaunch?: j
 describe('native shield handoff', () => {
   beforeEach(() => { native.consumePendingLaunch = jest.fn(); });
 
-  it.each(['instagram', 'youtube', 'protection'] as const)('accepts the supported %s destination', async (target) => {
+  it.each(['instagram', 'youtube', 'protection', 'instagram:open', 'instagram:link', 'youtube:open', 'youtube:link'] as const)('accepts the supported %s destination', async (target) => {
     native.consumePendingLaunch!.mockResolvedValue(target);
     await expect(protectionBridge.consumePendingLaunch()).resolves.toBe(target);
   });
 
-  it.each(['', null, undefined, '/browser/instagram?private=value', 'https://example.com', { platform: 'instagram' }])('rejects arbitrary native payloads: %p', async (target) => {
+  it.each(['', null, undefined, '/browser/instagram?private=value', 'https://example.com', { platform: 'instagram' }, 'instagram:delete', 'tiktok:open', 'protection:open'])('rejects arbitrary native payloads: %p', async (target) => {
     native.consumePendingLaunch!.mockResolvedValue(target);
     await expect(protectionBridge.consumePendingLaunch()).resolves.toBeNull();
   });

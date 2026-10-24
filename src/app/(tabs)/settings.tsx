@@ -5,14 +5,16 @@ import { useProtectionStatusStore } from '../../store/protectionStatusStore';
 import { Text } from '../../components/Typography';
 import { router, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { Icon } from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { GroupLabel, Heading, IconTile, Pill, Screen, SettingRow, Toggle } from '../../components/ui';
 import { FocusLogo } from '../../components/FocusLogo';
 import { Avatar } from '../../features/account/AccountScreen';
-import { accountApi, isBackendConfigured } from '../../services/backend/accountSession';
+import { isBackendConfigured } from '../../services/backend/accountSession';
+import { loadProfile } from '../../services/backend/profileCache';
+import { useProfileStore } from '../../store/profileStore';
 import { useSupportUnread } from '../../features/support/unread';
 import { useAppStore } from '../../store/appStore';
 import { useAppTheme } from '../../theme';
@@ -51,13 +53,10 @@ export default function SettingsScreen() {
 
   const nativeStatus = useProtectionStatusStore((state) => state.status);
   const strictActive = useStrictMode().active;
-  // The profile name lives on the server; show it when it loads, the email (or a generic label) until then.
-  const [profileName, setProfileName] = useState('');
+  // The profile name is saved on the device; the server is asked only when no fresh copy exists.
+  const profileName = useProfileStore((state) => accountUser && state.profile?.userId === accountUser.id ? state.profile.displayName.trim() : '');
   useFocusEffect(useCallback(() => {
-    if (!accountUser) { setProfileName(''); return undefined; }
-    let active = true;
-    void accountApi().getAccount().then((account) => { if (active) setProfileName(account.profile.displayName.trim()); }).catch(() => undefined);
-    return () => { active = false; };
+    if (accountUser) void loadProfile(accountUser.id).catch(() => undefined);
   }, [accountUser]));
   const group = (children: ReactNode) => <View style={{ paddingVertical: 4, paddingHorizontal: 12, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>{children}</View>;
   const version = Constants.expoConfig?.version ?? '1.0';

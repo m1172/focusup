@@ -1,4 +1,3 @@
-import { PRO_ENABLED } from '../config/release';
 import { useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
@@ -20,7 +19,7 @@ function Fact({ icon, text }: { icon: IconName; text: string }) {
 
 export default function PrivacyScreen() {
   const { t } = useTranslation(); const c = useAppTheme(); const [busy, setBusy] = useState(false);
-  const confirm = () => Alert.alert(t('wellbeing.clearConfirm'), t('wellbeing.clearDescription'), [{ text: t('cancel'), style: 'cancel' }, { text: t('wellbeing.clearAction'), style: 'destructive', onPress: () => { setBusy(true); void clearFocusUpData().then(({ browserDataCleared }) => { if (!browserDataCleared) Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearPartial')); router.dismissAll(); router.replace('/'); }).catch(() => Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearFailed'))).finally(() => setBusy(false)); } }]);
+  const confirm = () => Alert.alert(t('wellbeing.clearConfirm'), t('wellbeing.clearDescription'), [{ text: t('cancel'), style: 'cancel' }, { text: t('wellbeing.clearAction'), style: 'destructive', onPress: () => { setBusy(true); void clearFocusUpData().then(({ browserDataCleared }) => { if (!browserDataCleared) Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearPartial')); if (router.canDismiss()) router.dismissAll(); router.replace('/'); }).catch(() => Alert.alert(t('wellbeing.clearData'), t('wellbeing.clearFailed'))).finally(() => setBusy(false)); } }]);
   return <Screen contentStyle={{ gap: 18 }}>
     <PageHeader icon="shield" tone="mint" title={t('privacy')} subtitle={t('settingsPages.privacySubtitle')} />
     <Panel label={t('settingsPages.storedTitle')}>
@@ -29,7 +28,7 @@ export default function PrivacyScreen() {
       <Fact icon="eyeOff" text={t('settingsPages.storedSocial')} />
       <Fact icon="stats" text={t('settingsPages.analyticsFact')} />
     </Panel>
-    {PRO_ENABLED ? <Panel><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqNativeAnswer')}</Text></Panel> : null}
+    <Panel><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqNativeAnswer')}</Text></Panel>
     <View style={{ gap: 14, padding: 18, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh, borderWidth: 1, borderColor: c.redSoft }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.redSoft }}><Icon name="close" size={20} color={c.red} strokeWidth={2.4} /></View>

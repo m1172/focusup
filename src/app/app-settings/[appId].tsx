@@ -16,6 +16,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { canUseFeature, isFeatureAvailable, type SubscriptionFeature } from '../../services/subscription/subscriptionService';
 import type { PaywallSource } from '../../services/subscription/types';
 import { NativeAppProtectionCard } from '../../features/protection/NativeAppProtectionCard';
+import { enableAfterNativeBlock } from '../../features/protection/nativeAppSetup';
 import { CelebrationBurst, HoldToEnable, ProtectionBadge, TurnOffSheet } from '../../features/protection/FrictionControls';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { appDailySavings, SHORT_VIDEO_FILTER, usualMinutes, yearlyValue, type SavingsAppId } from '../../features/savings/savings';
@@ -112,8 +113,21 @@ export default function AppSettingsScreen() {
     flashTimer.current = setTimeout(() => setBanner(null), 1800);
   };
   const celebrate = (key: string) => { setBursts((state) => ({ ...state, [key]: (state[key] ?? 0) + 1 })); flash(t('friction.turnedOn'), t('design.savedDetail')); };
-  const enableMaster = () => { if (locked) { explainLock(); return; } setAppEnabled(appId, true); celebrate('master'); };
-  const enableFilter = (filter: string) => { if (locked) { explainLock(); return; } setFilter(appId, filter, true); celebrate(filter); };
+  // Reels/Shorts blocking starts only after the original app is blocked; other filters turn on directly.
+  const blockFirst = (enable: () => void) => {
+    if (!savingsApp) { enable(); return; }
+    void enableAfterNativeBlock(appId, app.name, shortVideoName, enable).catch(() => Alert.alert(t('wellbeing.nativeTitle'), t('wellbeing.failed')));
+  };
+  const enableMaster = () => {
+    if (locked) { explainLock(); return; }
+    const turnOn = () => { setAppEnabled(appId, true); celebrate('master'); };
+    if (shortVideo && filters[shortVideo]) blockFirst(turnOn); else turnOn();
+  };
+  const enableFilter = (filter: string) => {
+    if (locked) { explainLock(); return; }
+    const turnOn = () => { setFilter(appId, filter, true); celebrate(filter); };
+    if (enabled && filter === shortVideo) blockFirst(turnOn); else turnOn();
+  };
   const keepOn = (engaged: boolean) => { setTurnOff(null); if (engaged) flash(t('friction.keptTitle'), t('friction.keptBody')); };
   const finishTurnOff = () => {
     if (!turnOff) return;
@@ -140,9 +154,11 @@ export default function AppSettingsScreen() {
   const singleFilter = visibleFilters.length === 1 && visibleFilters[0] === shortVideo;
   const enableShortVideo = () => {
     if (locked) { explainLock(); return; }
-    if (!enabled) setAppEnabled(appId, true);
-    if (shortVideo && !filters[shortVideo]) setFilter(appId, shortVideo, true);
-    celebrate('master');
+    blockFirst(() => {
+      if (!useAppStore.getState().apps[appId].enabled) setAppEnabled(appId, true);
+      if (shortVideo && !useAppStore.getState().apps[appId].filters[shortVideo]) setFilter(appId, shortVideo, true);
+      celebrate('master');
+    });
   };
   return (
     <Screen glow={300} glowDarkOnly contentStyle={{ gap: 12 }}>
@@ -152,7 +168,7 @@ export default function AppSettingsScreen() {
         <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: c.text, fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.7 }}>{app.name}</Text>
       </View>
       <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500' }}>{t(appId === 'instagram' ? 'ui.instagramQuestion' : 'ui.youtubeQuestion')}</Text>
-      {isFeatureAvailable('nativeProtection') ? <NativeAppProtectionCard appId={appId} name={app.name} /> : null}
+      {savingsApp ? <NativeAppProtectionCard appId={appId} name={app.name} feature={shortVideoName} filterOn={visibleEnabled && Boolean(shortVideo && (locked || filters[shortVideo]))} /> : null}
 
       <AlertBanner visible={Boolean(banner)} title={banner?.title ?? ''} message={banner?.message ?? ''} />
       {locked ? <Note tone="amber" icon="lock">{t('strictCannotChange')}</Note> : null}

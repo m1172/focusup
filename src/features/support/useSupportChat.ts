@@ -12,8 +12,12 @@ import { lastMessageId, mergeMessages, type PendingMessage } from './thread';
 import { syncSupportPush } from './push';
 import { markSupportSeen } from './unread';
 
-/** New replies are fetched this often while the chat is open and the app is in front. */
-const POLL_MS = 5000;
+/** New replies are fetched this often while the chat is open and the app is in front. A reply notification
+ * fetches at once, so this is only the fallback for devices without notifications. */
+const POLL_MS = 15_000;
+
+/** The thread survives leaving the chat (in memory only), so reopening it asks only for newer messages. */
+let savedThread: { userId: string; messages: SupportMessage[] } | null = null;
 
 export type SupportChatProblem = 'unavailable' | 'loadFailed' | 'tooFast' | null;
 
@@ -29,14 +33,16 @@ async function dismissReplyNotifications() {
  * Replies that arrive while it is closed come as push notifications instead.
  */
 export function useSupportChat(context: string) {
-  const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [pending, setPending] = useState<PendingMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [problem, setProblem] = useState<SupportChatProblem>(null);
-  const latest = useRef(0);
-  const focused = useRef(false);
   const userId = useAccountStore((state) => state.user?.id);
+  const saved = savedThread && savedThread.userId === userId ? savedThread.messages : null;
+  const [messages, setMessages] = useState<SupportMessage[]>(() => saved ?? []);
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  const [loading, setLoading] = useState(() => !saved);
+  const [problem, setProblem] = useState<SupportChatProblem>(null);
+  const latest = useRef(saved ? lastMessageId(saved) : 0);
+  const focused = useRef(false);
   useEffect(() => {
+    if (userId) savedThread = { userId, messages };
     latest.current = lastMessageId(messages);
     if (focused.current && userId) void markSupportSeen(userId, latest.current);
   }, [messages, userId]);

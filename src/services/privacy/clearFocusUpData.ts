@@ -12,6 +12,8 @@ import { protectionBridge } from '../protection/nativeBridge';
 import { resetProtectionController } from '../protection/controller';
 import { reconcileStrictModeState } from '../strict-mode/strictModeController';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
+import { useProfileStore } from '../../store/profileStore';
 import { resetRemoteBlockerConfig } from '../remote-config/remoteBlockerConfig';
 import { setAnalyticsConsent } from '../analytics/productAnalytics';
 import { releaseAllBrowsers } from '../../store/browserHostStore';
@@ -42,6 +44,9 @@ export async function clearFocusUpData(): Promise<{ browserDataCleared: boolean 
   useWellbeingStore.setState(useWellbeingStore.getInitialState(), true);
   useStatisticsStore.setState({ selectedPeriod: 'day', revision: 0 });
   useProtectionStatusStore.setState(useProtectionStatusStore.getInitialState(), true);
+  // Persisted stores would otherwise write their in-memory answers back after the storage below is removed.
+  useOnboardingStore.setState(useOnboardingStore.getInitialState(), true);
+  useProfileStore.setState(useProfileStore.getInitialState(), true);
   useRemoteBlockerConfigStore.getState().setConfig(bundledRemoteBlockerConfig, 'bundled');
   // Keep the opt-out across reset and the next cold start.
   const keys = (await AsyncStorage.getAllKeys()).filter((key) => (key.startsWith('focusup-') || key.startsWith('@focusup/')) && key !== '@focusup/observability-consent');

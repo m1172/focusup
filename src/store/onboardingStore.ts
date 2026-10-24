@@ -12,6 +12,8 @@ type OnboardingState = {
   source: 'estimate' | 'measured';
   shortFormMinutes: number;
   measured: MeasuredUsage | null;
+  /** When `measured` was read: the pre-install baseline's date. Null for answers saved before this was kept. */
+  measuredAt: number | null;
   cut: number;
   setShortFormMinutes: (minutes: number) => void;
   setMeasured: (usage: MeasuredUsage) => void;
@@ -23,16 +25,17 @@ export const useOnboardingStore = create<OnboardingState>()(persist((set) => ({
   source: 'estimate',
   shortFormMinutes: 90,
   measured: null,
+  measuredAt: null,
   cut: 0.5,
   setShortFormMinutes: (shortFormMinutes) => set({ shortFormMinutes, source: 'estimate' }),
-  setMeasured: (measured) => set({ measured, source: 'measured' }),
+  setMeasured: (measured) => set({ measured, measuredAt: Date.now(), source: 'measured' }),
   chooseEstimate: () => set({ source: 'estimate' }),
   setCut: (cut) => set({ cut }),
 }), {
   name: 'focusup-onboarding-v1',
   storage: createJSONStorage(() => AsyncStorage),
   version: 4,
-  partialize: ({ source, shortFormMinutes, measured, cut }) => ({ source, shortFormMinutes, measured, cut }),
+  partialize: ({ source, shortFormMinutes, measured, measuredAt, cut }) => ({ source, shortFormMinutes, measured, measuredAt, cut }),
   migrate: (persisted) => {
     const { cut } = (persisted ?? {}) as Partial<OnboardingState>;
     return { cut: cut ?? 0.5 } as OnboardingState;

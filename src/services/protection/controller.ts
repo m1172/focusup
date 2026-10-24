@@ -5,7 +5,7 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import type { SocialAppId } from '../../types/app';
 import { track } from '../analytics/localAnalytics';
-import { activeRoutines, buildNativePlan, createTemporaryAccess } from './engine';
+import { activeRoutines, buildNativePlan, createTemporaryAccess, shortVideoBlockedApps } from './engine';
 import { protectionBridge } from './nativeBridge';
 import { scheduleWellbeingNotifications } from '../notifications/wellbeingNotifications';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
@@ -24,7 +24,7 @@ export function reconcileProtection(requireNative = false): Promise<void> {
       void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_completed', platform: ended.platform, durationMs: ended.endsAt - ended.startedAt, timestamp: ended.endsAt, eventId: ended.id + ':completed' });
     }
     const latest = useWellbeingStore.getState();
-    const plan = buildNativePlan({ baseline: latest.nativeApps, routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
+    const plan = buildNativePlan({ baseline: latest.nativeApps, filterBlocked: shortVideoBlockedApps(app.apps), routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
     plan.locale = app.selectedLanguage;
     plan.liveActivity = PRO_ENABLED && latest.liveActivity;
     plan.utcOffsetMinutes = new Date().getTimezoneOffset();

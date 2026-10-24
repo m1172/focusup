@@ -10,8 +10,9 @@ import { appCatalog } from '../../features/apps/catalog';
 
 /** Entry point from a blocked original app. Opening the cleaner browser never removes its native shield. */
 export default function NativeAppHandoffScreen() {
-  const { appId } = useLocalSearchParams<{ appId: string }>();
-  const [showLinkSheet, setShowLinkSheet] = useState(false);
+  const { appId, link } = useLocalSearchParams<{ appId: string; link?: string }>();
+  // The shield's "Open a link" button arrives with the link box already open.
+  const [showLinkSheet, setShowLinkSheet] = useState(link === '1');
   if (appId !== 'instagram' && appId !== 'youtube') return <Redirect href="/protection" />;
   const open = (url: string) => router.replace({ pathname: '/browser/[appId]', params: { appId, url } });
   return <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: '#302538' }}>

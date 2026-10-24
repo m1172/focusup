@@ -12,6 +12,8 @@ import { useSubscriptionStore } from '../store/subscriptionStore';
 import { useWellbeingStore } from '../store/wellbeingStore';
 import { getEffectiveAppConfig } from '../services/blockers/effective';
 import { isPlatformLocked } from '../services/strict-mode/strictModeController';
+import { SHORT_VIDEO_FILTERS } from '../services/protection/engine';
+import { enableAfterNativeBlock } from '../features/protection/nativeAppSetup';
 
 /**
  * App card.
@@ -31,6 +33,14 @@ export function AppRow({ appId, onPress, selectable = false }: { appId: SocialAp
   const locked = isPlatformLocked(appId, strict);
   const cleaned = app.supported && getEffectiveAppConfig(appId).enabled;
 
+  // Turning on an app whose Reels/Shorts filter is on blocks the original app first, as in its settings.
+  const toggle = (value: boolean) => {
+    const filter = SHORT_VIDEO_FILTERS[appId];
+    if (!value || !filter || !config.filters[filter]) { setEnabled(appId, value); return; }
+    void enableAfterNativeBlock(appId, app.name, appId === 'instagram' ? 'Reels' : 'Shorts', () => setEnabled(appId, true))
+      .catch(() => Alert.alert(t('wellbeing.nativeTitle'), t('wellbeing.failed')));
+  };
+
   if (selectable) {
     return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 80, paddingHorizontal: 16, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
       <AppIcon appId={appId} size={48} />
@@ -38,7 +48,7 @@ export function AppRow({ appId, onPress, selectable = false }: { appId: SocialAp
         <Text style={{ color: c.text, fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.17 }}>{app.name}</Text>
         <Text style={{ marginTop: 2, color: c.text2, fontSize: 13, lineHeight: 18, fontWeight: '500' }}>{t(`design.${app.descriptionKey}`)}</Text>
       </View>
-      <Toggle label={app.name} value={app.supported && config.enabled} disabled={!app.supported || locked} onDisabledPress={locked ? () => Alert.alert(t('strictActive'), t('strictCannotChange')) : undefined} onChange={(value) => setEnabled(appId, value)} />
+      <Toggle label={app.name} value={app.supported && config.enabled} disabled={!app.supported || locked} onDisabledPress={locked ? () => Alert.alert(t('strictActive'), t('strictCannotChange')) : undefined} onChange={toggle} />
     </View>;
   }
 

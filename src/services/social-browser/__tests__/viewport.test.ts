@@ -16,7 +16,7 @@ describe('full-screen website viewport', () => {
     const state = (dom.window as unknown as { __focusUpViewport?: { observer?: MutationObserver; pageObserver?: MutationObserver; frame?: number } }).__focusUpViewport;
     state?.observer?.disconnect();
     state?.pageObserver?.disconnect();
-    if (state?.frame) dom.window.cancelAnimationFrame(state.frame);
+    if (state?.frame) dom.window.clearTimeout(state.frame);
     dom.window.close();
   });
 

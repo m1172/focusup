@@ -1,10 +1,18 @@
 import { canUseFeature } from '../subscription/subscriptionService';
-import type { FocusSchedule, SocialAppId, StrictSession } from '../../types/app';
+import type { FocusSchedule, SocialAppId, SocialAppSettings, StrictSession } from '../../types/app';
 import { isScheduleActive, parseClock } from '../schedules/time';
 import type { SleepPlan, TemporaryAccess, ProtectionReason, NativeProtectionPlan } from './types';
 
 export const ALL_PLATFORMS: SocialAppId[] = ['instagram', 'youtube', 'tiktok', 'snapchat', 'x', 'facebook', 'linkedin', 'reddit'];
 const clock = (value: number) => `${Math.floor(((value % 1440) + 1440) % 1440 / 60)}`.padStart(2, '0') + ':' + `${((value % 60) + 60) % 60}`.padStart(2, '0');
+
+/** The short-video filter that, while on, also blocks the original app. Free in every release. */
+export const SHORT_VIDEO_FILTERS: Partial<Record<SocialAppId, string>> = { instagram: 'reels', youtube: 'shorts' };
+
+/** Original apps that open FocusUp instead, because their Reels/Shorts blocking is on. */
+export function shortVideoBlockedApps(apps: Partial<Record<SocialAppId, SocialAppSettings>>): SocialAppId[] {
+  return (Object.keys(SHORT_VIDEO_FILTERS) as SocialAppId[]).filter((id) => apps[id]?.enabled && apps[id]?.filters[SHORT_VIDEO_FILTERS[id]!]);
+}
 
 export function sleepRoutine(sleep: SleepPlan): FocusSchedule {
   const bedtime = parseClock(sleep.bedtime);
@@ -33,17 +41,21 @@ export function activeRoutines(routines: FocusSchedule[], now = new Date()): Foc
   return routines.filter((routine) => isScheduleActive(routine, now.getDay(), now.getHours() * 60 + now.getMinutes()));
 }
 
-export function protectionReason(platform: SocialAppId, input: { baseline: SocialAppId[]; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean }, now = new Date()): ProtectionReason {
-  if (!canUseFeature(input.isPro, 'nativeProtection')) return 'unprotected';
+type PlanInput = { baseline: SocialAppId[]; filterBlocked?: SocialAppId[]; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean };
+
+export function protectionReason(platform: SocialAppId, input: PlanInput, now = new Date()): ProtectionReason {
+  if (!canUseFeature(input.isPro, 'nativeProtection')) return input.filterBlocked?.includes(platform) ? 'protected' : 'unprotected';
   const strict = input.isPro && input.strict && input.strict.endsAt > now.getTime() && (input.strict.protectedPlatforms ?? input.strict.appIds).includes(platform);
   if (strict || input.isPro && activeRoutines(input.routines, now).some((routine) => routine.strict && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'strict';
   if (input.temporary?.platform === platform && input.temporary.endsAt > now.getTime()) return 'temporary';
   if (input.isPro && activeRoutines([sleepRoutine(input.sleep)], now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'sleep';
   if (input.isPro && activeRoutines(input.routines, now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'routine';
-  return input.isPro && input.baseline.includes(platform) ? 'protected' : 'unprotected';
+  return input.filterBlocked?.includes(platform) || input.isPro && input.baseline.includes(platform) ? 'protected' : 'unprotected';
 }
 
-export function buildNativePlan(input: { baseline: SocialAppId[]; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean }): NativeProtectionPlan {
+export function buildNativePlan(input: PlanInput): NativeProtectionPlan {
   const allowed = canUseFeature(input.isPro, 'nativeProtection');
-  return { schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline: allowed ? input.baseline : [], routines: allowed ? [...input.routines, sleepRoutine(input.sleep)].filter((item) => item.enabled) : [], strict: allowed && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => input.baseline.includes(platform)) } : null, temporary: allowed ? input.temporary : null };
+  // Short-video blocking protects its original app for everyone; Pro adds other apps, routines and timed modes.
+  const baseline = [...new Set([...(input.filterBlocked ?? []), ...(allowed ? input.baseline : [])])];
+  return { schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline, routines: allowed ? [...input.routines, sleepRoutine(input.sleep)].filter((item) => item.enabled) : [], strict: allowed && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => baseline.includes(platform)) } : null, temporary: allowed ? input.temporary : null };
 }

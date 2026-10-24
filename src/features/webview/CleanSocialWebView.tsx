@@ -22,6 +22,7 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { createBrowserViewportScript } from '../../services/social-browser/viewport';
 import { createAppPromoScript } from '../../services/social-browser/appPromo';
+import { createPageIdleScript } from '../../services/social-browser/pageIdle';
 import { msSinceLastTap, perfLogsEnabled } from '../../services/performance/tapTiming';
 
 const platformSites: Record<string, { url: string; hosts: string[]; name: string }> = {
@@ -58,12 +59,6 @@ const PAGE_READY_SCRIPT = `(function () {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', post, { once: true }); else post();
 })();`;
 
-/** Run when a kept page leaves the screen: nothing keeps playing or holds the keyboard while hidden. */
-const PAUSE_PAGE_SCRIPT = `(function () { try {
-  document.querySelectorAll('video, audio').forEach(function (media) { if (!media.paused) media.pause(); });
-  var focused = document.activeElement; if (focused && focused.blur) focused.blur();
-} catch (e) {} })(); true;`;
-
 type WebViewHandle = { goBack: () => void; goForward: () => void; reload: () => void; injectJavaScript: (script: string) => void };
 const NativeWebView = WebView as ComponentType<WebViewProps & RefAttributes<WebViewHandle>>;
 export type CleanSocialWebViewHandle = WebViewHandle & {
@@ -99,9 +94,9 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   const pro = useSubscriptionStore((state) => state.isPro);
   const lastInjectedScript = useRef('');
   // Load timing (development or EXPO_PUBLIC_PERF_LOGS builds): when the page first shows content vs. when every resource finished.
-  const openedAt = useRef(Date.now());
+  const [openedAt] = useState(() => Date.now());
   const loggedVisible = useRef(false);
-  const timing = (step: string) => { if (perfLogsEnabled) console.log(`[browser:${platform}] ${step} after ${Date.now() - openedAt.current} ms (${msSinceLastTap()} ms after the tap)`); };
+  const timing = (step: string) => { if (perfLogsEnabled) console.log(`[browser:${platform}] ${step} after ${Date.now() - openedAt} ms (${msSinceLastTap()} ms after the tap)`); };
 
   useEffect(() => {
     if (initialBlockReported.current) return;
@@ -124,8 +119,12 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     }
   }, [loading, script]);
 
+  const wasHidden = useRef(false);
   useEffect(() => {
-    if (!active) webRef.current?.injectJavaScript(PAUSE_PAGE_SCRIPT);
+    // Only a page that was hidden needs waking up; a fresh, visible page has nothing to restore.
+    if (active && !wasHidden.current) return;
+    wasHidden.current = !active;
+    webRef.current?.injectJavaScript(createPageIdleScript(!active));
   }, [active]);
 
   useEffect(() => {

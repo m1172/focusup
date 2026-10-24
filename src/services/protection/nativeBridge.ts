@@ -2,12 +2,15 @@ import { requireOptionalNativeModule } from 'expo';
 import type { NativeProtectionBridge, NativeProtectionStatus } from './types';
 
 const module = requireOptionalNativeModule<NativeProtectionBridge>('FocusUpProtection');
+const pendingLaunches = ['instagram', 'youtube', 'protection', 'instagram:open', 'instagram:link', 'youtube:open', 'youtube:link'] as const;
+export type PendingLaunch = typeof pendingLaunches[number];
 const unavailable: NativeProtectionStatus = { supported: false, authorized: false, selectedCount: 0, active: false };
 export const protectionBridge = {
-  async consumePendingLaunch(): Promise<'instagram' | 'youtube' | 'protection' | null> {
+  /** What the iOS shield asked for: the handoff page (`instagram`), the website (`instagram:open`) or the link box (`instagram:link`). */
+  async consumePendingLaunch(): Promise<PendingLaunch | null> {
     try {
       const target = await module?.consumePendingLaunch?.();
-      return target === 'instagram' || target === 'youtube' || target === 'protection' ? target : null;
+      return typeof target === 'string' && (pendingLaunches as readonly string[]).includes(target) ? target as PendingLaunch : null;
     } catch { return null; }
   },
   async getStatus() { try { return await module?.getStatus() ?? unavailable; } catch { return unavailable; } },

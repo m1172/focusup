@@ -23,7 +23,7 @@ export type NativeProtectionPlan = {
   temporary: TemporaryAccess | null;
 };
 export type ProtectionReason = 'unprotected' | 'protected' | 'routine' | 'sleep' | 'strict' | 'temporary';
-export type NativeProtectionStatus = { supported: boolean; authorized: boolean; selectedCount: number; active: boolean; protectedPlatforms?: SocialAppId[] };
+export type NativeProtectionStatus = { supported: boolean; authorized: boolean; selectedCount: number; active: boolean; protectedPlatforms?: SocialAppId[]; /** iOS: apps picked in Apple's list, protected or not. */ selectedPlatforms?: SocialAppId[] };
 export type NativeProtectionBridge = {
   consumePendingLaunch?: () => Promise<string | null>;
   getStatus(): Promise<NativeProtectionStatus>;

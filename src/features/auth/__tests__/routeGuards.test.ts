@@ -95,7 +95,9 @@ test('hydration and backend configuration must be ready before app screens mount
 test('restored accounts get free screens while premium deep links remain unavailable', () => {
   const tree = routes();
   expect(tree).toContain('(tabs);'); expect(tree).toContain('browser/[appId];');
-  for (const route of ['pro', 'protection', 'native-app/[appId]', 'sleep', 'schedule', 'strict-mode', 'temporary-access']) expect(tree).not.toContain(`${route};`);
+  // Blocked original apps hand off to this page in the free release.
+  expect(tree).toContain('native-app/[appId];');
+  for (const route of ['pro', 'protection', 'sleep', 'schedule', 'strict-mode', 'temporary-access']) expect(tree).not.toContain(`${route};`);
 });
 
 test('recovery sessions expose account reset, but no app screens', () => {

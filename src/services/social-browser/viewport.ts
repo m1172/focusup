@@ -49,11 +49,15 @@ export function createBrowserViewportScript(fullScreen: boolean, insets: { top: 
     };
     if (state.observer) state.observer.disconnect();
     if (state.pageObserver) state.pageObserver.disconnect();
-    if (state.frame) cancelAnimationFrame(state.frame);
+    if (state.frame) clearTimeout(state.frame);
+    state.frame = null;
     if (state.initialize) document.removeEventListener('DOMContentLoaded', state.initialize);
+    // Video players restyle the page every frame; checking the top edge color that often keeps the CPU busy.
+    // A trailing check at most every 400 ms still follows theme and page changes. Hidden pages skip it.
     var scheduleAppearance = function() {
-      if (state.frame) return;
-      state.frame = requestAnimationFrame(function() { state.frame = null; state.reportAppearance(); });
+      if (state.frame || document.hidden) return;
+      var wait = Math.max(0, 400 - (Date.now() - (state.lastAppearanceAt || 0)));
+      state.frame = setTimeout(function() { state.frame = null; state.lastAppearanceAt = Date.now(); state.reportAppearance(); }, wait);
     };
     if (!state.historyInstalled) {
       ['pushState', 'replaceState'].forEach(function(method) {
