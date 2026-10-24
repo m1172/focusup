@@ -8,7 +8,7 @@ import { BackButton } from '../../components/ui';
 import { useAppTheme } from '../../theme';
 
 /** Authentication is the required final onboarding step. */
-export const ONBOARDING_STEPS = 6;
+export const ONBOARDING_STEPS = 5;
 
 /** Back button + a progress bar that grows from the previous step on mount. */
 /** `step` may be fractional (per-app questions); `from` is where the bar starts, the previous step by default. */

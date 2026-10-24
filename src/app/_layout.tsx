@@ -116,7 +116,7 @@ export default function RootLayout() {
   return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
-      <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/choose-apps" /><Stack.Screen name="onboarding/account" />
+      <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/account" />
     </Stack.Protected>
     <Stack.Protected guard={!appAllowed && !account.recoveryRequired} redirectTo="/start">
       <Stack.Screen name="auth/sign-in" /><Stack.Screen name="auth/sign-up" />

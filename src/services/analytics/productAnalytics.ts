@@ -182,7 +182,7 @@ export function screenNameForSegments(segments: readonly string[]): string {
     index: 'Home', start: 'Launch', apps: 'Apps', statistics: 'Statistics', focus: 'Focus', settings: 'Settings',
     'browser/[appId]': 'Social browser', 'app-settings/[appId]': 'App settings', 'native-app/[appId]': 'Native app',
     'onboarding/index': 'Welcome', 'onboarding/your-time': 'Onboarding time', 'onboarding/reveal': 'Onboarding results',
-    'onboarding/reclaim': 'Onboarding goal', 'onboarding/how-it-works': 'Onboarding explanation', 'onboarding/choose-apps': 'Onboarding apps', 'onboarding/account': 'Onboarding account',
+    'onboarding/reclaim': 'Onboarding goal', 'onboarding/how-it-works': 'Onboarding explanation', 'onboarding/account': 'Onboarding account',
     'auth/sign-in': 'Sign in', 'auth/sign-up': 'Sign up', 'auth/callback': 'Auth callback',
     account: 'Account', privacy: 'Privacy', help: 'Help', capabilities: 'Capabilities', permissions: 'Permissions',
     language: 'Language', theme: 'Theme', pro: 'Subscription', 'strict-mode': 'Strict mode',

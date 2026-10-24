@@ -1,7 +1,7 @@
 import { Text } from '../components/Typography';
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { FocusLogo } from '../components/FocusLogo';
 import { Icon } from '../components/Icon';
@@ -35,7 +35,6 @@ export default function SplashScreen() {
   const { t, i18n } = useTranslation();
   const c = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   const language = useAppStore((state) => state.selectedLanguage);
   const setLanguage = useAppStore((state) => state.setLanguage);
   const account = useAccountStore();
@@ -57,32 +56,29 @@ export default function SplashScreen() {
     if (target) router.replace(target);
   }, [account, completed, destination, hydrated]);
 
-  // Design places the logo 162px below the status bar on an 844pt screen; shorter screens pull it up.
-  const logoTop = insets.top + Math.max(24, 162 - Math.max(0, 844 - height));
-
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
       <ScreenStatusBar />
       <BackgroundGlow height={c.isDark ? 520 : 460} />
 
-      <View style={{ position: 'absolute', left: 0, right: 0, top: logoTop, alignItems: 'center' }}>
+      {/* Logo, name and promise sit centred in the space above the buttons on every screen height. */}
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
         <View style={{ width: 112, height: 112 }}>
           {c.logoHalo ? <View pointerEvents="none" style={{ position: 'absolute', left: -104, top: -104, width: 320, height: 320, borderRadius: 160, backgroundImage: c.logoHalo }} /> : null}
-          <PulseRing size={200} delay={0} restingOpacity={0.55} />
-          <PulseRing size={290} delay={1200} restingOpacity={0.4} />
-          <PulseRing size={390} delay={2400} restingOpacity={0.28} />
+          <PulseRing size={168} delay={0} restingOpacity={0.55} />
+          <PulseRing size={236} delay={1200} restingOpacity={0.4} />
+          <PulseRing size={304} delay={2400} restingOpacity={0.28} />
           <FocusLogo size={112} />
         </View>
-        <Text accessibilityRole="header" style={{ marginTop: 24, color: c.text, fontSize: 42, lineHeight: 48, fontWeight: '800', letterSpacing: -1.68 }}>Focus<Text style={{ color: c.accent, fontWeight: '800' }}>Up</Text></Text>
-        <Text style={{ marginTop: 14, width: 300, color: c.text, fontSize: 22, lineHeight: 30, fontWeight: '700', letterSpacing: -0.44, textAlign: 'center' }}>{t('tagline')}</Text>
-        {/* Icon sits inline with the text so it stays beside the first word when longer translations wrap. */}
-        <Text style={{ marginTop: 34, marginHorizontal: 36, color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500', textAlign: 'center' }}>
-          <View style={{ width: 30, height: 18, justifyContent: 'center', transform: [{ translateY: 4 }] }}><Icon name="shieldCheck" size={20} color={c.mint} strokeWidth={2} /></View>
-          {t('promise')}
-        </Text>
+        <Text accessibilityRole="header" style={{ marginTop: 28, color: c.text, fontSize: 42, lineHeight: 48, fontWeight: '800', letterSpacing: -1.68, textAlign: 'center' }}>Focus<Text style={{ color: c.accent, fontWeight: '800' }}>Up</Text></Text>
+        <Text style={{ marginTop: 12, maxWidth: 320, color: c.text, fontSize: 22, lineHeight: 30, fontWeight: '700', letterSpacing: -0.44, textAlign: 'center' }}>{t('tagline')}</Text>
+        <View style={{ marginTop: 24, maxWidth: 320, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Icon name="shieldCheck" size={20} color={c.mint} strokeWidth={2} />
+          <Text style={{ flexShrink: 1, color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500', textAlign: 'center' }}>{t('promise')}</Text>
+        </View>
       </View>
 
-      <View style={{ position: 'absolute', left: 24, right: 24, bottom: insets.bottom + 20, gap: 18, alignItems: 'stretch' }}>
+      <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 20, gap: 18, alignItems: 'stretch' }}>
         <ActionButton
           title={completed ? t('home') : t('start')}
           arrow

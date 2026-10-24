@@ -30,7 +30,7 @@ export default function OnboardingAccountScreen() {
   const openAuth = (pathname: '/auth/sign-up' | '/auth/sign-in') => router.push({ pathname, params: { from: 'onboarding' } });
 
   return <Screen glow={420} contentStyle={{ gap: 0, flexGrow: 1 }}>
-    <OnboardingHeader step={6} />
+    <OnboardingHeader step={5} />
     <Animated.View entering={enter(0)} style={{ marginTop: 28, alignItems: 'center' }}>
       <View style={{ width: 76, height: 76 }}>
         {c.logoHalo ? <View pointerEvents="none" style={{ position: 'absolute', left: -62, top: -62, width: 200, height: 200, borderRadius: 100, backgroundImage: c.logoHalo }} /> : null}

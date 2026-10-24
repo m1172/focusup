@@ -116,8 +116,8 @@ function DayRing({ slices, free, delay }: { slices: Slice[]; free: number; delay
       <Circle cx={DAY_RING / 2} cy={DAY_RING / 2} r={DAY_R} stroke={c.card2} strokeWidth={DAY_STROKE} fill="none" />
       {arcs.map((a) => <DayArc key={a.key} start={a.start} length={a.length} color={a.color} sweep={sweep} />)}
     </Svg>
-    <CountUp to={FREE_MINUTES - free} delay={delay + 700} duration={1300} format={(v) => formatDuration(Math.round(FREE_MINUTES - v), locale)} style={{ color: c.text, fontSize: 34, lineHeight: 40, fontWeight: '800', letterSpacing: -1, fontVariant: ['tabular-nums'] }} />
-    <Text style={{ maxWidth: DAY_RING - DAY_STROKE * 2 - 24, color: c.text2, fontSize: 13, lineHeight: 17, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.freeLeft')}</Text>
+    <CountUp to={FREE_MINUTES - free} delay={delay + 700} duration={1300} format={(v) => formatDuration(Math.round(FREE_MINUTES - v), locale)} style={{ maxWidth: DAY_RING - DAY_STROKE * 2 - 20, color: c.text, fontSize: 26, lineHeight: 30, fontWeight: '800', letterSpacing: -0.8, textAlign: 'center', fontVariant: ['tabular-nums'] }} />
+    <Text style={{ marginTop: 4, maxWidth: DAY_RING - DAY_STROKE * 2 - 24, color: c.text2, fontSize: 13, lineHeight: 17, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.freeLeft')}</Text>
   </View>;
 }
 
@@ -188,7 +188,7 @@ function Result() {
   const glowStyle = useAnimatedStyle(() => ({ opacity: 0.55 + glow.value * 0.45, transform: [{ scale: 0.92 + glow.value * 0.12 }] }));
   const enter = (delay: number) => (reducedMotion ? undefined : FadeInDown.delay(delay).duration(550).easing(Easing.out(Easing.cubic)));
   const stats = [
-    { value: formatDuration(Math.round(year.weekHours * 60), locale), label: t('onboarding.statWeek') },
+    { value: formatInteger(year.weekHours, locale), label: t('onboarding.statWeek') },
     { value: formatInteger(year.yearHours, locale), label: t('onboarding.statYear') },
     { value: formatInteger(year.freeDays, locale), label: t('onboarding.statFreeDays', { hours: FREE_HOURS }) },
   ];
@@ -220,7 +220,7 @@ function Result() {
     <View style={{ marginTop: 14, flexDirection: 'row', gap: 10 }}>
       {stats.map((s, i) => <Animated.View key={s.label} entering={enter(2800 + i * 110)} style={{ flex: 1 }}>
         <Card style={{ flex: 1, padding: 14, gap: 4 }}>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color: c.text, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.6 }}>{s.value}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ color: c.text, fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.6 }}>{s.value}</Text>
           <Text numberOfLines={3} style={{ color: c.text2, fontSize: 12, lineHeight: 16, fontWeight: '600' }}>{s.label}</Text>
         </Card>
       </Animated.View>)}
