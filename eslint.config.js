@@ -3,5 +3,5 @@ const { defineConfig } = require('eslint/config');
 
 module.exports = defineConfig([
   expoConfig,
-  { ignores: ['node_modules/**', 'work/**', 'backend/**', 'supabase/**'] },
+  { ignores: ['node_modules/**', 'work/**', 'backend/**', 'supabase/**', 'website/**'] },
 ]);

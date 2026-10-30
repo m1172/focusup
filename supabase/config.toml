@@ -33,11 +33,11 @@ enable_signup = true
 enable_confirmations = true
 
 [auth.email.template.confirmation]
-subject = "Your FocusUp confirmation code"
+subject = "Your Vaqtim confirmation code"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "Your FocusUp password recovery code"
+subject = "Your Vaqtim password recovery code"
 content_path = "./supabase/templates/recovery.html"
 
 # Supabase's built-in mailer only delivers to project-team addresses (~2 emails/hour),
@@ -49,7 +49,7 @@ port = 465
 user = "env(SUPABASE_AUTH_SMTP_USER)"
 pass = "env(SUPABASE_AUTH_SMTP_PASS)"
 admin_email = "env(SUPABASE_AUTH_SMTP_ADMIN_EMAIL)"
-sender_name = "FocusUp"
+sender_name = "Vaqtim"
 
 [auth.rate_limit]
 # Emails per hour across the project; only adjustable once custom SMTP is on.

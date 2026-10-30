@@ -1,0 +1,35 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Vaqtim",
+    "categories": ["PRODUCTIVITY", "SOCIAL_NETWORKING"],
+    "release": {
+      "automaticRelease": false,
+      "phasedRelease": true
+    },
+    "info": {
+      "en-US": {
+        "title": "Vaqtim: Block Reels & Shorts",
+        "subtitle": "Social apps, minus the scroll",
+        "promoText": "Use Instagram and YouTube without Reels and Shorts. Messages, friends and regular videos stay. The endless short-video feed doesn't.",
+        "description": "Vaqtim gives you social media without the endless scroll.\n\nOpen Instagram and YouTube inside Vaqtim and the short-video feeds are gone. Reels and Shorts disappear, while everything you actually came for stays: messages, friends, profiles, posts and regular videos.\n\nWHAT DISAPPEARS\n• Instagram Reels\n• YouTube Shorts\n• Endless short-video feeds\n\nWHAT STAYS\n• Messages and friends\n• Profiles and posts\n• Regular YouTube videos\n• Your subscriptions\n\nBLOCK THE ORIGINAL APP, IF YOU WANT\nWhen you turn on the Reels or Shorts filter, Vaqtim can block the original app with Apple's Screen Time. Opening it then takes you to the clean version in Vaqtim instead. You can turn this off at any time.\n\nSEE YOUR TIME\nVaqtim shows how much time short videos were taking from your day, and how much you get back.\n\nPRIVATE BY DESIGN\n• You sign in on Instagram's and Google's own pages. Your social media passwords never reach our servers.\n• Blocked apps and Screen Time choices stay on your iPhone.\n• Delete your account and its data in the app at any time.\n\nVaqtim is free and available in English, Russian and Uzbek.\n\nInstagram is a trademark of Meta Platforms, Inc. and YouTube is a trademark of Google LLC. Vaqtim is not affiliated with, endorsed or sponsored by them.\n\nTerms of Use: https://vaqtim.com/terms/\nPrivacy Policy: https://vaqtim.com/privacy/",
+        "keywords": ["reels", "shorts", "screen time", "focus", "detox", "doomscroll", "scroll", "blocker", "feed", "limit", "wellbeing", "habit"],
+        "releaseNotes": "First release of Vaqtim: Instagram and YouTube without Reels and Shorts.",
+        "marketingUrl": "https://vaqtim.com/en/",
+        "supportUrl": "https://vaqtim.com/en/support/",
+        "privacyPolicyUrl": "https://vaqtim.com/en/privacy/"
+      },
+      "ru": {
+        "title": "Vaqtim: без Reels и Shorts",
+        "subtitle": "Соцсети без бесконечной ленты",
+        "promoText": "Instagram и YouTube без Reels и Shorts. Сообщения, друзья и обычные видео остаются, а бесконечной ленты коротких видео больше нет.",
+        "description": "Vaqtim — соцсети без бесконечной ленты.\n\nОткройте Instagram и YouTube внутри Vaqtim, и ленты коротких видео исчезнут. Reels и Shorts пропадают, а всё, ради чего вы заходите, остаётся: сообщения, друзья, профили, посты и обычные видео.\n\nЧТО ИСЧЕЗАЕТ\n• Instagram Reels\n• YouTube Shorts\n• Бесконечные ленты коротких видео\n\nЧТО ОСТАЁТСЯ\n• Сообщения и друзья\n• Профили и посты\n• Обычные видео на YouTube\n• Ваши подписки\n\nБЛОКИРОВКА ОРИГИНАЛЬНОГО ПРИЛОЖЕНИЯ — ПО ЖЕЛАНИЮ\nКогда вы включаете фильтр Reels или Shorts, Vaqtim может заблокировать оригинальное приложение через «Экранное время» Apple. При его открытии вы попадёте в чистую версию в Vaqtim. Это можно выключить в любой момент.\n\nВАШЕ ВРЕМЯ\nVaqtim показывает, сколько времени короткие видео отнимали у вас в день и сколько вы возвращаете.\n\nКОНФИДЕНЦИАЛЬНОСТЬ\n• Вы входите на страницах самого Instagram и Google. Пароли от соцсетей не попадают на наши серверы.\n• Заблокированные приложения и настройки «Экранного времени» хранятся только на вашем iPhone.\n• Аккаунт и его данные можно удалить в приложении в любой момент.\n\nVaqtim бесплатный, на русском, английском и узбекском языках.\n\nInstagram — товарный знак Meta Platforms, Inc., YouTube — товарный знак Google LLC. Vaqtim не связан с ними и не одобрен ими.\n\nУсловия использования: https://vaqtim.com/ru/terms/\nПолитика конфиденциальности: https://vaqtim.com/ru/privacy/",
+        "keywords": ["рилс", "шортс", "экранное время", "фокус", "детокс", "лента", "блокировка", "скролл", "привычки", "лимит", "зависимость"],
+        "releaseNotes": "Первая версия Vaqtim: Instagram и YouTube без Reels и Shorts.",
+        "marketingUrl": "https://vaqtim.com/ru/",
+        "supportUrl": "https://vaqtim.com/ru/support/",
+        "privacyPolicyUrl": "https://vaqtim.com/ru/privacy/"
+      }
+    }
+  }
+}

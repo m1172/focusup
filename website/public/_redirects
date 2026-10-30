@@ -1,0 +1,9 @@
+# Cloudflare Pages: short links used in the app and the store listings.
+/privacy         /uz/privacy/         301
+/privacy/        /uz/privacy/         301
+/terms           /uz/terms/           301
+/terms/          /uz/terms/           301
+/support         /uz/support/         301
+/support/        /uz/support/         301
+/delete-account  /uz/delete-account/  301
+/delete-account/ /uz/delete-account/  301

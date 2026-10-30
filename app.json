@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FocusUp",
+    "name": "Vaqtim",
     "slug": "focusup",
     "version": "1.0.0",
     "orientation": "default",
@@ -13,7 +13,7 @@
       "uz": "./locales/uz.json"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.m1172.focusup",
       "buildNumber": "1",
       "appleTeamId": "GH6PP8FUU8",
@@ -22,7 +22,7 @@
         "UIViewControllerBasedStatusBarAppearance": true,
         "NSCameraUsageDescription": "Allow the social website to use your camera when you choose to capture or upload media.",
         "NSMicrophoneUsageDescription": "Allow the social website to record audio when you choose a video or voice feature.",
-        "NSPhotoLibraryUsageDescription": "Choose photos or videos to upload directly to the social website. FocusUp does not upload them to its own server."
+        "NSPhotoLibraryUsageDescription": "Choose photos or videos to upload directly to the social website. Vaqtim does not upload them to its own server."
       },
       "usesAppleSignIn": true,
       "config": {
@@ -31,9 +31,9 @@
     },
     "android": {
       "package": "com.m1172.focusup",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#5B4FE9",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

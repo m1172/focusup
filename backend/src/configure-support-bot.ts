@@ -36,7 +36,7 @@ try {
     if (!secret || !/^[A-Za-z0-9_-]{24,256}$/.test(secret)) throw new Error('Set TELEGRAM_WEBHOOK_SECRET to 24+ random letters, digits, _ or -.');
     const url = new URL('/functions/v1/focusup-api/v1/support/telegram', supabaseUrl).toString();
     await telegram('setWebhook', { url, secret_token: secret, allowed_updates: ['message'], drop_pending_updates: true });
-    await telegram('sendMessage', { chat_id: chatId, text: '✅ FocusUp support chat is connected. Messages from the app will appear here — reply to one to answer.' });
+    await telegram('sendMessage', { chat_id: chatId, text: '✅ Vaqtim support chat is connected. Messages from the app will appear here — reply to one to answer.' });
     console.log(`Webhook set to ${url}. A test message was sent to the support chat.`);
   }
 } catch (error) {

@@ -1,4 +1,4 @@
 <resources>
-  <string name="focusup_protection_label">FocusUp himoyasi</string>
-  <string name="focusup_accessibility_description">Ruxsatingiz bilan FocusUp tanlangan ilovalar uchun himoya ekranini ko‘rsatish maqsadida faqat ochiq ilovaning paket nomini tekshiradi. Xabarlar, parollar, kiritilgan matn yoki ekran mazmunini o‘qimaydi. Xizmatni Android maxsus imkoniyatlar sozlamalarida istalgan payt o‘chirishingiz mumkin.</string>
+  <string name="focusup_protection_label">Vaqtim himoyasi</string>
+  <string name="focusup_accessibility_description">Ruxsatingiz bilan Vaqtim tanlangan ilovalar uchun himoya ekranini ko‘rsatish maqsadida faqat ochiq ilovaning paket nomini tekshiradi. Xabarlar, parollar, kiritilgan matn yoki ekran mazmunini o‘qimaydi. Xizmatni Android maxsus imkoniyatlar sozlamalarida istalgan payt o‘chirishingiz mumkin.</string>
 </resources>

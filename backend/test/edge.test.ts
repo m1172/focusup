@@ -171,7 +171,7 @@ test('telegram webhook turns team replies into answers and ignores forged or unr
 
 test('support post text is plain and tagged, and the relay hides Telegram failures', async () => {
   const text = supportPostText({ userId: user.id, email: null, displayName: '', body: '<b>hi</b>' });
-  assert.match(text, /^💬 FocusUp user\n#u11111111\n\n<b>hi<\/b>/);
+  assert.match(text, /^💬 Vaqtim user\n#u11111111\n\n<b>hi<\/b>/);
   const calls: string[] = [];
   const relay = createSupportRelay(supportConfig, async (input, init) => {
     calls.push(String(input)); assert.equal(JSON.parse(String(init?.body)).parse_mode, undefined);
@@ -217,7 +217,7 @@ test('a saved team reply notifies the user\'s devices, forgets unregistered toke
   assert.equal((await handler(webhook(reply(long, 950)))).status, 200);
   assert.equal(pushes.length, 1);
   assert.deepEqual(pushes[0]![0], ['ExponentPushToken[one]', 'ExponentPushToken[two]']);
-  assert.equal(pushes[0]![1].title, 'FocusUp');
+  assert.equal(pushes[0]![1].title, 'Vaqtim');
   assert.deepEqual(pushes[0]![1].data, { kind: 'support-reply', url: '/support' });
   assert.equal(Array.from(pushes[0]![1].body).length, 100);
   assert.match(pushes[0]![1].body, /^Thanks for writing! We found the problem: x+…$/);

@@ -1,4 +1,4 @@
 <resources>
-  <string name="focusup_protection_label">FocusUp protection</string>
-  <string name="focusup_accessibility_description">With your permission, FocusUp checks only the foreground app package to show a protection screen for apps you select. It does not read messages, passwords, typed text, or screen contents. Disable this service at any time in Android Accessibility settings.</string>
+  <string name="focusup_protection_label">Vaqtim protection</string>
+  <string name="focusup_accessibility_description">With your permission, Vaqtim checks only the foreground app package to show a protection screen for apps you select. It does not read messages, passwords, typed text, or screen contents. Disable this service at any time in Android Accessibility settings.</string>
 </resources>

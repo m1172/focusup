@@ -2,7 +2,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: config.name ?? 'FocusUp',
+  name: config.name ?? 'Vaqtim',
   slug: config.slug ?? 'focusup',
   plugins: [
     ...(config.plugins ?? []),

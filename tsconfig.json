@@ -12,6 +12,7 @@
     "node_modules",
     "backend",
     "supabase",
-    "work"
+    "work",
+    "website"
   ]
 }

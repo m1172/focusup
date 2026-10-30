@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaqtim</title>
+<link rel="canonical" href="https://vaqtim.com/uz/">
+<link rel="icon" href="/favicon.png">
+<script>
+  // Open the visitor's language: Russian or English if the browser prefers it, otherwise Uzbek.
+  (function () {
+    var langs = (navigator.languages || [navigator.language || '']).map(function (l) { return String(l).slice(0, 2).toLowerCase(); });
+    var pick = 'uz';
+    for (var i = 0; i < langs.length; i++) { if (langs[i] === 'uz' || langs[i] === 'ru' || langs[i] === 'en') { pick = langs[i]; break; } }
+    location.replace('/' + pick + '/' + location.hash);
+  })();
+</script>
+<noscript><meta http-equiv="refresh" content="0; url=/uz/"></noscript>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#F7F7FC;color:#55536B}a{color:#5B4FE9;margin:0 8px;font-weight:700}</style>
+</head>
+<body><p><a href="/uz/">O‘zbekcha</a><a href="/ru/">Русский</a><a href="/en/">English</a></p></body>
+</html>

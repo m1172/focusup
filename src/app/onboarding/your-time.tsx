@@ -59,8 +59,8 @@ function EstimateStep() {
     <View style={{ marginTop: 16 }}><StepTitle title={t('onboarding.estimateTitle')} body={t('onboarding.estimateBody')} /></View>
     <View style={{ marginTop: 22 }}><AnswerChips options={options} onSelect={setMinutes} delay={180} /></View>
     <Animated.View entering={reducedMotion ? undefined : FadeIn.delay(450).duration(600).easing(Easing.out(Easing.cubic))} style={{ marginTop: 26, alignItems: 'center' }}>
-      <PoppingValue value={minutes}>
-        <Text style={{ color: c.text, fontSize: 56, lineHeight: 64, fontWeight: '800', letterSpacing: -2.5, fontVariant: ['tabular-nums'] }}>{label}</Text>
+      <PoppingValue value={minutes} stretch>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ alignSelf: 'stretch', color: c.text, fontSize: 56, lineHeight: 64, fontWeight: '800', letterSpacing: -2.5, textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>
       </PoppingValue>
       <View style={{ marginTop: 10, minHeight: 34, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 17, backgroundColor: c.redSoft }}>
         <Text style={{ color: c.red, fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center' }}>{t('onboarding.dailyLive', { percent: freeShare, hours: FREE_HOURS })}</Text>
@@ -162,7 +162,7 @@ function MeasuredResult({ usage }: { usage: MeasuredUsage }) {
   return <View>
     <View style={{ marginTop: 24 }}><StepTitle title={t('onboarding.measuredTitle')} body={t('onboarding.measuredBody', { days })} /></View>
     <Animated.View entering={reducedMotion ? undefined : ZoomIn.delay(120).duration(500).easing(Easing.out(Easing.back(1.4)))} style={{ marginTop: 26, alignItems: 'center' }}>
-      <CountUp to={total} delay={200} duration={1400} format={(v) => formatDuration(Math.round(v), locale)} style={{ color: c.text, fontSize: 60, lineHeight: 68, fontWeight: '800', letterSpacing: -2.5 }} />
+      <CountUp to={total} delay={200} duration={1400} format={(v) => formatDuration(Math.round(v), locale)} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ alignSelf: 'stretch', color: c.text, fontSize: 60, lineHeight: 68, fontWeight: '800', letterSpacing: -2.5, textAlign: 'center' }} />
       <Text style={{ color: c.text2, fontSize: 15, fontWeight: '700' }}>{t('onboarding.measuredTotal')} · {t('onboarding.perDay', { time: formatDuration(total, locale) })}</Text>
     </Animated.View>
     <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(300).duration(550)} style={{ marginTop: 22 }}>

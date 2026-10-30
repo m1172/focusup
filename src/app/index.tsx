@@ -70,7 +70,7 @@ export default function SplashScreen() {
           <PulseRing size={304} delay={2400} restingOpacity={0.28} />
           <FocusLogo size={112} />
         </View>
-        <Text accessibilityRole="header" style={{ marginTop: 28, color: c.text, fontSize: 42, lineHeight: 48, fontWeight: '800', letterSpacing: -1.68, textAlign: 'center' }}>Focus<Text style={{ color: c.accent, fontWeight: '800' }}>Up</Text></Text>
+        <Text accessibilityRole="header" style={{ marginTop: 28, color: c.text, fontSize: 42, lineHeight: 48, fontWeight: '800', letterSpacing: -1.68, textAlign: 'center' }}>Vaqt<Text style={{ color: c.accent, fontWeight: '800' }}>im</Text></Text>
         <Text style={{ marginTop: 12, maxWidth: 320, color: c.text, fontSize: 22, lineHeight: 30, fontWeight: '700', letterSpacing: -0.44, textAlign: 'center' }}>{t('tagline')}</Text>
         <View style={{ marginTop: 24, maxWidth: 320, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <Icon name="shieldCheck" size={20} color={c.mint} strokeWidth={2} />

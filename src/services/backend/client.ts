@@ -45,7 +45,7 @@ export function createBackendClient(options: Options) {
       return decoded as T;
     } catch (error) {
       if (error instanceof BackendError) throw error;
-      throw new BackendError(0, 'NETWORK_ERROR', 'Unable to reach FocusUp. Please try again.');
+      throw new BackendError(0, 'NETWORK_ERROR', 'Unable to reach Vaqtim. Please try again.');
     } finally { clearTimeout(timer); }
   }
 

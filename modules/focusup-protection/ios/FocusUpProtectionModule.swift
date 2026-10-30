@@ -13,7 +13,7 @@ struct ProtectionPicker: View {
   let finish: (FamilyActivitySelection?) -> Void
   let locale: String
   var body: some View {
-    NavigationStack { FamilyActivityPicker(selection: $selection).navigationTitle("FocusUp").toolbar {
+    NavigationStack { FamilyActivityPicker(selection: $selection).navigationTitle("Vaqtim").toolbar {
       ToolbarItem(placement: .cancellationAction) { Button(locale == "uz" ? "Bekor qilish" : locale == "ru" ? "Отмена" : "Cancel") { finish(nil) } }
       ToolbarItem(placement: .confirmationAction) { Button(locale == "uz" ? "Saqlash" : locale == "ru" ? "Сохранить" : "Save") { finish(selection) } }
     } }
@@ -98,6 +98,6 @@ public class FocusUpProtectionModule: Module {
     guard let endsAt = strict?.endsAt ?? temporary?.endsAt, endsAt > Date().timeIntervalSince1970 * 1000 else { return }
     let title: String = strict != nil ? (plan.locale == "uz" ? "Qattiq rejim" : plan.locale == "ru" ? "Строгий режим" : "Strict Mode") : (plan.locale == "uz" ? "Vaqtinchalik kirish" : plan.locale == "ru" ? "Временный доступ" : "Temporary Access")
     let date = Date(timeIntervalSince1970: endsAt / 1000)
-    _ = try? Activity.request(attributes: FocusUpActivityAttributes(brand: "FocusUp"), content: ActivityContent(state: .init(title: title, endsAt: date), staleDate: date), pushType: nil)
+    _ = try? Activity.request(attributes: FocusUpActivityAttributes(brand: "Vaqtim"), content: ActivityContent(state: .init(title: title, endsAt: date), staleDate: date), pushType: nil)
   }
 }

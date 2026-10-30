@@ -136,7 +136,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   const notifyReply = async (userId: string, body: string) => {
     try {
       const tokens = await gateway.listSupportPushTokens(userId);
-      const gone = await push(tokens, { title: 'FocusUp', body: supportReplyPreview(body), data: { kind: 'support-reply', url: '/support' } });
+      const gone = await push(tokens, { title: 'Vaqtim', body: supportReplyPreview(body), data: { kind: 'support-reply', url: '/support' } });
       await gateway.forgetSupportPushTokens(gone);
     } catch { /* Ignored. */ }
   };

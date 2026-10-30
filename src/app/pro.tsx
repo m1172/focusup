@@ -136,7 +136,7 @@ export default function ProScreen() {
       <View style={{ marginTop: 10 }}><FocusLogo size={56} /></View>
       <View style={{ position: 'absolute', right: 0, top: 2 }}><CircleButton label={t('ui.close')} icon="close" iconSize={20} onPress={close} /></View>
     </View>
-    <Text accessibilityRole="header" style={{ marginTop: 20, color: c.text, fontSize: 36, lineHeight: 42, fontWeight: '800', letterSpacing: -1.26 }}>FocusUp <Text style={{ color: c.accent, fontWeight: '800' }}>Pro</Text></Text>
+    <Text accessibilityRole="header" style={{ marginTop: 20, color: c.text, fontSize: 36, lineHeight: 42, fontWeight: '800', letterSpacing: -1.26 }}>Vaqtim <Text style={{ color: c.accent, fontWeight: '800' }}>Pro</Text></Text>
     <Text style={{ marginTop: 6, color: c.text2, fontSize: 16, lineHeight: 24, fontWeight: '500' }}>{t('ui.proSubtitle')}</Text>
 
     <View style={{ marginTop: 20, flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 14 }}>

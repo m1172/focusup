@@ -30,7 +30,7 @@ function withFocusUpProtection(config) {
       else fs.writeFileSync(path.join(directory, 'PrivacyInfo.xcprivacy'), plist.default.build({ NSPrivacyTracking: false, NSPrivacyCollectedDataTypes: [], NSPrivacyAccessedAPITypes: [] }));
       const extension = { NSExtensionPointIdentifier: ext.point };
       if (ext.name !== 'FocusUpLiveActivity') extension.NSExtensionPrincipalClass = `$(PRODUCT_MODULE_NAME).${ext.name}`;
-      fs.writeFileSync(path.join(directory, 'Info.plist'), plist.default.build({ CFBundleDisplayName: 'FocusUp', CFBundleExecutable: '$(EXECUTABLE_NAME)', CFBundleIdentifier: '$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleName: '$(PRODUCT_NAME)', CFBundlePackageType: 'XPC!', CFBundleShortVersionString: config.version ?? '1.0.0', CFBundleVersion: '$(CURRENT_PROJECT_VERSION)', FocusUpAppGroup: group, NSExtension: extension, ...(ext.name === 'FocusUpLiveActivity' ? { NSSupportsLiveActivities: true } : {}) }));
+      fs.writeFileSync(path.join(directory, 'Info.plist'), plist.default.build({ CFBundleDisplayName: 'Vaqtim', CFBundleExecutable: '$(EXECUTABLE_NAME)', CFBundleIdentifier: '$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleName: '$(PRODUCT_NAME)', CFBundlePackageType: 'XPC!', CFBundleShortVersionString: config.version ?? '1.0.0', CFBundleVersion: '$(CURRENT_PROJECT_VERSION)', FocusUpAppGroup: group, NSExtension: extension, ...(ext.name === 'FocusUpLiveActivity' ? { NSSupportsLiveActivities: true } : {}) }));
       fs.writeFileSync(path.join(directory, `${ext.name}.entitlements`), plist.default.build({ 'com.apple.security.application-groups': [group], ...(ext.name === 'FocusUpLiveActivity' ? {} : { 'com.apple.developer.family-controls': true }) }));
     }
     return mod;

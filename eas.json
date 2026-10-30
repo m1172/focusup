@@ -30,7 +30,10 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
-        "EXPO_PUBLIC_API_URL": "https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api"
+        "EXPO_PUBLIC_API_URL": "https://vrmfrhvzvjrktiosptdp.supabase.co/functions/v1/focusup-api",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://vaqtim.com/privacy/",
+        "EXPO_PUBLIC_TERMS_URL": "https://vaqtim.com/terms/",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@vaqtim.com"
       },
       "autoIncrement": true
     }

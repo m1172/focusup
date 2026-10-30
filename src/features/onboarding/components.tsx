@@ -42,7 +42,7 @@ export function StepTitle({ title, body, delay = 0 }: { title: string; body?: st
 }
 
 /** Smoothly counts from the last shown value to `to` (ease-out quart). Re-runs when `to` changes. */
-export function CountUp({ to, duration = 1600, delay = 0, format, style, onDone }: { to: number; duration?: number; delay?: number; format: (value: number) => string; style?: StyleProp<TextStyle>; onDone?: () => void }) {
+export function CountUp({ to, duration = 1600, delay = 0, format, style, onDone, numberOfLines, adjustsFontSizeToFit, minimumFontScale }: { to: number; duration?: number; delay?: number; format: (value: number) => string; style?: StyleProp<TextStyle>; onDone?: () => void; numberOfLines?: number; adjustsFontSizeToFit?: boolean; minimumFontScale?: number }) {
   const reducedMotion = useReducedMotion();
   const [value, setValue] = useState(0);
   const shown = useRef(0);
@@ -65,11 +65,11 @@ export function CountUp({ to, duration = 1600, delay = 0, format, style, onDone 
     const timer = setTimeout(() => { frame = requestAnimationFrame(tick); }, delay);
     return () => { clearTimeout(timer); cancelAnimationFrame(frame); };
   }, [delay, duration, reducedMotion, to]);
-  return <Text style={[{ fontVariant: ['tabular-nums'] }, style]}>{format(reducedMotion ? to : value)}</Text>;
+  return <Text numberOfLines={numberOfLines} adjustsFontSizeToFit={adjustsFontSizeToFit} minimumFontScale={minimumFontScale} style={[{ fontVariant: ['tabular-nums'] }, style]}>{format(reducedMotion ? to : value)}</Text>;
 }
 
 /** Large value that gives a small spring "pop" each time it changes. */
-export function PoppingValue({ children, value, align = 'center' }: { children: ReactNode; value: number; align?: 'center' | 'flex-start' }) {
+export function PoppingValue({ children, value, align = 'center', stretch = false }: { children: ReactNode; value: number; align?: 'center' | 'flex-start'; stretch?: boolean }) {
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const first = useRef(true);
@@ -78,7 +78,7 @@ export function PoppingValue({ children, value, align = 'center' }: { children: 
     if (!reducedMotion) scale.value = withSequence(withTiming(1.06, { duration: 70 }), withSpring(1, { damping: 12, stiffness: 260 }));
   }, [reducedMotion, scale, value]);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return <Animated.View style={[{ alignItems: align, transformOrigin: align === 'center' ? 'center' : 'left' }, style]}>{children}</Animated.View>;
+  return <Animated.View style={[{ alignItems: align, alignSelf: stretch ? 'stretch' : undefined, transformOrigin: align === 'center' ? 'center' : 'left' }, style]}>{children}</Animated.View>;
 }
 
 const TICK = 14;

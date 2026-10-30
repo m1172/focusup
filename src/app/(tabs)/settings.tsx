@@ -75,7 +75,7 @@ export default function SettingsScreen() {
     {PRO_ENABLED ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/pro', params: { source: 'settings' } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, height: 76, paddingHorizontal: 16, borderRadius: 24, backgroundImage: c.hero, boxShadow: c.heroSh, opacity: pressed ? 0.9 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.heroIconBg, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={24} color="#FFFFFF" /></View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: '#FFFFFF', fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.17 }}>FocusUp Pro</Text>
+        <Text style={{ color: '#FFFFFF', fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.17 }}>Vaqtim Pro</Text>
         <Text style={{ color: c.onHero, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{subscription.isPro ? t('ui.proActive') : t('ui.proBanner')}</Text>
       </View>
       <Icon name="chevron" size={20} color="#FFFFFF" strokeWidth={2.2} />
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
 
     <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
       <FocusLogo size={40} glow={false} />
-      <Text style={{ color: c.text3, fontSize: 13, fontWeight: '700' }}>FocusUp · {t('settingsPages.version', { version })}</Text>
+      <Text style={{ color: c.text3, fontSize: 13, fontWeight: '700' }}>Vaqtim · {t('settingsPages.version', { version })}</Text>
     </View>
   </Screen>;
 }

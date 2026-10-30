@@ -72,7 +72,7 @@ export function createSupportRelay(config: Config, fetcher: typeof fetch = fetch
 
 /** What the team sees for each user message. The short tag lets them tell threads apart at a glance. */
 export function supportPostText(message: { userId: string; email: string | null; displayName: string; body: string; context?: string }): string {
-  const who = [message.displayName.trim(), message.email].filter(Boolean).join(' · ') || 'FocusUp user';
+  const who = [message.displayName.trim(), message.email].filter(Boolean).join(' · ') || 'Vaqtim user';
   const lines = [`💬 ${who}`, `#u${message.userId.replace(/-/g, '').slice(0, 8)}`, '', message.body];
   if (message.context) lines.push('', `— ${message.context}`);
   lines.push('', '↩️ Reply to this message to answer in the app.');

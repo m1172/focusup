@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "website",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4173",
+        "--bind",
+        "127.0.0.1",
+        "-d",
+        "/Users/user/focusup/website/out"
+      ],
+      "port": 4173
+    }
+  ]
+}
