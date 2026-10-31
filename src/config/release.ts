@@ -16,3 +16,10 @@ export const ANDROID_APP_BLOCKING: boolean = false;
  * entitlement and Screen Time extensions are left out of the build. Turn both on together.
  */
 export const IOS_APP_BLOCKING: boolean = false;
+
+/**
+ * "Block the website" uses Screen Time's web filter, which iOS applies to every web view on the phone, including
+ * Vaqtim's own browser. Blocking instagram.com there also showed "Website Not Allowed" inside Vaqtim. While this is
+ * false the switch is hidden and the app sends iOS an empty website list (which also clears an old block).
+ */
+export const WEBSITE_BLOCKING: boolean = false;

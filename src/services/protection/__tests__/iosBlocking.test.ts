@@ -35,3 +35,15 @@ describe('iOS without the Screen Time entitlement', () => {
     expect(native.clearBrowserData).toHaveBeenCalled();
   });
 });
+
+describe('website blocking (Screen Time web filter)', () => {
+  it('is off, so Vaqtim never blocks the sites its own browser opens', () => {
+    const { WEBSITE_BLOCKING } = jest.requireActual('../../../config/release');
+    const { canUseFeature, isFeatureAvailable } = jest.requireActual('../../subscription/subscriptionService');
+    const { buildNativePlan } = jest.requireActual('../engine');
+    expect(WEBSITE_BLOCKING).toBe(false);
+    expect(isFeatureAvailable('blockWebsiteVersion', true)).toBe(false);
+    expect(canUseFeature(true, 'blockWebsiteVersion', true)).toBe(false);
+    expect(buildNativePlan({ baseline: [], websites: { instagram: ['instagram.com'] }, isPro: true } as never).websites).toEqual({});
+  });
+});

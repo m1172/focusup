@@ -43,7 +43,8 @@ beforeEach(() => {
 
 test('the release hides every Pro feature for both free and cached Pro users', () => {
   expect(PRO_ENABLED).toBe(false);
-  for (const feature of Object.keys(FEATURE_ACCESS) as SubscriptionFeature[]) {
+  // Website blocking is switched off on its own (WEBSITE_BLOCKING); see the protection tests.
+  for (const feature of (Object.keys(FEATURE_ACCESS) as SubscriptionFeature[]).filter((name) => name !== 'blockWebsiteVersion')) {
     const free = FEATURE_ACCESS[feature] === 'free';
     expect(isFeatureAvailable(feature)).toBe(free);
     expect(canUseFeature(false, feature)).toBe(free);
