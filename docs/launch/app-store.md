@@ -53,7 +53,7 @@ When paid plans launch, add **Purchases → Purchase History** (App Functionalit
 
 ## 5. App Review information
 
-- **Sign-in required:** Yes. Create a Vaqtim account just for Apple (email + password) and enter it under *Sign-in information*. Don't use your personal account.
+- **Sign-in required:** Yes. Use the same reviewer account as Google Play: `vaqtim.review@gmail.com` (the password is in Play Console → App content → Sign in details; never put it in the repository).
 - **Contact:** your name, email and phone (with country code).
 - **Notes** (paste; this is the version 1.0 text, without Screen Time):
 
@@ -61,7 +61,7 @@ When paid plans launch, add **Purchases → Purchase History** (App Functionalit
 Vaqtim lets people use Instagram, YouTube and TikTok without short-video feeds (Reels, Shorts and the For You feed).
 
 How to review:
-1. Sign in with the demo account above (Continue with email → Sign in).
+1. Sign in with the demo account above: on the first screen choose "Continue with email" → "Sign in", then enter the email and password. The account is already confirmed, so no verification code is needed.
 2. On Home, open YouTube. YouTube works without signing in; the Shorts shelf and the Shorts tab are hidden, while regular videos, search and subscriptions work.
 3. Open Instagram or TikTok from Home. Reels and the For You feed are hidden; messages, profiles and posts stay. These need the reviewer's own Instagram or TikTok account to show content.
 4. The Statistics tab shows how much time short videos were taking and how much the user gets back.

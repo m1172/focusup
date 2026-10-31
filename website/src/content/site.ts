@@ -1,14 +1,17 @@
 // All website text, at /uz/, /ru/ and /en/ (/ picks one from the browser language).
 // Facts here must match the app: keep claims about data in sync with docs/observability.md and the backend.
 
+import { APP_STORE_URL, PLAY_STORE_URL } from './stores';
+
 export const locales = ['uz', 'ru', 'en'] as const;
 export type Locale = (typeof locales)[number];
 export const isLocale = (value: string): value is Locale => (locales as readonly string[]).includes(value);
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vaqtim.com';
 export const SUPPORT_EMAIL = 'support@vaqtim.com';
-// Store links: leave empty until the apps are live; the buttons then say "coming soon".
-export const STORE = { ios: process.env.NEXT_PUBLIC_APP_STORE_URL ?? '', android: process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? '' };
+// Store links (src/content/stores.ts). Set a NEXT_PUBLIC_* variable to an empty string at build time to show
+// "coming soon" instead.
+export const STORE = { ios: process.env.NEXT_PUBLIC_APP_STORE_URL ?? APP_STORE_URL, android: process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? PLAY_STORE_URL };
 export const UPDATED: Record<Locale, string> = { uz: '2026-yil 24-oktabr', ru: '24 октября 2026 г.', en: '24 October 2026' };
 
 export const content = {
