@@ -51,7 +51,7 @@
       "expo-router",
       "expo-font",
       "expo-notifications",
-      "./plugins/withFocusUpProtection",
+      ["./plugins/withFocusUpProtection", { "familyControls": false }],
       "./plugins/withAndroidReleaseSigning",
       ["./plugins/withAndroidAccessibility", { "enabled": false }],
       "expo-secure-store",

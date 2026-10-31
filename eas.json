@@ -45,7 +45,9 @@
         "releaseStatus": "draft",
         "serviceAccountKeyPath": "./keys/google-play-service-account.json"
       },
-      "ios": {}
+      "ios": {
+        "ascAppId": "6829294178"
+      }
     }
   }
 }

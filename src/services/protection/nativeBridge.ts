@@ -1,12 +1,13 @@
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
-import { ANDROID_APP_BLOCKING } from '../../config/release';
+import { ANDROID_APP_BLOCKING, IOS_APP_BLOCKING } from '../../config/release';
 import type { NativeProtectionBridge, NativeProtectionStatus } from './types';
 
 const module = requireOptionalNativeModule<NativeProtectionBridge>('FocusUpProtection');
-// Without the Accessibility service in the build, Android cannot block other apps. Usage access and
-// clearing browser data live in the same module and keep working.
-const blocking = Platform.OS === 'android' && !ANDROID_APP_BLOCKING ? null : module;
+// Without the Accessibility service (Android) or the Screen Time entitlement (iOS) in the build, the app cannot
+// block other apps. Usage access, Live Activities and clearing browser data live in the same module and keep working.
+const appBlocking = Platform.OS === 'android' ? ANDROID_APP_BLOCKING : Platform.OS === 'ios' ? IOS_APP_BLOCKING : true;
+const blocking = appBlocking ? module : null;
 const pendingLaunches = ['instagram', 'youtube', 'tiktok', 'protection', 'instagram:open', 'instagram:link', 'youtube:open', 'youtube:link', 'tiktok:open', 'tiktok:link'] as const;
 export type PendingLaunch = typeof pendingLaunches[number];
 const unavailable: NativeProtectionStatus = { supported: false, authorized: false, selectedCount: 0, active: false };
