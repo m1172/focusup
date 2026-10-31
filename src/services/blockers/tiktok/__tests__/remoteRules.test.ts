@@ -33,3 +33,27 @@ describe('TikTok remote rules', () => {
     dom.window.close();
   });
 });
+
+describe('TikTok bottom bar spacing', () => {
+  it('hides the whole slot of a removed tab and marks the bar so the rest spread out', () => {
+    const bar = '<nav id="bar">'
+      + '<div id="homeSlot"><a data-e2e="home-icon" href="/foryou">Home</a></div>'
+      + '<div id="discoverSlot"><a href="/discover">Discover</a></div>'
+      + '<div id="createSlot"><button data-e2e="open-tiktok-icon">+</button></div>'
+      + '<div id="inboxSlot"><a href="/inbox">Inbox</a></div>'
+      + '<div id="profileSlot"><a href="/profile">Profile</a></div></nav>';
+    const dom = new JSDOM(bar, { url: 'https://www.tiktok.com/inbox', runScripts: 'outside-only', pretendToBeVisual: true });
+    const browser = dom.window as unknown as BrowserWindow;
+    browser.ReactNativeWebView = { postMessage: jest.fn() };
+    browser.eval(generateTikTokBlockingScript({ forYou: true, explore: false }, true));
+    const hidden = (id: string) => browser.document.getElementById(id)!.hasAttribute('data-focusup-tiktok-hidden');
+    expect(hidden('homeSlot')).toBe(true);
+    expect(hidden('createSlot')).toBe(true);
+    expect(hidden('discoverSlot')).toBe(false);
+    expect(hidden('inboxSlot')).toBe(false);
+    expect(browser.document.getElementById('bar')!.hasAttribute('data-focusup-tiktok-nav-row')).toBe(true);
+    expect(browser.document.getElementById('focusup-tiktok-clean-styles')!.textContent).toContain('flex: 1 1 0%');
+    browser.__focusUpTikTok.observer.disconnect();
+    dom.window.close();
+  });
+});
