@@ -1,4 +1,4 @@
-import { activeRoutines, buildNativePlan, createTemporaryAccess, protectionReason, shortVideoBlockedApps, sleepRoutine, validateSleepPlan } from '../engine';
+import { activeRoutines, blockedWebsites, breaksLeft, buildNativePlan, localDayKey, createTemporaryAccess, protectionReason, shortVideoBlockedApps, sleepRoutine, validateSleepPlan } from '../engine';
 import { defaultSleepPlan } from '../../../store/wellbeingStore';
 import type { FocusSchedule } from '../../../types/app';
 
@@ -26,12 +26,14 @@ describe('local protection policy', () => {
     expect(validateSleepPlan({ ...defaultSleepPlan, bedtime: '08:00', wakeTime: '07:59' })).toBe(false);
     expect(validateSleepPlan(defaultSleepPlan)).toBe(true);
   });
-  it('restores baseline protection after temporary access and lets strict sessions take precedence', () => {
+  it('restores baseline protection after temporary access, and lets a break lift Hard Mode only while it lasts', () => {
     const now = monday.getTime(); const temporary = createTemporaryAccess('instagram', 15, 15, now);
     const state = { ...input, baseline: ['instagram'] as ('instagram')[], temporary };
     expect(protectionReason('instagram', state, monday)).toBe('temporary');
     expect(protectionReason('instagram', state, new Date(now + 15 * 60_000))).toBe('routine');
-    expect(protectionReason('instagram', { ...state, strict: { endsAt: now + 30 * 60_000, appIds: ['instagram'], filters: {} } }, monday)).toBe('strict');
+    const hard = { ...state, strict: { endsAt: now + 30 * 60_000, appIds: ['instagram'] as ('instagram')[], filters: {} } };
+    expect(protectionReason('instagram', hard, monday)).toBe('temporary');
+    expect(protectionReason('instagram', hard, new Date(now + 15 * 60_000))).toBe('strict');
   });
   it('does not let an allowed app in one routine bypass a separate baseline rule', () => {
     expect(protectionReason('youtube', { ...input, baseline: ['youtube'] }, monday)).toBe('protected');
@@ -57,10 +59,46 @@ describe('local protection policy', () => {
     expect(protectionReason('instagram', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('protected');
     expect(protectionReason('youtube', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('unprotected');
   });
+
+  it('blocks the original TikTok app for everyone while its For You filter is on', () => {
+    expect(shortVideoBlockedApps({ tiktok: { enabled: true, filters: { forYou: true } } })).toEqual(['tiktok']);
+    expect(shortVideoBlockedApps({ tiktok: { enabled: true, filters: { forYou: false, following: true } } })).toEqual([]);
+    const plan = buildNativePlan({ ...input, baseline: [], filterBlocked: ['tiktok'], isPro: false });
+    expect(plan.baseline).toEqual(['tiktok']);
+  });
   it('enforces platform minimums and rejects malformed temporary durations', () => {
     expect(() => createTemporaryAccess('instagram', 5, 15)).toThrow();
     expect(() => createTemporaryAccess('instagram', Number.NaN, 1)).toThrow();
     expect(() => createTemporaryAccess('instagram', 121, 1)).toThrow();
     expect(createTemporaryAccess('instagram', 5, 1, 1000).endsAt).toBe(301000);
+  });
+
+  it('blocks the original app from its own switch, independent of the feed filter', () => {
+    expect(shortVideoBlockedApps({ instagram: { enabled: true, filters: { reels: true }, blockNativeApp: false } })).toEqual([]);
+    expect(shortVideoBlockedApps({ youtube: { enabled: false, filters: {}, blockNativeApp: true } })).toEqual(['youtube']);
+  });
+
+  it('lists website domains only for apps whose website switch is on', () => {
+    const websites = blockedWebsites({ instagram: { enabled: false, filters: {}, blockWebsite: true }, youtube: { enabled: true, filters: {}, blockWebsite: false } });
+    expect(Object.keys(websites)).toEqual(['instagram']);
+    expect(websites.instagram).toContain('www.instagram.com');
+    // Website blocking is Pro: Free customers' saved switches stay stored but inactive.
+    expect(buildNativePlan({ ...input, baseline: [], websites, isPro: false }).websites).toEqual({});
+    expect(buildNativePlan({ ...input, baseline: [], websites, isPro: true }).websites).toBe(websites);
+  });
+
+  it('keeps device-wide Pro settings off for Free customers', () => {
+    const free = buildNativePlan({ ...input, baseline: [], adultFilter: true, uninstallProtection: true, isPro: false });
+    expect(free.adultFilter).toBe(false); expect(free.uninstallProtection).toBe(false);
+    const pro = buildNativePlan({ ...input, baseline: [], adultFilter: true, uninstallProtection: true, isPro: true });
+    expect(pro.adultFilter).toBe(true); expect(pro.uninstallProtection).toBe(true);
+  });
+
+  it('counts breaks per local day', () => {
+    const today = new Date(2026, 9, 12, 9);
+    expect(breaksLeft({ day: '', count: 0 }, today)).toBe(2);
+    expect(breaksLeft({ day: localDayKey(today), count: 1 }, today)).toBe(1);
+    expect(breaksLeft({ day: localDayKey(today), count: 2 }, today)).toBe(0);
+    expect(breaksLeft({ day: localDayKey(today), count: 2 }, new Date(2026, 9, 13, 0, 1))).toBe(2);
   });
 });

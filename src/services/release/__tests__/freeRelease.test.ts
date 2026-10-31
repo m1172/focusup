@@ -87,7 +87,7 @@ test('native plans ignore saved baseline, sleep, routines, strict and temporary 
 
 test('old premium reminders are cancelled and no new ones are scheduled', async () => {
   await scheduleStrictModeCompletion(Date.now() + 60_000);
-  await scheduleWellbeingNotifications({ schemaVersion: 1, locale: 'en', utcOffsetMinutes: 0, liveActivity: false, baseline: [], strict: null, temporary: null, routines: [] });
+  await scheduleWellbeingNotifications({ schemaVersion: 1, locale: 'en', utcOffsetMinutes: 0, liveActivity: false, baseline: [], websites: {}, adultFilter: false, uninstallProtection: false, dailyLimits: {}, strict: null, temporary: null, routines: [] });
   expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('strict');
   expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('focusup-wellbeing:routine');
   expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('other');
@@ -105,7 +105,7 @@ test('backup restore preserves hidden preferences without activating them or ret
   useAppStore.setState({ strictSession: { endsAt: Date.now() + 60_000, appIds: ['instagram'], filters: {} } });
   await restoreCloudSettings(backup);
   expect(captureSettingsBackup()).toEqual(backup);
-  expect(getEffectiveAppConfig('instagram').filters.explore).toBe(false);
+  expect(getEffectiveAppConfig('instagram').filters.explore).toBeFalsy();
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   jest.restoreAllMocks();
 });

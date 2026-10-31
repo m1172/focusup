@@ -42,10 +42,14 @@ export const instagramDmReelSwipeScript = String.raw`
         }
       });
     };
+    // Measuring videos forces a layout. Feed videos change the page every frame, so the check runs at most every
+    // 250 ms; a swipe still checks immediately on touchstart before it can move to the next Reel.
     root.scheduleDmReelScrollLocks = function() {
       if (root.dmReelLockScheduled) return;
       root.dmReelLockScheduled = true;
-      requestAnimationFrame(function() { root.dmReelLockScheduled = false; root.syncDmReelScrollLocks(); });
+      var run = function() { root.dmReelLockScheduled = false; root.dmReelLockSyncedAt = Date.now(); root.syncDmReelScrollLocks(); };
+      var wait = 250 - (Date.now() - (root.dmReelLockSyncedAt || 0));
+      if (wait <= 0) requestAnimationFrame(run); else setTimeout(function() { requestAnimationFrame(run); }, wait);
     };
     root.isDmReelGestureTarget = function(target) {
       if (!root.isDmReelContext()) return false;

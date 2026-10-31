@@ -11,7 +11,7 @@ import { protectionBridge } from '../../services/protection/nativeBridge';
 import type { SocialAppId } from '../../types/app';
 import { nativeBlockState, setUpNativeAppBlock } from './nativeAppSetup';
 
-/** Blocks the original app while its Reels/Shorts filter is on; opening it lands on FocusUp's handoff page. */
+/** Status of the "Block the real app" switch: permission, Apple's app selection, and whether the block is active. */
 export function NativeAppProtectionCard({ appId, name, feature, filterOn }: { appId: SocialAppId; name: string; feature: string; filterOn: boolean }) {
   const c = useAppTheme();
   const { t } = useTranslation();
@@ -27,7 +27,7 @@ export function NativeAppProtectionCard({ appId, name, feature, filterOn }: { ap
   if (state === 'unsupported') return null;
   const blocked = filterOn && state === 'active';
   const title = t(blocked ? 'browser.nativeBlockedTitle' : 'browser.blockOriginal', { name });
-  const detail = !filterOn ? t('browser.nativeBlockOff', { feature })
+  const detail = !filterOn ? t('browser.nativeBlockOffSwitch')
     : state === 'active' ? t('browser.nativeBlockActive', { name })
       : state === 'needsSelection' ? t('browser.nativeBlockChoose', { name })
         : t('browser.nativeBlockSetup', { name, feature });

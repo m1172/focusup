@@ -44,4 +44,18 @@ describe('hidden kept page', () => {
     await window.document.querySelector('video')!.play();
     expect(played).toBe(2);
   });
+
+  it('stops FocusUp page watchers while hidden', () => {
+    const watchers = ['__focusUpInstagram', '__focusUpYouTube', '__focusUpAppPromo'].map((name) => {
+      const observer = { disconnect: jest.fn() };
+      (window as unknown as Record<string, unknown>)[name] = { observer };
+      return observer;
+    });
+    const viewport = { observer: { disconnect: jest.fn() }, pageObserver: { disconnect: jest.fn() }, themeObserver: { disconnect: jest.fn() } };
+    (window as unknown as Record<string, unknown>).__focusUpViewport = viewport;
+    window.eval(createPageIdleScript(true));
+    watchers.forEach((observer) => expect(observer.disconnect).toHaveBeenCalled());
+    Object.values(viewport).forEach((observer) => expect(observer.disconnect).toHaveBeenCalled());
+  });
 });
+

@@ -10,14 +10,16 @@ import { AppIcon } from '../../components/AppIcon';
 import { appCatalog } from '../../features/apps/catalog';
 import { useAppStore } from '../../store/appStore';
 import { useAppTheme } from '../../theme';
-import type { SocialAppId } from '../../types/app';
+import type { BlockingSwitch, SocialAppId } from '../../types/app';
 import { isPlatformLocked } from '../../services/strict-mode/strictModeController';
 import { useSubscription } from '../../hooks/useSubscription';
 import { canUseFeature, isFeatureAvailable, type SubscriptionFeature } from '../../services/subscription/subscriptionService';
 import type { PaywallSource } from '../../services/subscription/types';
 import { NativeAppProtectionCard } from '../../features/protection/NativeAppProtectionCard';
+import { BlockingSwitches } from '../../features/protection/BlockingSwitches';
+import { shortVideoBlockedApps } from '../../services/protection/engine';
 import { enableAfterNativeBlock } from '../../features/protection/nativeAppSetup';
-import { CelebrationBurst, HoldToEnable, ProtectionBadge, TurnOffSheet } from '../../features/protection/FrictionControls';
+import { CelebrationBurst, HoldToEnable, TurnOffSheet } from '../../features/protection/FrictionControls';
 import { useOnboardingStore } from '../../store/onboardingStore';
 import { appDailySavings, SHORT_VIDEO_FILTER, usualMinutes, yearlyValue, type SavingsAppId } from '../../features/savings/savings';
 import { formatInteger, unitFor } from '../../features/onboarding/dayBudget';
@@ -48,12 +50,14 @@ export default function AppSettingsScreen() {
   const saved = useAppStore((state) => state.apps[appId]);
   const setAppEnabled = useAppStore((state) => state.setAppEnabled);
   const setFilter = useAppStore((state) => state.setFilter);
+  const setBlocking = useAppStore((state) => state.setBlocking);
+  const nativeBlockOn = useAppStore((state) => shortVideoBlockedApps({ [appId]: state.apps[appId] }).includes(appId));
   const strict = useAppStore((state) => state.strictSession);
   const locked = isPlatformLocked(appId, strict);
   // Changes apply at once: turning on is a 2-second hold, turning off goes through TurnOffSheet.
   const enabled = saved?.enabled ?? false;
   const filters = saved?.filters ?? {};
-  const [turnOff, setTurnOff] = useState<{ filter: string | null } | null>(null);
+  const [turnOff, setTurnOff] = useState<{ filter: string | null; blocking?: BlockingSwitch } | null>(null);
   const [banner, setBanner] = useState<{ title: string; message: string } | null>(null);
   // One counter per control ('master' or a filter key); bumping it plays the celebration burst there.
   const [bursts, setBursts] = useState<Record<string, number>>({});
@@ -65,14 +69,14 @@ export default function AppSettingsScreen() {
   const usualSource = useOnboardingStore((state) => state.source);
   const shortFormMinutes = useOnboardingStore((state) => state.shortFormMinutes);
   const measured = useOnboardingStore((state) => state.measured);
-  const savingsApp = appId === 'instagram' || appId === 'youtube' ? appId as SavingsAppId : null;
+  const savingsApp = appId === 'instagram' || appId === 'youtube' || appId === 'tiktok' ? appId as SavingsAppId : null;
   const usual = usualMinutes(usualSource, shortFormMinutes, measured?.minutes ?? null);
   const perDay = savingsApp ? appDailySavings(savingsApp, { enabled: visibleEnabled, filters }, usual) : 0;
   const year = yearlyValue(perDay);
   const freeDaysText = formatInteger(year.freeDays, locale);
   const booksText = formatInteger(year.books, locale);
   const shortVideo = savingsApp ? SHORT_VIDEO_FILTER[savingsApp] : null;
-  const shortVideoName = appId === 'instagram' ? 'Reels' : 'Shorts';
+  const shortVideoName = appId === 'instagram' ? 'Reels' : appId === 'tiktok' ? 'For You' : 'Shorts';
   // What the user told us (or Android measured) for Reels, Shorts and TikTok together.
   const usualTotal = usualSource === 'measured' && measured ? Object.values(measured.minutes).reduce((sum, value) => sum + (value ?? 0), 0) : shortFormMinutes;
 
@@ -89,6 +93,8 @@ export default function AppSettingsScreen() {
     shorts: 'shorts',
     homeRecommendations: 'homeRecommendations',
     comments: 'comments',
+    forYou: 'ui.forYou',
+    following: 'ui.following',
   };
   const filterFeatures: Partial<Record<string, { feature: SubscriptionFeature; source: PaywallSource }>> =
     appId === 'instagram'
@@ -99,6 +105,12 @@ export default function AppSettingsScreen() {
           explore: { feature: 'instagramExplore', source: 'instagram_explore' },
           recommendations: { feature: 'instagramRecommendations', source: 'instagram_recommendations' },
           suggestedPosts: { feature: 'instagramSuggestedPosts', source: 'instagram_suggested_posts' },
+        }
+      : appId === 'tiktok'
+      ? {
+          forYou: { feature: 'tiktokForYou', source: 'tiktok_feeds' },
+          following: { feature: 'tiktokFollowing', source: 'tiktok_feeds' },
+          explore: { feature: 'tiktokExplore', source: 'tiktok_feeds' },
         }
       : {
           shorts: { feature: 'youtubeShorts', source: 'youtube_related_recommendations' },
@@ -116,7 +128,7 @@ export default function AppSettingsScreen() {
   // Reels/Shorts blocking starts only after the original app is blocked; other filters turn on directly.
   const blockFirst = (enable: () => void) => {
     if (!savingsApp) { enable(); return; }
-    void enableAfterNativeBlock(appId, app.name, shortVideoName, enable).catch(() => Alert.alert(t('wellbeing.nativeTitle'), t('wellbeing.failed')));
+    void enableAfterNativeBlock(appId, app.name, shortVideoName, (blocked) => { enable(); setBlocking(appId, 'blockNativeApp', blocked); }).catch(() => Alert.alert(t('wellbeing.nativeTitle'), t('wellbeing.failed')));
   };
   const enableMaster = () => {
     if (locked) { explainLock(); return; }
@@ -131,11 +143,12 @@ export default function AppSettingsScreen() {
   const keepOn = (engaged: boolean) => { setTurnOff(null); if (engaged) flash(t('friction.keptTitle'), t('friction.keptBody')); };
   const finishTurnOff = () => {
     if (!turnOff) return;
-    if (turnOff.filter) setFilter(appId, turnOff.filter, false); else setAppEnabled(appId, false);
+    if (turnOff.blocking) setBlocking(appId, turnOff.blocking, false);
+    else if (turnOff.filter) setFilter(appId, turnOff.filter, false); else setAppEnabled(appId, false);
     setTurnOff(null);
   };
   // What turning something off costs: real minutes only for the short-video filter (or clean mode as a whole).
-  const turnOffMinutes = (filter: string | null) => filter === null ? perDay : savingsApp && filter === shortVideo && enabled ? usual[savingsApp] : 0;
+  const turnOffMinutes = (filter: string | null, blocking?: BlockingSwitch) => blocking ? 0 : filter === null ? perDay : savingsApp && filter === shortVideo && enabled ? usual[savingsApp] : 0;
 
   if (!app?.supported) {
     return (
@@ -149,9 +162,11 @@ export default function AppSettingsScreen() {
 
   const visibleFilters = (appId === 'instagram'
     ? ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed']
+    : appId === 'tiktok' ? ['forYou', 'following', 'explore']
     : ['shorts', 'recommendations', 'homeRecommendations', 'sponsoredContent', 'comments']).filter((filter) => (PRO_ENABLED || filter !== 'sponsoredContent') && (!filterFeatures[filter] || isFeatureAvailable(filterFeatures[filter]!.feature)));
   // Free version: the short-video filter is the only one, so clean mode and that filter are a single control.
   const singleFilter = visibleFilters.length === 1 && visibleFilters[0] === shortVideo;
+  const connectedOn = visibleEnabled && (!singleFilter || !shortVideo || locked || Boolean(filters[shortVideo]));
   const enableShortVideo = () => {
     if (locked) { explainLock(); return; }
     blockFirst(() => {
@@ -160,6 +175,11 @@ export default function AppSettingsScreen() {
       celebrate('master');
     });
   };
+  // Free users cannot turn the short-video block off: it is always on, even for apps not added to Vaqtim.
+  const feedFixed = Boolean(shortVideo) && !canUseFeature(isPro, 'shortVideoControl');
+  const feedAccess = shortVideo ? { feature: 'shortVideoControl' as const, source: filterFeatures[shortVideo]?.source ?? 'instagram_clean_browsing' } : undefined;
+  const showFeedPro = () => { if (feedAccess) setLockedFeature({ title: t('ui.blockFeed', { feature: shortVideoName }), source: feedAccess.source }); };
+  const sectionLabel = { color: c.text3, fontSize: 13, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', paddingHorizontal: 6, marginTop: 4 } as const;
   return (
     <Screen glow={300} glowDarkOnly contentStyle={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
@@ -167,9 +187,7 @@ export default function AppSettingsScreen() {
         <AppIcon appId={appId} size={44} />
         <Text accessibilityRole="header" numberOfLines={1} style={{ flex: 1, color: c.text, fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.7 }}>{app.name}</Text>
       </View>
-      <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500' }}>{t(appId === 'instagram' ? 'ui.instagramQuestion' : 'ui.youtubeQuestion')}</Text>
-      {savingsApp ? <NativeAppProtectionCard appId={appId} name={app.name} feature={shortVideoName} filterOn={visibleEnabled && Boolean(shortVideo && (locked || filters[shortVideo]))} /> : null}
-
+      <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500' }}>{t(appId === 'instagram' ? 'ui.instagramQuestion' : appId === 'tiktok' ? 'ui.tiktokQuestion' : 'ui.youtubeQuestion')}</Text>
       <AlertBanner visible={Boolean(banner)} title={banner?.title ?? ''} message={banner?.message ?? ''} />
       {locked ? <Note tone="amber" icon="lock">{t('strictCannotChange')}</Note> : null}
 
@@ -204,28 +222,42 @@ export default function AppSettingsScreen() {
         </> : <Text style={{ color: c.text, fontSize: 16, lineHeight: 22, fontWeight: '700' }}>{t('savings.receiptNone', { feature: shortVideoName })}</Text>}
       </View> : null}
 
-      {singleFilter && shortVideo ? <ProtectionBadge
-        on={visibleEnabled && (locked || Boolean(filters[shortVideo]))}
-        feature={shortVideoName}
-        burst={bursts.master ?? 0}
-        locked={locked}
-        onLockedPress={explainLock}
-        onEnable={enableShortVideo}
-        onTurnOff={() => setTurnOff({ filter: null })}
-      /> : <>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 64, paddingHorizontal: 18, borderRadius: 24, backgroundColor: c.soft, boxShadow: c.isDark ? '0px 0px 0px 1px rgba(130,119,255,0.22)' : undefined }}>
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}><Icon name="shieldCheck" size={22} color={c.ink} /></View>
-          <Text style={{ flex: 1, color: c.ink, fontSize: 17, fontWeight: '800', letterSpacing: -0.17 }}>{t('cleanMode')}</Text>
-          <View>{visibleEnabled ? <Toggle label={t('cleanMode')} value disabled={locked} onDisabledPress={locked ? explainLock : undefined} onChange={() => setTurnOff({ filter: null })} /> : <HoldToEnable label={t('cleanMode')} onEnabled={enableMaster} />}<CelebrationBurst trigger={bursts.master ?? 0} /></View>
+      {/* Free core: one switch. Turning it on asks to block the real app; turning it off goes behind the typing step. */}
+      <Text accessibilityRole="header" style={sectionLabel}>{t('ui.scrollBlocking')}</Text>
+      <View style={{ padding: 8, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 8, paddingVertical: 8 }}>
+          <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: connectedOn || feedFixed ? c.mintSoft : c.soft, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={appId === 'youtube' ? 'shorts' : 'reels'} size={20} color={connectedOn || feedFixed ? c.mintInk : c.ink} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <Text style={{ color: c.text, fontSize: 16, lineHeight: 20, fontWeight: '700' }}>{t('ui.blockFeed', { feature: shortVideoName })}</Text>
+            <Text style={{ color: c.text2, fontSize: 12, lineHeight: 16, fontWeight: '600' }}>{locked ? t('strictLockedLabel') : feedFixed ? t('ui.blockFeedAlways') : t('ui.blockFeedHint')}</Text>
+          </View>
+          {locked ? <Icon name="lock" size={16} color={c.text3} /> : null}
+          {feedFixed ? <Pressable accessibilityRole="button" disabled={!isFeatureAvailable('shortVideoControl')} onPress={showFeedPro}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: c.mintSoft }}>
+            <Icon name="lock" size={13} color={c.mintInk} strokeWidth={2.4} />
+            <Text style={{ color: c.mintInk, fontSize: 13, fontWeight: '800' }}>{t('ui.alwaysOn')}</Text>
+          </Pressable> : <View>
+            <Toggle label={t('ui.blockFeed', { feature: shortVideoName })} value={connectedOn} disabled={locked} onDisabledPress={explainLock}
+              onChange={(next) => { if (next) { if (singleFilter) enableShortVideo(); else enableMaster(); } else setTurnOff({ filter: null }); }} />
+            <CelebrationBurst trigger={bursts.master ?? 0} />
+          </View>}
         </View>
+      </View>
 
+      {savingsApp ? <BlockingSwitches appId={appId} name={app.name} feature={shortVideoName} locked={locked} onLockedPress={explainLock} onRequestTurnOff={(blocking) => setTurnOff({ filter: null, blocking })} /> : null}
+      {savingsApp ? <NativeAppProtectionCard appId={appId} name={app.name} feature={shortVideoName} filterOn={nativeBlockOn} /> : null}
+
+      {singleFilter ? null : <>
+        <Text accessibilityRole="header" style={sectionLabel}>{t('ui.proSettings')}</Text>
         <View style={{ padding: 8, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
           {visibleFilters.map((filter, index) => {
             const unsupported = filter === 'ads' || filter === 'sponsoredContent';
-            const strictBaseline = appId === 'instagram' ? filter === 'reels' : appId === 'youtube' && filter === 'shorts';
-            const access = filterFeatures[filter];
+            const strictBaseline = appId === 'instagram' ? filter === 'reels' : appId === 'tiktok' ? filter === 'forYou' : appId === 'youtube' && filter === 'shorts';
+            const access = feedFixed && filter === shortVideo ? feedAccess : filterFeatures[filter];
             const proLocked = Boolean(access && !canUseFeature(isPro, access.feature));
-            const visibleFilter = proLocked ? false : locked && (strictBaseline || Boolean(strict?.filters[appId]?.[filter])) ? true : Boolean(filters[filter]);
+            const visibleFilter = feedFixed && filter === shortVideo ? true : proLocked ? false : locked && (strictBaseline || Boolean(strict?.filters[appId]?.[filter])) ? true : Boolean(filters[filter]);
             const showPro = () => {
               if (access) setLockedFeature({ title: t(filterTitles[filter] ?? filter), source: access.source });
             };
@@ -259,9 +291,9 @@ export default function AppSettingsScreen() {
         </View>
       </>}
 
-      <Note icon="circleCheck">{t(appId === 'instagram' ? 'ui.instagramInfo' : 'ui.youtubeInfo')}</Note>
+      <Note icon="circleCheck">{t(appId === 'instagram' ? 'ui.instagramInfo' : appId === 'tiktok' ? 'ui.tiktokInfo' : 'ui.youtubeInfo')}</Note>
 
-      <TurnOffSheet visible={Boolean(turnOff)} name={turnOff?.filter ? t(filterTitles[turnOff.filter] ?? turnOff.filter) : singleFilter ? shortVideoName : t('cleanMode')} minutesPerDay={turnOff ? turnOffMinutes(turnOff.filter) : 0} onKeep={keepOn} onTurnOff={finishTurnOff} />
+      <TurnOffSheet visible={Boolean(turnOff)} name={turnOff?.blocking === 'blockNativeApp' ? t('browser.blockRealApp', { name: app.name }) : turnOff?.blocking === 'blockWebsite' ? t('browser.blockWebsite') : turnOff?.filter ? t(filterTitles[turnOff.filter] ?? turnOff.filter) : singleFilter ? shortVideoName : t('cleanMode')} minutesPerDay={turnOff ? turnOffMinutes(turnOff.filter, turnOff.blocking) : 0} onKeep={keepOn} onTurnOff={finishTurnOff} />
 
       <Sheet visible={PRO_ENABLED && Boolean(lockedFeature)} onClose={() => setLockedFeature(null)} title={lockedFeature?.title ?? t('subscription.proFeature')} message={t(appId === 'instagram' ? 'browser.cleanModeProDetail' : 'subscription.featureUpsell')}>
         <SheetActions

@@ -4,8 +4,10 @@ import { useRootNavigationState } from 'expo-router';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useBrowserHostStore } from '../../store/browserHostStore';
 import type { SocialAppId } from '../../types/app';
+import { isCleanPlatform } from '../../types/social';
 import { BrowserSession } from './BrowserSession';
 import { msSinceLastTap, perfLogsEnabled } from '../../services/performance/tapTiming';
+import { setSessionReplayPaused } from '../../services/analytics/productAnalytics';
 
 /** A page hidden this long is dropped: it would otherwise keep its connections (and "active now" status) open. */
 const KEEP_HIDDEN_MS = 10 * 60_000;
@@ -35,7 +37,7 @@ function visibleBrowser(state: NavigationState | undefined): VisibleBrowser | nu
     const route = stack.routes[index];
     if (route.name === 'browser/[appId]') {
       const params = (route.params ?? {}) as { appId?: string; url?: string };
-      return params.appId === 'instagram' || params.appId === 'youtube' ? { appId: params.appId, url: params.url, key: route.key } : null;
+      return isCleanPlatform(params.appId) ? { appId: params.appId, url: params.url, key: route.key } : null;
     }
     if (!SHEETS_OVER_BROWSER.has(route.name)) return null;
   }
@@ -64,6 +66,9 @@ export function BrowserLayer() {
     // Only a new route (or returning to it) asks for a browser; its params never change in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.appId, target?.key, keep]);
+
+  const browserOnScreen = Boolean(target);
+  useEffect(() => setSessionReplayPaused(browserOnScreen), [browserOnScreen]);
 
   const kept = Object.keys(browsers) as SocialAppId[];
   useEffect(() => {

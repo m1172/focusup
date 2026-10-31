@@ -7,11 +7,12 @@ import { PostHogMaskView } from 'posthog-react-native';
 import { captureProductEvent } from '../../services/analytics/productAnalytics';
 import { useTranslation } from 'react-i18next';
 import type { SocialAppId } from '../../types/app';
-import type { SocialWebViewConfig, SocialWebViewEvent, YouTubeBlockerConfig } from '../../types/social';
+import type { SocialWebViewConfig, SocialWebViewEvent, TikTokBlockerConfig, YouTubeBlockerConfig } from '../../types/social';
 import { isBlockedInstagramNavigation, isInstagramAuthenticationUrl } from '../../services/blockers/instagram';
 import { generateInstagramBlockingScript } from '../../services/blockers/instagram/index';
 import { generateBlockingScript } from '../../services/blockers';
 import { createYouTubeBlockingScript, isBlockedYouTubeNavigation, YOUTUBE_BASE_URL } from '../../services/blockers/youtube';
+import { isBlockedTikTokNavigation, tiktokFeedFeature, TIKTOK_BASE_URL } from '../../services/blockers/tiktok';
 import { parseSocialWebViewEvent } from '../../services/social-browser/messages';
 import { classifySocialBrowserNavigation, isSameDocumentLocation, normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
 import { useAppTheme } from '../../theme';
@@ -19,6 +20,7 @@ import { WebViewErrorState } from './WebViewErrorState';
 import { WebViewLoadingState } from './WebViewLoadingState';
 import { useRemoteBlockerConfigStore } from '../../store/remoteBlockerConfigStore';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
+import { useWellbeingStore } from '../../store/wellbeingStore';
 import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { createBrowserViewportScript } from '../../services/social-browser/viewport';
 import { createAppPromoScript } from '../../services/social-browser/appPromo';
@@ -28,6 +30,7 @@ import { msSinceLastTap, perfLogsEnabled } from '../../services/performance/tapT
 const platformSites: Record<string, { url: string; hosts: string[]; name: string }> = {
   instagram: { url: 'https://www.instagram.com/', hosts: ['instagram.com'], name: 'Instagram' },
   youtube: { url: YOUTUBE_BASE_URL, hosts: ['youtube.com', 'youtu.be'], name: 'YouTube' },
+  tiktok: { url: TIKTOK_BASE_URL, hosts: ['tiktok.com'], name: 'TikTok' },
 };
 
 type CleanSocialWebViewProps = {
@@ -50,6 +53,13 @@ type CleanSocialWebViewProps = {
 const allowedHost = (hostname: string, domains: string[]) => domains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
 /** Posted once per document when the first frame is on screen; carries no page data. */
 const PAGE_READY_MESSAGE = 'focusup:page-ready';
+/** Grayscale (Pro): one style element, added or removed so the page itself is untouched. */
+const grayscaleScript = (on: boolean) => `(function () {
+  var id = 'focusup-grayscale'; var style = document.getElementById(id);
+  if (!${on}) { if (style) style.remove(); return; }
+  if (!style) { style = document.createElement('style'); style.id = id; (document.head || document.documentElement).appendChild(style); }
+  style.textContent = 'html { filter: grayscale(1) !important; }';
+})();`;
 const PAGE_READY_SCRIPT = `(function () {
   if (window.__focusupReadyPosted) return; window.__focusupReadyPosted = true;
   var sent = false;
@@ -86,12 +96,14 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     const url = normalizeSocialBrowserLink(platform, initialUrl ?? '') ?? site?.url;
     const reelsBlocked = platform === 'instagram' && enabled && isBlockedInstagramNavigation(url ?? '', { reels: blockerConfig.reels });
     const shortsBlocked = platform === 'youtube' && enabled && isBlockedYouTubeNavigation(url ?? '', blockerConfig as Partial<YouTubeBlockerConfig>);
-    return { url: reelsBlocked || shortsBlocked ? site?.url : url, reelsBlocked, shortsBlocked };
+    const tiktokBlocked = platform === 'tiktok' && enabled && isBlockedTikTokNavigation(url ?? '', blockerConfig as Partial<TikTokBlockerConfig>) ? tiktokFeedFeature(url ?? '') : null;
+    return { url: reelsBlocked || shortsBlocked || tiktokBlocked ? site?.url : url, reelsBlocked, shortsBlocked, tiktokBlocked };
   });
   const source = useMemo(() => ({ uri: initialRequest.url }), [initialRequest.url]);
   const initialBlockReported = useRef(false);
   const remoteRule = useRemoteBlockerConfigStore((state) => platform === 'instagram' || platform === 'youtube' ? state.config.platforms[platform] : undefined);
   const pro = useSubscriptionStore((state) => state.isPro);
+  const grayscale = useWellbeingStore((state) => state.grayscale) && canUseFeature(pro, 'grayscale');
   const lastInjectedScript = useRef('');
   // Load timing (development or EXPO_PUBLIC_PERF_LOGS builds): when the page first shows content vs. when every resource finished.
   const [openedAt] = useState(() => Date.now());
@@ -103,14 +115,15 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     initialBlockReported.current = true;
     if (initialRequest.reelsBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'instagram', feature: 'reels' });
     if (initialRequest.shortsBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'youtube', feature: 'shorts' });
+    if (initialRequest.tiktokBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: initialRequest.tiktokBlocked });
   }, [initialRequest, onEvent]);
   const blockerScript = useMemo(() => {
     if (platform === 'instagram') return generateInstagramBlockingScript(blockerConfig, enabled, remoteRule, canUseFeature(pro, 'instagramCleanBrowsing'));
     if (platform === 'youtube') return createYouTubeBlockingScript(blockerConfig as Partial<YouTubeBlockerConfig>, enabled, remoteRule);
     return generateBlockingScript(platform, enabled, blockerConfig) ?? '';
   }, [platform, enabled, blockerConfig, remoteRule, pro]);
-  const script = useMemo(() => PAGE_READY_SCRIPT + '\n' + createBrowserViewportScript(fullScreen, insets, platform) + '\n' + createAppPromoScript() + '\n' + blockerScript,
-    [blockerScript, fullScreen, insets, platform]);
+  const script = useMemo(() => PAGE_READY_SCRIPT + '\n' + createBrowserViewportScript(fullScreen, insets, platform) + '\n' + createAppPromoScript() + '\n' + grayscaleScript(grayscale) + '\n' + blockerScript,
+    [blockerScript, fullScreen, insets, platform, grayscale]);
 
   useEffect(() => {
     if (!loading && lastInjectedScript.current !== script && script) {
@@ -120,11 +133,14 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   }, [loading, script]);
 
   const wasHidden = useRef(false);
+  const latestScript = useRef(script);
+  useEffect(() => { latestScript.current = script; }, [script]);
   useEffect(() => {
     // Only a page that was hidden needs waking up; a fresh, visible page has nothing to restore.
     if (active && !wasHidden.current) return;
     wasHidden.current = !active;
-    webRef.current?.injectJavaScript(createPageIdleScript(!active));
+    // Hiding disconnects the page watchers; running the scripts again on show reconnects them and catches up.
+    webRef.current?.injectJavaScript(createPageIdleScript(!active) + (active ? '\n' + latestScript.current : ''));
   }, [active]);
 
   useEffect(() => {
@@ -142,6 +158,11 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
       const remoteBlocked = site && allowedHost(parsed.hostname, site.hosts) && remoteRule?.routes?.some((route) => parsed.pathname === route || parsed.pathname.startsWith(route.endsWith('/') ? route : route + '/'));
       if (platform === 'youtube' && enabled && (isBlockedYouTubeNavigation(url, blockerConfig as Partial<YouTubeBlockerConfig>) || (blockerConfig.shorts && remoteBlocked))) {
         onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'youtube', feature: 'shorts' });
+        return false;
+      }
+      const tiktokFeature = platform === 'tiktok' && enabled && isBlockedTikTokNavigation(url, blockerConfig as Partial<TikTokBlockerConfig>) ? tiktokFeedFeature(url) : null;
+      if (tiktokFeature) {
+        onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: tiktokFeature });
         return false;
       }
       const currentInstagramAuthPage = platform === 'instagram' && isInstagramAuthenticationUrl(currentDocumentUrl.current);
@@ -176,6 +197,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
       const url = currentDocumentUrl.current;
       if (!hasLoadedSuccessfully.current || !site || !enabled || !url) return;
       const blocked = platform === 'youtube' ? isBlockedYouTubeNavigation(url, blockerConfig as Partial<YouTubeBlockerConfig>)
+        : platform === 'tiktok' ? isBlockedTikTokNavigation(url, blockerConfig as Partial<TikTokBlockerConfig>)
         : platform === 'instagram' && !isInstagramAuthenticationUrl(url) && isBlockedInstagramNavigation(url, { reels: blockerConfig.reels });
       if (blocked) webRef.current?.injectJavaScript(`window.location.replace(${JSON.stringify(site.url)}); true;`);
     },

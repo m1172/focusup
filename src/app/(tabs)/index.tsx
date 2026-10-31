@@ -20,12 +20,13 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import { getEffectiveAppConfig } from '../../services/blockers/effective';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { appDailySavings, savedSoFar, usualMinutes, yearlyValue, type SavingsAppId, type UsualMinutes } from '../../features/savings/savings';
+import { appDailySavings, savedSoFar, usualMinutes, yearlyValue, type SavingsAppId } from '../../features/savings/savings';
 import { formatInteger, unitFor } from '../../features/onboarding/dayBudget';
 import { formatDuration } from '../../utils/formatDuration';
+import { BrowserLinkSheet } from '../../features/webview/BrowserLinkSheet';
 
 const apps = AVAILABLE_APPS;
-const featureName: Record<SavingsAppId, string> = { instagram: 'Reels', youtube: 'Shorts' };
+const featureName: Record<SavingsAppId, string> = { instagram: 'Reels', youtube: 'Shorts', tiktok: 'For You' };
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const RING = 96;
 const RING_STROKE = 10;
@@ -74,45 +75,48 @@ function HeroFact({ icon, label, value }: { icon: IconName; label: string; value
   </View>;
 }
 
-/** Launch tile: the whole tile opens the clean app; shows how long it was used today. */
-function AppTile({ appId, usedMs }: { appId: SavingsAppId; usedMs: number }) {
+/** One wide card per app: opens the clean app, shows whether Vaqtim protects it and today's time in it. */
+function AppCard({ appId, usedMs }: { appId: SavingsAppId; usedMs: number }) {
   const { t } = useTranslation();
   const c = useAppTheme();
   const locale = useAppStore((s) => s.selectedLanguage);
   const active = appCatalog[appId].supported && getEffectiveAppConfig(appId).enabled;
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${t('savings.open')} ${appCatalog[appId].name}`} onPress={() => router.push({ pathname: '/browser/[appId]', params: { appId } })} style={({ pressed }) => ({ flex: 1, padding: 16, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-      <AppIcon appId={appId} size={48} />
-      <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, boxShadow: c.sw }}><Icon name="arrowRight" size={17} color="#FFFFFF" strokeWidth={2.4} /></View>
+  const name = appCatalog[appId].name;
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${t('savings.open')} ${name}`} onPress={() => router.push({ pathname: '/browser/[appId]', params: { appId } })}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 76, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+    <AppIcon appId={appId} size={50} />
+    <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+      <Text numberOfLines={1} style={{ color: c.text, fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.3 }}>{name}</Text>
+      <StatusDot on={active} label={active ? t('ui.homeHidden', { feature: featureName[appId] }) : t('ui.homeNotConnected')} />
     </View>
-    <Text numberOfLines={1} style={{ marginTop: 14, color: c.text, fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.3 }}>{appCatalog[appId].name}</Text>
-    <View style={{ marginTop: 3 }}><StatusDot on={active} label={t(active ? 'cleaned' : 'off')} /></View>
-    <View style={{ height: 1, marginVertical: 12, backgroundColor: c.line }} />
-    <Text numberOfLines={1} style={{ color: c.text3, fontSize: 12, lineHeight: 16, fontWeight: '700' }}>{t('savings.todayLabel')}</Text>
-    <Text numberOfLines={1} style={{ color: c.text, fontSize: 18, lineHeight: 24, fontWeight: '800', letterSpacing: -0.3 }}>{formatDuration(Math.round(usedMs / 60_000), locale)}</Text>
+    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+      <Text numberOfLines={1} style={{ color: c.text3, fontSize: 11, lineHeight: 14, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 }}>{t('savings.todayLabel')}</Text>
+      <Text numberOfLines={1} style={{ color: c.text, fontSize: 16, lineHeight: 21, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{formatDuration(Math.round(usedMs / 60_000), locale)}</Text>
+    </View>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('ui.appSettings', { name })} hitSlop={6}
+      onPress={() => router.push({ pathname: '/app-settings/[appId]', params: { appId } })}
+      style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card2, opacity: pressed ? 0.7 : 1 })}>
+      <Icon name="sliders" size={18} color={c.text2} />
+    </Pressable>
   </Pressable>;
 }
 
-/** One row per short-video filter: is it hiding Reels/Shorts, and what that saves. Opens the filter screen. */
-function ProtectionRow({ appId, usual, last }: { appId: SavingsAppId; usual: UsualMinutes; last: boolean }) {
+/** Shown only while some apps are not connected: a nudge to the Protect tab, where connecting happens. */
+function ConnectHint({ missing }: { missing: SavingsAppId[] }) {
   const { t } = useTranslation();
   const c = useAppTheme();
-  const locale = useAppStore((s) => s.selectedLanguage);
-  const perDay = appDailySavings(appId, getEffectiveAppConfig(appId), usual);
-  const on = perDay > 0;
-  const feature = featureName[appId];
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${appCatalog[appId].name} ${feature} — ${t('savings.filters')}`} onPress={() => router.push({ pathname: '/app-settings/[appId]', params: { appId } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line, opacity: pressed ? 0.6 : 1 })}>
-    <View style={{ width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? c.mintSoft : c.amberSoft }}><Icon name={on ? 'shieldCheck' : 'eyeOff'} size={21} color={on ? c.mintInk : c.amber} strokeWidth={2.1} /></View>
+  return <Pressable accessibilityRole="button" onPress={() => router.navigate('/focus')}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 22, backgroundColor: c.soft, opacity: pressed ? 0.8 : 1 })}>
+    <View style={{ flexDirection: 'row' }}>{missing.map((id, index) => <View key={id} style={{ marginLeft: index ? -10 : 0, borderRadius: 12, borderWidth: 2, borderColor: c.soft }}><AppIcon appId={id} size={30} /></View>)}</View>
     <View style={{ flex: 1, minWidth: 0 }}>
-      <Text numberOfLines={1} style={{ color: c.text, fontSize: 16, lineHeight: 21, fontWeight: '800' }}>{appCatalog[appId].name} {feature}</Text>
-      <Text numberOfLines={2} style={{ color: on ? c.mintInk : c.text2, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{on ? t('savings.savesPerDay', { time: formatDuration(Math.round(perDay), locale) }) : t('savings.notSaving', { feature })}</Text>
+      <Text style={{ color: c.ink, fontSize: 15, lineHeight: 20, fontWeight: '800' }}>{t('ui.homeConnectTitle', { count: missing.length })}</Text>
+      <Text style={{ color: c.text2, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{t('ui.homeConnectBody')}</Text>
     </View>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 11, borderRadius: 15, backgroundColor: on ? c.mintSoft : c.accent }}>
-      {on ? <Icon name="check" size={14} color={c.mintInk} strokeWidth={2.6} /> : null}
-      <Text style={{ color: on ? c.mintInk : '#FFFFFF', fontSize: 13, fontWeight: '800' }}>{t(on ? 'savings.hidden' : 'savings.turnOn')}</Text>
-    </View>
+    <Icon name="chevron" size={18} color={c.ink} strokeWidth={2.2} />
   </Pressable>;
 }
+
+const greetingKey = (hour: number) => hour < 5 ? 'ui.greetEvening' : hour < 12 ? 'ui.greetMorning' : hour < 18 ? 'ui.greetAfternoon' : 'ui.greetEvening';
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
@@ -127,6 +131,7 @@ export default function DashboardScreen() {
   const [today, setToday] = useState<TodayStats>({ usedMs: 0, blocked: 0, perApp: {} });
   const [comparison, setComparison] = useState<number | undefined>();
   const [now, setNow] = useState(() => new Date());
+  const [linkOpen, setLinkOpen] = useState(false);
   useFocusEffect(useCallback(() => {
     if (revision < 0) return undefined;
     let active = true;
@@ -137,7 +142,7 @@ export default function DashboardScreen() {
       if (!active) return;
       const day = getDailyStatistics(storage.daily);
       const perApp: TodayStats['perApp'] = {};
-      for (const entry of day.platforms) if (entry.platform === 'instagram' || entry.platform === 'youtube') perApp[entry.platform] = { usedMs: entry.durationMs, blocked: entry.blockedAttempts };
+      for (const entry of day.platforms) if (entry.platform === 'instagram' || entry.platform === 'youtube' || entry.platform === 'tiktok') perApp[entry.platform] = { usedMs: entry.durationMs, blocked: entry.blockedAttempts };
       setToday({ usedMs: apps.reduce((sum, id) => sum + (perApp[id]?.usedMs ?? 0), 0), blocked: apps.reduce((sum, id) => sum + (perApp[id]?.blocked ?? 0), 0), perApp });
       if (PRO_ENABLED) {
         const week = getWeeklyStatistics(storage.daily);
@@ -151,12 +156,13 @@ export default function DashboardScreen() {
   // appSettings is read so the screen re-renders when filters change; effective config also applies routines.
   const potential = useMemo(() => apps.reduce((sum, id) => sum + appDailySavings(id, getEffectiveAppConfig(id, now), usual), 0), [appSettings, now, usual]); // eslint-disable-line react-hooks/exhaustive-deps
   const saved = savedSoFar(potential, today.usedMs, now);
+  const missing = apps.filter((id) => !getEffectiveAppConfig(id, now).enabled);
   const freeDaysText = formatInteger(yearlyValue(potential).freeDays, locale);
   const yearText = potential > 0 ? `${freeDaysText} ${unitFor(locale, freeDaysText, t('onboarding.freeDayWords', { returnObjects: true }) as string[])}` : '—';
   return <Screen glow={360} contentStyle={{ gap: 22 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 }}>
       <View style={{ flex: 1 }}>
-        <Text accessibilityRole="header" style={{ color: c.text, fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.9 }}>{t('hello')}</Text>
+        <Text accessibilityRole="header" style={{ color: c.text, fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.9 }}>{t(greetingKey(now.getHours()))}</Text>
         <Text style={{ color: c.text2, fontSize: 15, lineHeight: 20, fontWeight: '600' }}>{t('inControl')}</Text>
       </View>
       {PRO_ENABLED ? <View>
@@ -183,16 +189,21 @@ export default function DashboardScreen() {
 
     <View style={{ gap: 12 }}>
       <SectionTitle title={t('apps')} />
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        {apps.map((appId) => <AppTile key={appId} appId={appId} usedMs={today.perApp[appId]?.usedMs ?? 0} />)}
+      <View style={{ gap: 10 }}>
+        {apps.map((appId) => <AppCard key={appId} appId={appId} usedMs={today.perApp[appId]?.usedMs ?? 0} />)}
       </View>
     </View>
 
-    <View style={{ gap: 12 }}>
-      <SectionTitle title={t('savings.protection')} />
-      <View style={{ paddingHorizontal: 16, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
-        {apps.map((appId, index) => <ProtectionRow key={appId} appId={appId} usual={usual} last={index === apps.length - 1} />)}
-      </View>
-    </View>
+    {missing.length ? <ConnectHint missing={missing} /> : null}
+
+    {/* A shared Instagram, YouTube or TikTok link opens in the clean browser, not the real app. */}
+    <Pressable accessibilityRole="button" accessibilityLabel={t('ui.openLinkBar')} onPress={() => setLinkOpen(true)}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 18, borderRadius: 30, backgroundColor: c.card, boxShadow: c.sh, opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}><Icon name="link" size={18} color={c.ink} /></View>
+      <Text numberOfLines={1} style={{ flex: 1, color: c.text, fontSize: 16, fontWeight: '700' }}>{t('ui.openLinkBar')}</Text>
+      <Icon name="chevron" size={18} color={c.text3} strokeWidth={2.2} />
+    </Pressable>
+    <BrowserLinkSheet name={apps.map((id) => appCatalog[id].name).join(', ')} visible={linkOpen} onClose={() => setLinkOpen(false)}
+      onOpen={(url, appId) => router.push({ pathname: '/browser/[appId]', params: { appId, url } })} />
   </Screen>;
 }

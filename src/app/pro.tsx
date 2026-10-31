@@ -38,6 +38,7 @@ export default function ProScreen() {
     'youtube_home_recommendations',
     'youtube_related_recommendations',
     'youtube_comments',
+    'tiktok_feeds',
     'strict_mode',
     'schedules',
     'advanced_statistics',

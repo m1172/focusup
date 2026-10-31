@@ -14,7 +14,8 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
     create role authenticated;
     create role service_role bypassrls; -- as on Supabase
     create schema auth;
-    create table auth.users (id uuid primary key);
+    create table auth.users (id uuid primary key, raw_app_meta_data jsonb not null default '{}');
+    create table auth.identities (user_id uuid not null references auth.users(id) on delete cascade, provider text not null, provider_id text not null);
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
     $$;
@@ -97,6 +98,21 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
   await assert.rejects(db.query("insert into public.support_push_tokens (token, user_id, platform) values ($1, $2, 'ios')", [token(7), user.id]), /permission denied/);
   await assert.rejects(db.query('update public.support_push_tokens set user_id = $1', [otherId]), /permission denied/);
   await assert.rejects(db.query('delete from public.support_push_tokens'), /permission denied/);
+
+  // Telegram login: new accounts by app_metadata, older ones by their custom:telegram identity; server role only.
+  await db.exec('reset role');
+  await db.query(`update auth.users set raw_app_meta_data = '{"telegram_id":"1001"}' where id = $1`, [user.id]);
+  await db.query("insert into auth.identities values ($1, 'custom:telegram', '2002')", [otherId]);
+  const findTelegram = async (id: string | null) => (await db.query<{ id: string | null }>('select public.find_telegram_user($1) as id', [id])).rows[0]!.id;
+  await db.exec('set role service_role');
+  assert.equal(await findTelegram('1001'), user.id);
+  assert.equal(await findTelegram('2002'), otherId);
+  assert.equal(await findTelegram('3003'), null);
+  assert.equal(await findTelegram("1001' or true --"), null);
+  for (const role of ['authenticated', 'anon']) {
+    await db.exec(`reset role; set role ${role}`);
+    await assert.rejects(db.query("select public.find_telegram_user('1001')"), /permission denied/);
+  }
 
   await db.exec('reset role; set role anon');
   assert.equal((await db.query('select user_id from public.user_settings')).rows.length, 0);

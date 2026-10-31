@@ -148,3 +148,18 @@ test('manual exceptions redact error text and deduplicate repeated reports', asy
   expect(mockClient.captureException).toHaveBeenCalledTimes(1);
   expect(mockClient.captureException.mock.calls[0][0].message).not.toMatch(/person@example|code=abc/);
 });
+
+test('replay pauses while a social page fills the screen and resumes after, without starting before opt-in', async () => {
+  await analytics.initializeProductAnalytics();
+  analytics.setSessionReplayPaused(true);
+  analytics.setSessionReplayPaused(true);
+  expect(mockClient.stopSessionRecording).toHaveBeenCalledTimes(1);
+  analytics.setSessionReplayPaused(false);
+  expect(mockClient.startSessionRecording).toHaveBeenCalledTimes(1);
+  analytics.setSessionReplayPaused(true);
+  await analytics.setAnalyticsConsent(false);
+  mockStorage.getItem.mockResolvedValue('granted');
+  mockClient.startSessionRecording.mockClear();
+  await analytics.setAnalyticsConsent(true);
+  expect(mockClient.startSessionRecording).not.toHaveBeenCalled();
+});

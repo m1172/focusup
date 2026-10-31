@@ -48,7 +48,8 @@ describe('normalizeSocialBrowserLink', () => {
     expect(normalizeSocialBrowserLink('instagram', url)).toBeNull();
   });
   it('does not enable unsupported platforms', () => {
-    expect(normalizeSocialBrowserLink('tiktok', 'https://tiktok.com/')).toBeNull();
+    expect(normalizeSocialBrowserLink('x', 'https://x.com/')).toBeNull();
+    expect(normalizeSocialBrowserLink('tiktok', 'https://tiktok.com/')).toBe('https://tiktok.com/');
   });
 });
 

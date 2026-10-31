@@ -13,13 +13,21 @@ export type StrictModeSession = {
   protectionSnapshot: StrictModeProtectionSnapshot;
 };
 
+/** Hard Mode "until I turn it off": a year-long session, ended with the typed turn-off confirmation. */
+export const HARD_MODE_OPEN_MINUTES = 365 * 24 * 60;
+
+/** Sessions longer than a week are open-ended Hard Mode, not a countdown. */
+export function isOpenEndedSession(session: { startedAt?: number; endsAt: number } | null | undefined): boolean {
+  return Boolean(session && session.endsAt - (session.startedAt ?? session.endsAt) > 7 * 24 * 60 * 60_000);
+}
+
 export function createStrictModeSession(
   durationMinutes: number,
   protectedPlatforms: ProtectedPlatform[],
   snapshot: StrictModeProtectionSnapshot,
   now = Date.now(),
 ): StrictModeSession {
-  if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+  if (durationMinutes !== HARD_MODE_OPEN_MINUTES && (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440)) {
     throw new RangeError('Strict Mode duration must be between 1 and 1,440 minutes.');
   }
   const platforms = [...new Set(protectedPlatforms)];

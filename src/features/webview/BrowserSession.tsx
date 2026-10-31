@@ -3,7 +3,7 @@ import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { ProtectedScreen } from '../protection/ProtectedScreen';
 import { Text } from '../../components/Typography';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Platform, View } from 'react-native';
+import { Alert, BackHandler, Platform, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -22,7 +22,8 @@ import { useAppStore } from '../../store/appStore';
 import { useBrowserHostStore } from '../../store/browserHostStore';
 import { useAppTheme } from '../../theme';
 import type { SocialAppId } from '../../types/app';
-import type { SocialWebViewEvent } from '../../types/social';
+import { isCleanPlatform, type SocialWebViewEvent } from '../../types/social';
+import { useDailyLimitReached } from '../protection/dailyLimit';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { BrowserFloatingMenu } from './BrowserFloatingMenu';
@@ -55,7 +56,8 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   const [navigation, setNavigation] = useState<WebViewNavigation | null>(null);
   const [showProtection, setShowProtection] = useState(false);
   const [pageReady, setPageReady] = useState(false);
-  const [initialUrl] = useState(() => normalizeSocialBrowserLink(appId, rawInitialUrl ?? '') ?? socialBrowserHome[appId === 'youtube' ? 'youtube' : 'instagram']);
+  const [initialUrl] = useState(() => normalizeSocialBrowserLink(appId, rawInitialUrl ?? '') ?? socialBrowserHome[isCleanPlatform(appId) ? appId : 'instagram']);
+  const limitReached = useDailyLimitReached(appId);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const [fullScreen, setFullScreen] = useState(true);
   const [linkSheetVisible, setLinkSheetVisible] = useState(false);
@@ -141,7 +143,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
     setMenuExpanded(false);
     Alert.alert(t('browser.accounts'), t('browser.accountBody', { name: app?.name }), [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('browser.manageAccount'), onPress: () => openWebsite(appId === 'instagram' ? 'https://www.instagram.com/accounts/edit/' : 'https://m.youtube.com/account') },
+      { text: t('browser.manageAccount'), onPress: () => openWebsite(appId === 'instagram' ? 'https://www.instagram.com/accounts/edit/' : appId === 'tiktok' ? 'https://www.tiktok.com/setting' : 'https://m.youtube.com/account') },
     ]);
   };
 
@@ -172,6 +174,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
       setDiagnostics(appId, { ...base, lastFilterPassAt: new Date().toLocaleTimeString() });
       if (event.platform === 'instagram' && event.feature === 'reels') void trackBlockedNavigation('instagram', 'reels');
       if (event.platform === 'youtube' && event.feature === 'shorts') void trackBlockedNavigation('youtube', 'shorts');
+      if (event.platform === 'tiktok') void trackBlockedNavigation('tiktok', event.feature);
     }
   };
 
@@ -183,6 +186,13 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   };
 
   if (!app?.supported) return <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}><Text style={{ color: c.text, padding: 24 }}>{t('unavailable')}</Text></SafeAreaView>;
+  if (limitReached) return <SafeAreaView style={{ flex: 1, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
+    <Text accessibilityRole="header" style={{ color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center' }}>{t('ui.limitReached')}</Text>
+    <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, textAlign: 'center' }}>{t('ui.dailyLimitsBody')}</Text>
+    <Pressable accessibilityRole="button" onPress={leaveBrowser} style={{ paddingHorizontal: 24, paddingVertical: 14, borderRadius: 22, backgroundColor: c.soft }}>
+      <Text style={{ color: c.ink, fontSize: 16, fontWeight: '800' }}>{t('browser.leave')}</Text>
+    </Pressable>
+  </SafeAreaView>;
 
   return <View style={{ flex: 1, backgroundColor: c.background }}>
     {Platform.OS !== 'ios' && active ? <StatusBar hidden={chromeHidden} style={c.isDark ? 'light' : 'dark'} animated /> : null}
@@ -200,7 +210,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
         </View> : null}
         <CleanSocialWebView ref={webRef} platform={appId} initialUrl={initialUrl}
           fullScreen={fullScreen} active={active}
-          blockerConfig={activeFilters} enabled={cleanModeEnabled}
+          blockerConfig={activeFilters} enabled={effective.blocking}
           onNavigationChange={handleNavigation} onEvent={handleEvent}
           onSettings={openSettings} onPageReadyChange={setPageReady}
           onContentProcessGone={active ? undefined : () => onTerminated(appId)} />

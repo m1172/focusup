@@ -14,7 +14,7 @@ export type CloudSettings = {
     goalNotifications: boolean;
     completionNotifications: boolean;
   };
-  wellbeing: { launchDestination: 'home' | 'instagram' | 'youtube'; sleep: SleepPlan };
+  wellbeing: { launchDestination: 'home' | 'instagram' | 'youtube' | 'tiktok'; sleep: SleepPlan };
 };
 export type CloudBackup = { revision: number; payload: CloudSettings | null; updatedAt: string | null };
 export type AccountProfile = { displayName: string; updatedAt: string | null };

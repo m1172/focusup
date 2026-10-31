@@ -1,8 +1,8 @@
 import type { Period, SocialAppId } from '../../types/app';
 
 export type SocialPlatform = SocialAppId;
-export type BlockedFeature = 'reels' | 'shorts' | 'explore' | 'recommendations' | 'suggestedPosts';
-export type BlockedNavigationDestination = 'reels' | 'shorts';
+export type BlockedFeature = 'reels' | 'shorts' | 'forYou' | 'following' | 'explore' | 'recommendations' | 'suggestedPosts';
+export type BlockedNavigationDestination = 'reels' | 'shorts' | 'forYou' | 'following' | 'explore';
 
 export type ActiveTimeSegment = { start: number; end: number };
 

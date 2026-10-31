@@ -1,8 +1,15 @@
 /** Keep page-world code as source text. Hermes does not retain function source for Function.toString(). */
 export const socialBrowserRouteScript = String.raw`function(platform, url) {
   try {
-    var parsed = new URL(url, platform === 'youtube' ? 'https://m.youtube.com' : 'https://www.instagram.com');
+    var parsed = new URL(url, platform === 'youtube' ? 'https://m.youtube.com' : platform === 'tiktok' ? 'https://www.tiktok.com' : 'https://www.instagram.com');
     var path = parsed.pathname.toLowerCase();
+    if (platform === 'tiktok') {
+      if (path === '/' || /^\/(?:foryou|following|friends|live)(?:\/|$)/.test(path)) return 'feed';
+      if (path === '/search' || path.startsWith('/search/') || path === '/discover' || path === '/explore') return 'search';
+      if (/^\/@[^/]+\/video\//.test(path)) return 'watch';
+      if (path.startsWith('/@') || path === '/profile') return 'profile';
+      return 'other';
+    }
     if (platform === 'youtube') {
       if (path === '/' || path === '/home') return 'feed';
       if (path === '/results') return 'search';

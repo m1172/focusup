@@ -97,7 +97,7 @@ test('restored accounts get free screens while premium deep links remain unavail
   expect(tree).toContain('(tabs);'); expect(tree).toContain('browser/[appId];');
   // Blocked original apps hand off to this page in the free release.
   expect(tree).toContain('native-app/[appId];');
-  for (const route of ['pro', 'protection', 'sleep', 'schedule', 'strict-mode', 'temporary-access']) expect(tree).not.toContain(`${route};`);
+  for (const route of ['pro', 'protection', 'sleep', 'schedule', 'strict-mode', 'temporary-access', 'daily-limits']) expect(tree).not.toContain(`${route};`);
 });
 
 test('recovery sessions expose account reset, but no app screens', () => {
@@ -118,7 +118,7 @@ test('revoking the account removes all protected routes from the navigator', () 
 test('retained Pro screens can be restored through the release flag after authentication', () => {
   mockProEnabled = true;
   const tree = routes();
-  expect(tree).toContain('strict-mode;'); expect(tree).toContain('pro;');
+  expect(tree).toContain('strict-mode;'); expect(tree).toContain('pro;'); expect(tree).toContain('daily-limits;');
   mockAccount.user = null;
   expect(routes()).not.toContain('pro;');
 });

@@ -22,7 +22,7 @@ class FocusUpShieldActivity : Activity() {
     super.onCreate(savedInstanceState)
     platform = intent.getStringExtra("platform") ?: ""
     if (!ProtectionPolicy.shouldBlock(this, platform)) { finish(); return }
-    if (platform == "instagram" || platform == "youtube") {
+    if (platform == "instagram" || platform == "youtube" || platform == "tiktok") {
       // The original app remains covered by the persisted protection policy.
       // Show FocusUp's handoff page only when a protected native app is opened.
       val handoff = Intent(Intent.ACTION_VIEW, Uri.parse("focusup://native-app/$platform")).setPackage(packageName)
@@ -35,7 +35,7 @@ class FocusUpShieldActivity : Activity() {
     fun text(value: String, size: Float) { layout.addView(TextView(this).apply { this.text = value; textSize = size; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(0, 18, 0, 18) }) }
     text("FocusUp", 18f); text(title, 30f); text(explanation, 17f)
     fun button(label: String, path: String) { layout.addView(Button(this).apply { this.text = label; setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.rgb(108, 71, 255)); cornerRadius = 24f }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 18 }; setOnClickListener { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("focusup://$path")).setPackage(packageName)); finish() }.onFailure { goHome() } } }) }
-    if (platform == "instagram" || platform == "youtube") button(if (locale == "uz") "FocusUp’da ochish" else if (locale == "ru") "Открыть в FocusUp" else "Open in FocusUp", "native-app/$platform")
+    if (platform == "instagram" || platform == "youtube" || platform == "tiktok") button(if (locale == "uz") "FocusUp’da ochish" else if (locale == "ru") "Открыть в FocusUp" else "Open in FocusUp", "native-app/$platform")
     button(if (locale == "uz") "Vaqtinchalik kirish" else if (locale == "ru") "Временный доступ" else "Temporary access", "protection")
     layout.addView(Button(this).apply { text = if (locale == "uz") "Orqaga" else if (locale == "ru") "Назад" else "Go back"; setOnClickListener { goHome() } })
     layout.minimumHeight = resources.displayMetrics.heightPixels

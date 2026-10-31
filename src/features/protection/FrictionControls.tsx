@@ -114,89 +114,56 @@ export function CelebrationBurst({ trigger }: { trigger: number }) {
   </View>;
 }
 
-const BADGE = 172;
-const BADGE_CORE = 124;
+const BADGE = 188;
+const BADGE_CORE = 136;
 const CHARGE_STROKE = 10;
 const CHARGE_R = (BADGE - CHARGE_STROKE) / 2;
 const CHARGE_CIRC = 2 * Math.PI * CHARGE_R;
-/** Both directions are a deliberate 3-second hold; turning off then still goes through TurnOffSheet. */
-const BADGE_HOLD_MS = 3000;
+const BADGE_HOLD_MS = 2000;
 const BADGE_TONES = {
   off: { core: 'linear-gradient(150deg, #FF7A7F 0%, #EF4450 55%, #C92A35 100%)', glow: '0px 16px 36px rgba(201,42,53,0.38)', ring: '#EF4450' },
   on: { core: 'linear-gradient(150deg, #4BE3AE 0%, #16B985 55%, #0A8A64 100%)', glow: '0px 16px 36px rgba(18,184,134,0.40)', ring: '#16B985' },
 } as const;
 
 /**
- * One big round switch for an app whose only filter is its short-video feed.
- * Red = Reels/Shorts visible, green = blocked. Holding it for 3 seconds fills a ring in the colour it is
- * switching to while the button itself fades into that colour; when full, red turns on (onEnable) and
- * green opens the slow turn-off flow (onTurnOff).
+ * A big round "hold to confirm" button: holding fills the ring around it, and when the ring is full
+ * `onDone` runs and the button shows a check. Screen readers activate it directly.
  */
-export function ProtectionBadge({ on, feature, burst, locked = false, onEnable, onTurnOff, onLockedPress }: { on: boolean; feature: string; burst: number; locked?: boolean; onEnable: () => void; onTurnOff: () => void; onLockedPress?: () => void }) {
+export function HoldCircle({ label, holdingLabel, doneLabel, done, onDone }: { label: string; holdingLabel: string; doneLabel: string; done: boolean; onDone: () => void }) {
   const c = useAppTheme();
-  const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
-  const { progress, scale, holding, start, cancel } = useHoldCharge(on ? onTurnOff : onEnable, locked, onLockedPress, BADGE_HOLD_MS);
+  const { progress, scale, holding, start, cancel } = useHoldCharge(onDone, done, undefined, BADGE_HOLD_MS);
   const breath = useSharedValue(1);
   useEffect(() => {
-    progress.set(withTiming(0, { duration: 300 }));
-    if (reducedMotion) { cancelAnimation(breath); breath.set(1); return undefined; }
-    // Green breathes calmly; red pulses a little faster to invite a press.
-    const half = on ? 1400 : 900;
-    breath.set(withRepeat(withSequence(withTiming(on ? 1.05 : 1.07, { duration: half, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: half, easing: Easing.inOut(Easing.quad) })), -1));
+    if (reducedMotion || done) { cancelAnimation(breath); breath.set(1); return undefined; }
+    breath.set(withRepeat(withSequence(withTiming(1.07, { duration: 1000, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })), -1));
     return () => cancelAnimation(breath);
-  }, [breath, on, progress, reducedMotion]);
+  }, [breath, done, reducedMotion]);
   const halo = useAnimatedStyle(() => ({ transform: [{ scale: breath.get() }] }));
   const pop = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
-  // The colour it is switching to grows out from the centre as the ring fills.
-  const towards = useAnimatedStyle(() => ({ transform: [{ scale: progress.get() }] }));
-  const charge = useAnimatedProps(() => ({ strokeDashoffset: CHARGE_CIRC * (1 - progress.get()) }));
-  const tone = on ? BADGE_TONES.on : BADGE_TONES.off;
-  const target = on ? BADGE_TONES.off : BADGE_TONES.on;
-  const title = t(on ? 'friction.blockedTitle' : 'friction.visibleTitle', { feature });
-  const hint = locked ? t('strictLockedLabel') : holding ? t('friction.holding') : t(on ? 'friction.holdToTurnOff' : 'friction.holdToTurnOnLong');
-  const showTarget = holding && !locked;
-  return <View style={{ alignItems: 'center', gap: 16, paddingTop: 28, paddingBottom: 24, paddingHorizontal: 20, borderRadius: 28, backgroundColor: c.card, boxShadow: c.sh }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? c.mintSoft : c.redSoft }}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on ? c.mint : c.red }} />
-      <Text style={{ color: on ? c.mintInk : c.red, fontSize: 13, fontWeight: '800', letterSpacing: 0.3 }}>{t(on ? 'friction.stateOn' : 'friction.stateOff')}</Text>
-    </View>
+  const charge = useAnimatedProps(() => ({ strokeDashoffset: CHARGE_CIRC * (1 - (done ? 1 : progress.get())) }));
+  const caption = done ? doneLabel : holding ? holdingLabel : label;
+  return <View style={{ alignItems: 'center', gap: 16 }}>
     <Pressable
-      accessibilityRole="switch"
-      accessibilityLabel={title}
-      accessibilityHint={hint}
-      accessibilityState={{ checked: on, disabled: locked }}
-      // Screen-reader users can't hold; activation turns protection on directly, or opens the turn-off flow.
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: done }}
       accessibilityActions={[{ name: 'activate' }]}
-      onAccessibilityAction={() => { if (locked) onLockedPress?.(); else if (on) onTurnOff(); else onEnable(); }}
+      onAccessibilityAction={() => { if (!done) onDone(); }}
       onPressIn={start}
       onPressOut={cancel}
       style={{ width: BADGE, height: BADGE, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Animated.View style={[{ position: 'absolute', width: BADGE, height: BADGE, borderRadius: BADGE / 2, backgroundColor: on ? c.mintSoft : c.redSoft }, halo]} />
+      <Animated.View style={[{ position: 'absolute', width: BADGE, height: BADGE, borderRadius: BADGE / 2, backgroundColor: done ? c.mintSoft : c.soft }, halo]} />
       <Svg width={BADGE} height={BADGE} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
         <Circle cx={BADGE / 2} cy={BADGE / 2} r={CHARGE_R} stroke={c.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(14,16,32,0.07)'} strokeWidth={CHARGE_STROKE} fill="none" />
-        <AnimatedCircle cx={BADGE / 2} cy={BADGE / 2} r={CHARGE_R} stroke={target.ring} strokeWidth={CHARGE_STROKE} strokeLinecap="round" fill="none" strokeDasharray={`${CHARGE_CIRC} ${CHARGE_CIRC}`} animatedProps={charge} />
+        <AnimatedCircle cx={BADGE / 2} cy={BADGE / 2} r={CHARGE_R} stroke={done ? c.mint : c.accent} strokeWidth={CHARGE_STROKE} strokeLinecap="round" fill="none" strokeDasharray={`${CHARGE_CIRC} ${CHARGE_CIRC}`} animatedProps={charge} />
       </Svg>
-      <Animated.View style={[{ width: BADGE_CORE, height: BADGE_CORE, borderRadius: BADGE_CORE / 2, boxShadow: `${tone.glow}, inset 0px 2px 0px rgba(255,255,255,0.28)` }, pop]}>
-        <View style={{ position: 'absolute', inset: 0, borderRadius: BADGE_CORE / 2, overflow: 'hidden', backgroundImage: tone.core }}>
-          <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0, borderRadius: BADGE_CORE / 2, backgroundImage: target.core }, towards]} />
-        </View>
-        <View pointerEvents="none" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          <Icon name={(showTarget ? !on : on) ? 'shieldCheck' : locked ? 'lock' : 'eye'} size={50} color="#FFFFFF" strokeWidth={2} />
-          <Text style={{ color: '#FFFFFF', fontSize: 13, lineHeight: 16, fontWeight: '900', letterSpacing: 1 }}>{t((showTarget ? !on : on) ? 'friction.coreOn' : 'friction.coreOff')}</Text>
-        </View>
+      <Animated.View style={[{ width: BADGE_CORE, height: BADGE_CORE, borderRadius: BADGE_CORE / 2, alignItems: 'center', justifyContent: 'center', backgroundImage: done ? BADGE_TONES.on.core : c.grad, boxShadow: done ? BADGE_TONES.on.glow : c.glow }, pop]}>
+        <Icon name={done ? 'check' : 'shieldCheck'} size={56} color="#FFFFFF" strokeWidth={done ? 3 : 2} />
       </Animated.View>
-      <CelebrationBurst trigger={burst} />
     </Pressable>
-    <View style={{ alignItems: 'center', gap: 4 }}>
-      <Text accessibilityRole="header" style={{ color: c.text, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5, textAlign: 'center' }}>{title}</Text>
-      <Text style={{ color: c.text2, fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center' }}>{t(on ? 'friction.blockedBody' : 'friction.visibleBody', { feature })}</Text>
-    </View>
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Icon name={locked ? 'lock' : 'clock'} size={14} color={on ? c.text3 : c.red} strokeWidth={2.4} />
-      <Text style={{ color: on ? c.text3 : c.red, fontSize: 13, lineHeight: 18, fontWeight: '800' }}>{hint}</Text>
-    </View>
+    <Text accessibilityLiveRegion="polite" style={{ color: done ? c.mintInk : c.text, fontSize: 17, fontWeight: '800', textAlign: 'center' }}>{caption}</Text>
   </View>;
 }
 

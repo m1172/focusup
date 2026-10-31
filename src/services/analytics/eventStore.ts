@@ -97,7 +97,7 @@ export function isValidAnalyticsEvent(value: unknown): value is FocusUpAnalytics
   if (event.type === 'SUBSCRIPTION_EVENT') {
     return ['paywall_viewed', 'plan_selected', 'purchase_started', 'purchase_completed', 'purchase_cancelled', 'purchase_failed', 'restore_started', 'restore_completed'].includes(String(event.event)) &&
       (event.planId === undefined || event.planId === 'monthly' || event.planId === 'annual') &&
-      (event.source === undefined || ['settings', 'instagram_clean_browsing', 'instagram_explore', 'instagram_suggested_posts', 'instagram_recommendations', 'youtube_home_recommendations', 'youtube_related_recommendations', 'youtube_comments', 'strict_mode', 'schedules', 'advanced_statistics'].includes(String(event.source)));
+      (event.source === undefined || ['settings', 'instagram_clean_browsing', 'instagram_explore', 'instagram_suggested_posts', 'instagram_recommendations', 'youtube_home_recommendations', 'youtube_related_recommendations', 'youtube_comments', 'tiktok_feeds', 'strict_mode', 'schedules', 'advanced_statistics'].includes(String(event.source)));
   }
   if (event.type === 'STRICT_MODE_EVENT') {
     return Number.isFinite(event.durationMinutes) && Number(event.durationMinutes) >= 0 && Number.isSafeInteger(event.protectedPlatformCount) && Number(event.protectedPlatformCount) >= 0 && ['strict_mode_started', 'strict_mode_completed', 'strict_mode_ended_early'].includes(String(event.event));
@@ -113,7 +113,7 @@ export function isValidAnalyticsEvent(value: unknown): value is FocusUpAnalytics
       (event.sessionId === undefined || typeof event.sessionId === 'string') && (event.eventId === undefined || typeof event.eventId === 'string');
   }
   if (event.type === 'DISTRACTION_BLOCKED') return ['reels', 'shorts', 'explore', 'recommendations', 'suggestedPosts'].includes(String(event.feature)) && ['navigation', 'interaction'].includes(String(event.source));
-  if (event.type === 'BLOCKED_NAVIGATION') return event.destination === 'reels' || event.destination === 'shorts';
+  if (event.type === 'BLOCKED_NAVIGATION') return ['reels', 'shorts', 'forYou', 'following', 'explore'].includes(event.destination as string);
   return false;
 }
 

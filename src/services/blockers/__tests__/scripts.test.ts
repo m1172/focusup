@@ -76,5 +76,6 @@ it('preserves the existing YouTube blocker and unsupported-platform behavior', (
   const script = generateBlockingScript('youtube', true, { shorts: true });
   expect(script).toContain(JSON.stringify(youtubeSelectors.shortsShelves[0]));
   expect(script).toContain('youtube');
-  expect(generateBlockingScript('tiktok', true, {})).toBeNull();
+  expect(generateBlockingScript('tiktok', true, {})).toContain('__focusUpTikTok');
+  expect(generateBlockingScript('x', true, {})).toBeNull();
 });

@@ -35,7 +35,7 @@ export default function ScheduleScreen() {
   const [start, setStart] = useState('09:00');
   const [end, setEnd] = useState('10:00');
   const [weekdays, setWeekdays] = useState<number[]>([1,2,3,4,5]);
-  const [appIds, setAppIds] = useState<SocialAppId[]>(['instagram','youtube']);
+  const [appIds, setAppIds] = useState<SocialAppId[]>(['instagram','youtube','tiktok']);
   const [allowedApps, setAllowedApps] = useState<SocialAppId[]>([]);
   const [routineStrict, setRoutineStrict] = useState(false);
   const [notify, setNotify] = useState(false);
@@ -47,7 +47,7 @@ export default function ScheduleScreen() {
   const openEditor = (item?: FocusSchedule, confirmed = false) => {
     if (!confirmed && item?.strict && activeRoutines([item]).length) { Alert.alert(t('wellbeing.pauseRoutine'), t('wellbeing.pauseRoutineDetail'), [{ text: t('cancel'), style: 'cancel' }, { text: t('continue'), onPress: () => openEditor(item, true) }]); return; }
     setEditing(item ?? null); setName(item ? presetName(item.name) : ''); setStart(item?.start ?? '09:00'); setEnd(item?.end ?? '10:00');
-    setWeekdays(item?.weekdays ?? [1,2,3,4,5]); setAppIds(item?.apps ?? ['instagram','youtube']);
+    setWeekdays(item?.weekdays ?? [1,2,3,4,5]); setAppIds(item?.apps ?? ['instagram','youtube','tiktok']);
     setAllowedApps(item?.allowedApps ?? []); setRoutineStrict(item?.strict ?? false); setNotify(item?.notify ?? false); setRoutineFilters(item?.filters ?? {});
     setShowAppPicker(false); setAdvanced(false); setEditorOpen(true);
   };

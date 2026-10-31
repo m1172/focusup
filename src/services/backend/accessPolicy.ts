@@ -9,7 +9,7 @@ export function entryDestination(account: SessionState, onboardingCompleted: boo
   if (!account.user) return onboardingCompleted ? '/auth/sign-in' as const : null;
   if (account.recoveryRequired) return '/account' as const;
   if (!onboardingCompleted) return '/onboarding' as const;
-  if (launchDestination === 'instagram' || launchDestination === 'youtube') {
+  if (launchDestination === 'instagram' || launchDestination === 'youtube' || launchDestination === 'tiktok') {
     return { pathname: '/browser/[appId]' as const, params: { appId: launchDestination } };
   }
   return '/(tabs)' as const;

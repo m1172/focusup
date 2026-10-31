@@ -46,4 +46,18 @@ describe('open-app button removal', () => {
     expect(hidden('#uz')).toBe(true);
     expect(document.querySelectorAll('#focusup-app-promo-styles')).toHaveLength(1);
   });
+
+  it('catches a label that changes on an existing button, checking only what changed', async () => {
+    dom.window.eval(createAppPromoScript());
+    const document = dom.window.document;
+    const scan = jest.spyOn(document.documentElement, 'querySelectorAll');
+    document.getElementById('login')!.textContent = 'Use the app';
+    document.getElementById('signup')!.setAttribute('aria-label', 'Open in app');
+    document.querySelector('h1')!.firstChild!.nodeValue = '0:42';
+    await nextFrame();
+    expect(hidden('#login')).toBe(true);
+    expect(hidden('#signup')).toBe(true);
+    expect(scan).not.toHaveBeenCalled();
+  });
 });
+

@@ -1,4 +1,5 @@
 import type { Locale } from '../../types/app';
+import { timeEquivalents } from '../statistics/timeEquivalents';
 
 /** Onboarding is focused on the three apps FocusUp targets first. */
 export const ONBOARDING_APPS = ['instagram', 'youtube', 'tiktok'] as const;
@@ -68,6 +69,76 @@ export function yearCost(dailyMinutes: number): YearCost {
     books: Math.floor(yearHours / HOURS_PER_BOOK),
     workouts: Math.floor((yearHours * 60) / MINUTES_PER_WORKOUT),
     evenings: Math.floor(yearHours / HOURS_PER_EVENING),
+  };
+}
+
+/** Share of waking hours (24 h minus sleep) spent on social media, 0–1. */
+export function wakingShare(dailyMinutes: number) {
+  return Math.min(1, clamp(dailyMinutes, 0, DAY_MINUTES) / (DAY_MINUTES - SLEEP_MINUTES));
+}
+
+/** Weeks-ahead grid. No life expectancy is assumed: the grid only covers the next few years. */
+export const WEEKS_PER_YEAR = 52;
+export const HORIZON_YEARS = [1, 5, 10] as const;
+export type HorizonYears = (typeof HORIZON_YEARS)[number];
+export const MIN_AGE = 13;
+export const MAX_AGE = 79;
+
+/** How the weeks of the next `years` split. `scrolling + sleep + remaining === total`. */
+export type WeeksAhead = {
+  total: number;
+  /** Weeks spent scrolling at today's daily habit. */
+  scrolling: number;
+  /** Weeks spent asleep. */
+  sleep: number;
+  /** Weeks for everything else. */
+  remaining: number;
+  /** `scrolling` as years. */
+  scrollingYears: number;
+};
+
+/** Splits the coming weeks the same way `splitDay` splits one day: scrolling comes out of free time, then sleep. */
+export function weeksAhead(years: number, dailyMinutes: number): WeeksAhead {
+  const total = Math.round(clamp(years, 0, 100) * WEEKS_PER_YEAR);
+  const day = splitDay(dailyMinutes);
+  const scrolling = Math.round((total * day.social) / DAY_MINUTES);
+  const sleep = Math.min(total - scrolling, Math.round((total * day.sleep) / DAY_MINUTES));
+  return { total, scrolling, sleep, remaining: total - scrolling - sleep, scrollingYears: scrolling / WEEKS_PER_YEAR };
+}
+
+/** One run of same-coloured cells in a row of the weeks grid. */
+export type GridRun = { row: number; start: number; length: number; kind: 'scrolling' | 'sleep' | 'remaining' };
+
+/** Lays the weeks out in rows of `columns`, scrolling first so it is what the eye meets, as per-row runs. */
+export function weekGridRuns(weeks: WeeksAhead, columns: number): GridRun[] {
+  const runs: GridRun[] = [];
+  let cursor = 0;
+  for (const kind of ['scrolling', 'sleep', 'remaining'] as const) {
+    let left = weeks[kind];
+    while (left > 0) {
+      const row = Math.floor(cursor / columns);
+      const start = cursor % columns;
+      const length = Math.min(left, columns - start);
+      runs.push({ row, start, length, kind });
+      cursor += length;
+      left -= length;
+    }
+  }
+  return runs;
+}
+
+/** What `years` of the daily habit could be instead, split the way `timeEquivalents` does. */
+export type Instead = { hours: number; books: number; workouts: number; evenings: number };
+
+export function insteadOf(dailyMinutes: number, years: number): Instead {
+  const minutes = clamp(dailyMinutes, 0, DAY_MINUTES) * DAYS_PER_YEAR * Math.max(0, years);
+  const { readingHours, readingMinutes, workouts } = timeEquivalents(minutes);
+  const restMinutes = Math.max(0, minutes - readingMinutes - workouts * MINUTES_PER_WORKOUT);
+  return {
+    hours: Math.floor(minutes / 60),
+    books: Math.floor(readingHours / HOURS_PER_BOOK),
+    workouts,
+    evenings: Math.floor(restMinutes / 60 / HOURS_PER_EVENING),
   };
 }
 

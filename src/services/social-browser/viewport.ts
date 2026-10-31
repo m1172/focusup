@@ -49,6 +49,7 @@ export function createBrowserViewportScript(fullScreen: boolean, insets: { top: 
     };
     if (state.observer) state.observer.disconnect();
     if (state.pageObserver) state.pageObserver.disconnect();
+    if (state.themeObserver) state.themeObserver.disconnect();
     if (state.frame) clearTimeout(state.frame);
     state.frame = null;
     if (state.initialize) document.removeEventListener('DOMContentLoaded', state.initialize);
@@ -78,9 +79,13 @@ export function createBrowserViewportScript(fullScreen: boolean, insets: { top: 
       state.observer = new MutationObserver(function() { state.update(); scheduleAppearance(); });
       state.observer.observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] });
       if (document.body) {
+        // Themes switch on <html>/<body>; watching style changes on every element would wake this for each video frame.
         state.pageObserver = new MutationObserver(scheduleAppearance);
-        state.pageObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
-        state.pageObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+        state.pageObserver.observe(document.body, { childList: true, subtree: true });
+        // Observing the same node twice replaces its options, so <body>'s own attributes need a second observer.
+        state.themeObserver = new MutationObserver(scheduleAppearance);
+        state.themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+        state.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'dark'] });
       }
     };
     if (document.head && document.body) state.initialize(); else document.addEventListener('DOMContentLoaded', state.initialize, { once: true });

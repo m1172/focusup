@@ -180,6 +180,7 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
       CONFIG = Object.assign({}, next || {});
       root.config = CONFIG;
       root.dmReelSwipeGuardEnabled = Boolean(CONFIG.enabled && CONFIG.reels);
+      root.syncDmReelScrollLocks();
       root.configKey = '';
       restoreHidden();
       syncObserver();
@@ -187,26 +188,37 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
     };
     if (root.observer) root.observer.disconnect();
     var passScheduled = false;
+    var slowPassTimer = null;
+    var lastPassAt = 0;
     var pendingRoots = [];
     var pendingSeen = new WeakSet();
-    var scheduleFilterPass = function(node) {
+    // New content and label changes are filtered on the next frame so they never show. Text edits (video timers,
+    // like and view counts) arrive many times a second; filtering each one every frame kept the CPU busy.
+    var TEXT_PASS_MS = 300;
+    var runFilterPass = function() {
+      passScheduled = false; lastPassAt = Date.now();
+      var roots = pendingRoots; pendingRoots = []; pendingSeen = new WeakSet();
+      roots.forEach(function(rootNode) {
+        applyFocusUpFilters(rootNode);
+        var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('article, section, [role="article"], [role="region"], [role="group"], nav');
+        if (semanticParent) applyFocusUpFilters(semanticParent);
+      });
+    };
+    var scheduleFilterPass = function(node, urgent) {
       if (!node || node.nodeType !== 1) return;
       if (!pendingSeen.has(node)) { pendingSeen.add(node); pendingRoots.push(node); }
       if (passScheduled) return;
-      passScheduled = true;
-      requestAnimationFrame(function() {
-        var roots = pendingRoots; pendingRoots = []; pendingSeen = new WeakSet(); passScheduled = false;
-        roots.forEach(function(rootNode) {
-          applyFocusUpFilters(rootNode);
-          var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('article, section, [role="article"], [role="region"], [role="group"], nav');
-          if (semanticParent) applyFocusUpFilters(semanticParent);
-        });
-      });
+      var wait = urgent ? 0 : TEXT_PASS_MS - (Date.now() - lastPassAt);
+      if (wait <= 0) {
+        if (slowPassTimer) { clearTimeout(slowPassTimer); slowPassTimer = null; }
+        passScheduled = true; requestAnimationFrame(runFilterPass); return;
+      }
+      if (!slowPassTimer) slowPassTimer = setTimeout(function() { slowPassTimer = null; if (!passScheduled) { passScheduled = true; requestAnimationFrame(runFilterPass); } }, wait);
     };
     root.observer = new MutationObserver(function(records) {
       records.forEach(function(record) {
         var nodes = record.type === 'characterData' ? [record.target.parentElement] : record.type === 'attributes' ? [record.target] : Array.from(record.addedNodes);
-        nodes.forEach(scheduleFilterPass);
+        nodes.forEach(function(node) { scheduleFilterPass(node, record.type !== 'characterData'); });
       });
     });
     var syncObserver = function() {

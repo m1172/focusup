@@ -10,7 +10,7 @@ final class FocusUpShieldAction: ShieldActionDelegate {
 
   // Only the user's labelled selection identifies a platform. Opaque Apple tokens never enter JavaScript.
   private func destination(application: ApplicationToken? = nil, category: ActivityCategoryToken? = nil, domain: WebDomainToken? = nil) -> String {
-    for platform in ["instagram", "youtube"] {
+    for platform in ["instagram", "youtube", "tiktok"] {
       guard let data = defaults?.data(forKey: "selection.\(platform)"), let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else { continue }
       if let application = application, selection.applicationTokens.contains(application) { return platform }
       if let category = category, selection.categoryTokens.contains(category) { return platform }

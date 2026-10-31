@@ -23,7 +23,7 @@ export function useNativeAppHandoff(navigationReady: boolean) {
         if (!target) { if (pendingRequest === request) pendingRequest = null; return; }
         if (cancelled) return;
         pendingRequest = null;
-        const [appId, action] = target.split(':') as ['instagram' | 'youtube' | 'protection', 'open' | 'link' | undefined];
+        const [appId, action] = target.split(':') as ['instagram' | 'youtube' | 'tiktok' | 'protection', 'open' | 'link' | undefined];
         if (appId === 'protection') router.replace('/protection');
         // The shield already is the handoff page, so its "Open" button goes straight to the website.
         else if (action === 'open') router.replace({ pathname: '/browser/[appId]', params: { appId } });

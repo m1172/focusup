@@ -10,8 +10,15 @@ import { sleepRoutine } from '../protection/engine';
 const filterFeature: Partial<Record<SocialAppId, Record<string, SubscriptionFeature>>> = {
   instagram: { reels: 'instagramReels', explore: 'instagramExplore', recommendations: 'instagramRecommendations', suggestedPosts: 'instagramSuggestedPosts', homeFeed: 'instagramHomeFeed', sponsoredPosts: 'instagramCleanBrowsing' },
   youtube: { shorts: 'youtubeShorts', homeRecommendations: 'youtubeHomeRecommendations', recommendations: 'youtubeRelatedRecommendations', comments: 'youtubeComments' },
+  tiktok: { forYou: 'tiktokForYou', following: 'tiktokFollowing', explore: 'tiktokExplore' },
 };
 
+const SHORT_VIDEO: Partial<Record<SocialAppId, string>> = { instagram: 'reels', youtube: 'shorts', tiktok: 'forYou' };
+
+/**
+ * `enabled` is clean mode (the app is added to Vaqtim); `blocking` says whether blockers run at all.
+ * The short-video feed is blocked even for apps that are not added, and free users cannot turn it off.
+ */
 export function getEffectiveAppConfig(appId: SocialAppId, now = new Date()) {
   const state = useAppStore.getState();
   const base = state.apps[appId] ?? { enabled: false, filters: {} };
@@ -26,7 +33,9 @@ export function getEffectiveAppConfig(appId: SocialAppId, now = new Date()) {
   const scheduled = scheduledRoutines.length > 0;
   const strict = canUseFeature(isPro, 'strictMode') && state.strictSession && state.strictSession.endsAt > Date.now() && (state.strictSession.protectedPlatforms ?? state.strictSession.appIds).includes(appId) ? state.strictSession : null;
   const enabled = base.enabled || scheduled || Boolean(strict);
-  const filters = { ...base.filters };
+  const short = SHORT_VIDEO[appId];
+  // An app that is not added keeps only the short-video block, not the other filters saved for it.
+  const filters: Record<string, boolean> = enabled ? { ...base.filters } : short ? { [short]: true } : {};
   for (const routine of scheduledRoutines) {
     const specific = routine.filters?.[appId];
     if (specific) Object.assign(filters, specific); else Object.keys(base.filters).forEach((key) => { if (key !== 'homeFeed') filters[key] = true; });
@@ -35,14 +44,16 @@ export function getEffectiveAppConfig(appId: SocialAppId, now = new Date()) {
   if (strictFilters) Object.entries(strictFilters).forEach(([key, value]) => { if (value) filters[key] = true; });
   if (strict && appId === 'instagram') filters.reels = true;
   if (strict && appId === 'youtube') filters.shorts = true;
-  if (appId === 'instagram' || appId === 'youtube') {
+  if (strict && appId === 'tiktok') filters.forYou = true;
+  if (short && (!enabled || !canUseFeature(isPro, 'shortVideoControl'))) filters[short] = true;
+  if (appId === 'instagram' || appId === 'youtube' || appId === 'tiktok') {
     Object.keys(filters).forEach((feature) => {
-      if (!isRemoteFeatureEnabled(appId, feature)) filters[feature] = false;
+      if (appId !== 'tiktok' && !isRemoteFeatureEnabled(appId, feature)) filters[feature] = false;
       const access = filterFeature[appId]?.[feature];
       if (access && !canUseFeature(isPro, access)) filters[feature] = false;
     });
   }
-  return { enabled, filters };
+  return { enabled, blocking: enabled || Object.values(filters).some(Boolean), filters };
 }
 
 export function getActiveScheduleAppIds(now = new Date()): SocialAppId[] {

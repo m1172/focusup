@@ -2,7 +2,7 @@ import { requireOptionalNativeModule } from 'expo';
 import type { NativeProtectionBridge, NativeProtectionStatus } from './types';
 
 const module = requireOptionalNativeModule<NativeProtectionBridge>('FocusUpProtection');
-const pendingLaunches = ['instagram', 'youtube', 'protection', 'instagram:open', 'instagram:link', 'youtube:open', 'youtube:link'] as const;
+const pendingLaunches = ['instagram', 'youtube', 'tiktok', 'protection', 'instagram:open', 'instagram:link', 'youtube:open', 'youtube:link', 'tiktok:open', 'tiktok:link'] as const;
 export type PendingLaunch = typeof pendingLaunches[number];
 const unavailable: NativeProtectionStatus = { supported: false, authorized: false, selectedCount: 0, active: false };
 export const protectionBridge = {

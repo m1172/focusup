@@ -11,6 +11,7 @@ import { Icon } from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { GroupLabel, Heading, IconTile, Pill, Screen, SettingRow, Toggle } from '../../components/ui';
 import { FocusLogo } from '../../components/FocusLogo';
+import { ExtraProtectionSettings } from '../../features/protection/ExtraProtectionSettings';
 import { Avatar } from '../../features/account/AccountScreen';
 import { isBackendConfigured } from '../../services/backend/accountSession';
 import { loadProfile } from '../../services/backend/profileCache';
@@ -97,6 +98,9 @@ export default function SettingsScreen() {
         <SettingRow icon={<IconTile name="comment" tone="blue" />} title={t('supportChat.rowTitle')} right={supportUnread ? <View accessible={false} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : undefined} chevron onPress={() => router.push('/support')} last />
       </>)}
     </View>
+
+    {/* The adult-website filter lives with the other blocking settings on the Protect tab. */}
+    <ExtraProtectionSettings only={['uninstallProtection', 'grayscale']} />
 
     {PRO_ENABLED ? <View style={{ gap: 6 }}>
       <GroupLabel title={t('ui.groupFocus')} />

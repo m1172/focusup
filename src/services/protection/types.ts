@@ -18,6 +18,14 @@ export type NativeProtectionPlan = {
   liveActivity: boolean;
   utcOffsetMinutes: number;
   baseline: SocialAppId[];
+  /** Website domains blocked system-wide on iOS, per platform; a platform's temporary access lifts its websites too. */
+  websites: Partial<Record<SocialAppId, string[]>>;
+  /** iOS: Apple's adult-website filter. */
+  adultFilter: boolean;
+  /** iOS: Vaqtim cannot be deleted while this is on. */
+  uninstallProtection: boolean;
+  /** Minutes a day per app before the original app is blocked until midnight. */
+  dailyLimits: Partial<Record<SocialAppId, number>>;
   routines: FocusSchedule[];
   strict: { startedAt: number; endsAt: number; platforms: SocialAppId[] } | null;
   temporary: TemporaryAccess | null;

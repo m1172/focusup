@@ -7,20 +7,22 @@ import { Text } from './Typography';
 import { Icon, type IconName } from './Icon';
 import { useAppTheme } from '../theme';
 
-export type TabKey = 'home' | 'stats' | 'settings';
-const tabs: { key: TabKey; href: '/(tabs)' | '/(tabs)/statistics' | '/(tabs)/settings'; icon: IconName }[] = [
-  { key: 'home', href: '/(tabs)', icon: 'home' },
-  { key: 'stats', href: '/(tabs)/statistics', icon: 'stats' },
-  { key: 'settings', href: '/(tabs)/settings', icon: 'sliders' },
+export type TabKey = 'home' | 'protect' | 'stats' | 'settings';
+const tabs: { key: TabKey; href: '/(tabs)' | '/(tabs)/focus' | '/(tabs)/statistics' | '/(tabs)/settings'; icon: IconName; label: string }[] = [
+  { key: 'home', href: '/(tabs)', icon: 'home', label: 'home' },
+  { key: 'protect', href: '/(tabs)/focus', icon: 'shield', label: 'ui.protectTab' },
+  { key: 'stats', href: '/(tabs)/statistics', icon: 'stats', label: 'stats' },
+  { key: 'settings', href: '/(tabs)/settings', icon: 'sliders', label: 'settings' },
 ];
 
 function activeFromPath(path: string): TabKey {
   if (path.startsWith('/statistics')) return 'stats';
+  if (path.startsWith('/focus')) return 'protect';
   if (path.startsWith('/settings') || path.startsWith('/schedule')) return 'settings';
   return 'home';
 }
 
-/** Floating 68px tab bar from the design (each tab fills a full third of the bar, so a tap anywhere near an icon counts): 30px radius, 16px side inset, blurred surface. */
+/** Floating 68px tab bar from the design (each tab fills an equal share of the bar, so a tap anywhere near an icon counts): 30px radius, 16px side inset, blurred surface. */
 export function BottomNavigation({ active, onSelect }: { active?: TabKey; onSelect?: (key: TabKey) => void }) {
   const c = useAppTheme(); const insets = useSafeAreaInsets(); const { t } = useTranslation();
   const pathname = usePathname();
@@ -29,9 +31,9 @@ export function BottomNavigation({ active, onSelect }: { active?: TabKey; onSele
     {tabs.map((tab) => {
       const selected = tab.key === current;
       const color = selected ? c.ink : c.text2;
-      return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t(tab.key)} onPress={() => { void Haptics.selectionAsync(); if (onSelect) onSelect(tab.key); else router.navigate(tab.href); }} style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, opacity: pressed ? 0.7 : 1 })}>
+      return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t(tab.label)} onPress={() => { void Haptics.selectionAsync(); if (onSelect) onSelect(tab.key); else router.navigate(tab.href); }} style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, opacity: pressed ? 0.7 : 1 })}>
         <View style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.soft : 'transparent' }}><Icon name={tab.icon} size={24} color={color} /></View>
-        <Text style={{ color, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{t(tab.key)}</Text>
+        <Text style={{ color, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{t(tab.label)}</Text>
       </Pressable>;
     })}
   </View>;

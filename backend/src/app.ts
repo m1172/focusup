@@ -3,16 +3,22 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
-import type { Config } from './config.js';
+import { telegramLoginConfig, type Config } from './config.js';
 import { ApiError } from './errors.js';
 import { createGateway, type Gateway, type Identity } from './gateway.js';
+import { createTelegramLogin, TELEGRAM_CODE_PREFIX, type TelegramLogin } from './telegramLogin.js';
 import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, recoverySchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, verifyCodeSchema, verifySchema } from './schemas.js';
 
 declare module 'fastify' {
   interface FastifyRequest { identity: Identity | null }
 }
 
-export async function buildApp(config: Config, gateway: Gateway = createGateway(config)) {
+function telegramLoginFrom(config: Config) {
+  const settings = telegramLoginConfig(config);
+  return settings ? createTelegramLogin(settings) : null;
+}
+
+export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config)) {
   const app = Fastify({
     logger: config.NODE_ENV === 'test' ? false : { level: config.LOG_LEVEL, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] },
     // Never include query strings in logs: email verification links can carry tokens.
@@ -67,13 +73,22 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
   app.post('/v1/auth/oauth/start', authLimit, async (request) => {
     const { provider, codeChallenge } = oauthStartSchema.parse(request.body);
     if (!enabledProviders.includes(provider) || !config.AUTH_REDIRECT_URL) throw new ApiError(503, 'PROVIDER_UNAVAILABLE', 'This sign-in provider is not configured.');
+    if (provider === 'telegram' && telegramLogin) return { url: await telegramLogin.start(codeChallenge), redirectUrl: config.AUTH_REDIRECT_URL };
     const url = new URL('/auth/v1/authorize', config.SUPABASE_URL);
     url.search = new URLSearchParams({ provider: provider === 'telegram' ? 'custom:telegram' : provider, redirect_to: config.AUTH_REDIRECT_URL, code_challenge: codeChallenge, code_challenge_method: 's256' }).toString();
     return { url: url.toString(), redirectUrl: config.AUTH_REDIRECT_URL };
   });
   app.post('/v1/auth/oauth/exchange', authLimit, async (request) => {
     const { code, codeVerifier } = oauthExchangeSchema.parse(request.body);
+    if (code.startsWith(TELEGRAM_CODE_PREFIX)) {
+      if (!telegramLogin) throw new ApiError(400, 'INVALID_CALLBACK', 'Start a new sign-in attempt.');
+      return gateway.signInWithTelegram(await telegramLogin.redeem(code, codeVerifier), new URL(telegramLogin.redirectUri).hostname);
+    }
     return gateway.exchangeOAuth(code, codeVerifier);
+  });
+  app.get('/v1/auth/telegram/callback', authLimit, async (request, reply) => {
+    if (!telegramLogin) throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
+    return reply.redirect(await telegramLogin.callback(new URL(request.url, 'http://localhost')), 302);
   });
   app.post('/v1/auth/id-token', authLimit, async (request) => {
     const { provider, idToken, nonce } = idTokenSchema.parse(request.body);

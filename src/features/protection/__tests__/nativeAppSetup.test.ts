@@ -27,6 +27,8 @@ describe('Reels/Shorts blocking starts with the original app blocked', () => {
     const enable = jest.fn();
     await enableAfterNativeBlock('instagram', 'Instagram', 'Reels', enable);
     expect(enable).toHaveBeenCalledTimes(1);
+    expect(enable).toHaveBeenCalledWith(false);
+    expect(enable).toHaveBeenCalledWith(false);
   });
 
   it('keeps the filter off when the user declines blocking the app', async () => {
@@ -47,6 +49,7 @@ describe('Reels/Shorts blocking starts with the original app blocked', () => {
     await enableAfterNativeBlock('instagram', 'Instagram', 'Reels', enable);
     expect(bridge.selectApps).toHaveBeenCalledWith('instagram');
     expect(enable).toHaveBeenCalledTimes(1);
+    expect(enable).toHaveBeenCalledWith(true);
   });
 
   it('counts a picked app as ready on builds that do not report picked apps', async () => {
@@ -56,6 +59,7 @@ describe('Reels/Shorts blocking starts with the original app blocked', () => {
     const enable = jest.fn();
     await enableAfterNativeBlock('instagram', 'Instagram', 'Reels', enable);
     expect(enable).toHaveBeenCalledTimes(1);
+    expect(enable).toHaveBeenCalledWith(true);
   });
 
   it('keeps the filter off when the app is not picked in Apple’s list', async () => {

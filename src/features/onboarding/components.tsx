@@ -4,11 +4,15 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { Text } from '../../components/Typography';
+import { Icon } from '../../components/Icon';
 import { BackButton } from '../../components/ui';
 import { useAppTheme } from '../../theme';
 
-/** Authentication is the required final onboarding step. */
-export const ONBOARDING_STEPS = 5;
+/**
+ * Progress steps after the hook: your time, age, why, life in weeks, reveal, instead, how it works,
+ * goals, commit, referral, account. Authentication is the required final step.
+ */
+export const ONBOARDING_STEPS = 10;
 
 /** Back button + a progress bar that grows from the previous step on mount. */
 /** `step` may be fractional (per-app questions); `from` is where the bar starts, the previous step by default. */
@@ -160,31 +164,102 @@ export function RulerPicker({ min, max, step, value, onChange, isMajor, majorLab
 
 export type AnswerOption = { key: string; label: string; value: number; selected: boolean };
 
-/** Tap-to-pick answers in a 3-column grid; the selected one fills with the brand gradient. */
-export function AnswerChips({ options, onSelect, delay = 0 }: { options: AnswerOption[]; onSelect: (value: number) => void; delay?: number }) {
+/**
+ * Tap-to-pick answers; the selected ones fill with the brand gradient. Three short chips per row by default;
+ * `columns` 1 or 2 fit longer, two-line labels. `multiple` makes them checkboxes with a check mark.
+ */
+export function AnswerChips({ options, onSelect, delay = 0, columns = 3, multiple = false }: { options: AnswerOption[]; onSelect: (value: number) => void; delay?: number; columns?: 1 | 2 | 3; multiple?: boolean }) {
   const reducedMotion = useReducedMotion();
-  return <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
-    {options.map((option, i) => <Animated.View key={option.key} entering={reducedMotion ? undefined : FadeInDown.delay(delay + i * 45).duration(420).easing(Easing.out(Easing.cubic))} style={{ width: '31.5%' }}>
-      <AnswerChip option={option} onSelect={onSelect} />
+  const width = columns === 3 ? '31.5%' : columns === 2 ? '48.5%' : '100%';
+  return <View accessibilityRole={multiple ? undefined : 'radiogroup'} style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
+    {options.map((option, i) => <Animated.View key={option.key} entering={reducedMotion ? undefined : FadeInDown.delay(delay + i * 45).duration(420).easing(Easing.out(Easing.cubic))} style={{ width }}>
+      <AnswerChip option={option} onSelect={onSelect} wide={columns < 3} multiple={multiple} />
     </Animated.View>)}
   </View>;
 }
 
-function AnswerChip({ option, onSelect }: { option: AnswerOption; onSelect: (value: number) => void }) {
+function AnswerChip({ option, onSelect, wide, multiple }: { option: AnswerOption; onSelect: (value: number) => void; wide: boolean; multiple: boolean }) {
   const c = useAppTheme();
   const reducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const press = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const ink = option.selected ? '#FFFFFF' : c.text;
   return <Pressable
-    accessibilityRole="radio"
-    accessibilityState={{ selected: option.selected }}
+    accessibilityRole={multiple ? 'checkbox' : 'radio'}
+    accessibilityState={multiple ? { checked: option.selected } : { selected: option.selected }}
     accessibilityLabel={option.label}
-    onPressIn={() => { if (!reducedMotion) scale.set(withTiming(0.94, { duration: 80 })); }}
+    onPressIn={() => { if (!reducedMotion) scale.set(withTiming(wide ? 0.97 : 0.94, { duration: 80 })); }}
     onPressOut={() => { if (!reducedMotion) scale.set(withSpring(1, { damping: 10, stiffness: 320 })); }}
     onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSelect(option.value); }}
   >
-    <Animated.View style={[{ height: 52, borderRadius: 18, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: option.selected ? undefined : c.card, backgroundImage: option.selected ? c.grad : undefined, boxShadow: option.selected ? c.glow : c.sh }, press]}>
-      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: option.selected ? '#FFFFFF' : c.text, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{option.label}</Text>
+    <Animated.View style={[{ minHeight: wide ? 56 : 52, borderRadius: 18, paddingHorizontal: wide ? 16 : 6, paddingVertical: wide ? 10 : 0, flexDirection: 'row', alignItems: 'center', justifyContent: wide ? 'space-between' : 'center', gap: 10, backgroundColor: option.selected ? undefined : c.card, backgroundImage: option.selected ? c.grad : undefined, boxShadow: option.selected ? c.glow : c.sh }, press]}>
+      {wide
+        ? <Text numberOfLines={2} style={{ flex: 1, color: ink, fontSize: 15, lineHeight: 20, fontWeight: '700' }}>{option.label}</Text>
+        : <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ color: ink, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] }}>{option.label}</Text>}
+      {wide && multiple ? <View style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: option.selected ? 'rgba(255,255,255,0.22)' : undefined, borderWidth: option.selected ? 0 : 1.5, borderColor: c.off }}>
+        {option.selected ? <Icon name="check" size={15} color="#FFFFFF" strokeWidth={3} /> : null}
+      </View> : null}
     </Animated.View>
   </Pressable>;
+}
+
+const WHEEL_ROW = 52;
+const WHEEL_ROWS = 5;
+
+/**
+ * Vertical wheel like the iOS picker: native snapping keeps it smooth, and a selection haptic fires on every
+ * new value. Rows fade and shrink with distance from the centre band.
+ */
+export function WheelPicker({ min, max, value, onChange, format, accessibilityLabel }: {
+  min: number; max: number; value: number; onChange: (value: number) => void; format: (value: number) => string; accessibilityLabel: string;
+}) {
+  const c = useAppTheme();
+  const scroller = useRef<ScrollViewInstance>(null);
+  const last = useRef(value);
+  const placed = useRef(false);
+  const count = max - min + 1;
+  const valueAt = (i: number) => min + Math.min(count - 1, Math.max(0, i));
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = valueAt(Math.round(event.nativeEvent.contentOffset.y / WHEEL_ROW));
+    if (next !== last.current) { last.current = next; void Haptics.selectionAsync(); onChange(next); }
+  };
+  const nudge = (direction: 1 | -1) => {
+    const next = valueAt(last.current - min + direction);
+    scroller.current?.scrollTo({ y: (next - min) * WHEEL_ROW, animated: true });
+  };
+  const pad = WHEEL_ROW * Math.floor(WHEEL_ROWS / 2);
+  return <View
+    accessible
+    accessibilityRole="adjustable"
+    accessibilityLabel={accessibilityLabel}
+    accessibilityValue={{ text: format(value) }}
+    accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+    onAccessibilityAction={(event) => nudge(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
+    style={{ height: WHEEL_ROW * WHEEL_ROWS }}
+  >
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: pad, height: WHEEL_ROW, borderRadius: 18, backgroundColor: c.soft, boxShadow: c.isDark ? c.ringSoft : undefined }} />
+    <ScrollView
+      ref={scroller}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={WHEEL_ROW}
+      decelerationRate="fast"
+      scrollEventThrottle={16}
+      onScroll={onScroll}
+      onContentSizeChange={() => {
+        if (placed.current) return;
+        placed.current = true;
+        scroller.current?.scrollTo({ y: (value - min) * WHEEL_ROW, animated: false });
+      }}
+      contentContainerStyle={{ paddingVertical: pad }}
+    >
+      {Array.from({ length: count }, (_, i) => {
+        const distance = Math.abs(valueAt(i) - value);
+        return <Pressable key={i} accessible={false} onPress={() => scroller.current?.scrollTo({ y: i * WHEEL_ROW, animated: true })} style={{ height: WHEEL_ROW, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: distance === 0 ? c.ink : c.text2, fontSize: distance === 0 ? 32 : 24 - Math.min(2, distance) * 2, fontWeight: '800', opacity: distance === 0 ? 1 : Math.max(0.2, 0.7 - distance * 0.2), fontVariant: ['tabular-nums'] }}>{format(valueAt(i))}</Text>
+        </Pressable>;
+      })}
+    </ScrollView>
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: WHEEL_ROW * 1.6, backgroundImage: `linear-gradient(180deg, ${c.bg}, ${c.bg}00)` }} />
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: WHEEL_ROW * 1.6, backgroundImage: `linear-gradient(0deg, ${c.bg}, ${c.bg}00)` }} />
+  </View>;
 }

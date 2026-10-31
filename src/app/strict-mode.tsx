@@ -15,6 +15,8 @@ import { useSubscription } from '../hooks/useSubscription';
 import { useStrictMode } from '../hooks/useStrictMode';
 import { canUseFeature } from '../services/subscription/subscriptionService';
 import { endStrictModeEarly, startStrictMode } from '../services/strict-mode/strictModeController';
+import { HARD_MODE_OPEN_MINUTES, isOpenEndedSession } from '../services/strict-mode/types';
+import { TurnOffSheet } from '../features/protection/FrictionControls';
 import type { SocialAppId } from '../types/app';
 import { useWellbeingStore } from '../store/wellbeingStore';
 
@@ -36,6 +38,8 @@ export default function StrictModeScreen() {
   const [selectedApps, setSelectedApps] = useState<SocialAppId[]>(() => supportedAppIds.filter((id) => useAppStore.getState().apps[id].enabled));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [emergencyStartedAt, setEmergencyStartedAt] = useState<number | null>(null);
+  const [turnOffOpen, setTurnOffOpen] = useState(false);
+  const openEnded = isOpenEndedSession(session);
   const emergencyRemaining = emergencyStartedAt ? Math.max(0, 30 - Math.floor((now - emergencyStartedAt) / 1000)) : 0;
   const startsAtLabel = session?.endsAt ? new Date(session.endsAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : '';
   const protectedApps = session ? (session.protectedPlatforms ?? session.appIds) : selectedApps;
@@ -51,7 +55,7 @@ export default function StrictModeScreen() {
   const askStart = () => {
     if (!canUseFeature(isPro, 'strictMode')) { router.push({ pathname: '/pro', params: { source: 'strict_mode' } }); return; }
     if (!selectedApps.length) { Alert.alert(t('strict'), t('strictSelectOne')); return; }
-    if (!Number.isInteger(selectedDuration) || selectedDuration < 1 || selectedDuration > 1440) { Alert.alert(t('strict'), t('wellbeing.invalid')); return; }
+    if (selectedDuration !== HARD_MODE_OPEN_MINUTES && (!Number.isInteger(selectedDuration) || selectedDuration < 1 || selectedDuration > 1440)) { Alert.alert(t('strict'), t('wellbeing.invalid')); return; }
     if (Platform.OS === 'ios' && selectedDuration < 15 && selectedApps.some((id) => nativeApps.includes(id))) { Alert.alert(t('strict'), t('wellbeing.nativeMinimum')); return; }
     setConfirmOpen(true);
   };
@@ -63,14 +67,15 @@ export default function StrictModeScreen() {
       Alert.alert(t('strict'), t('strictStartFailed'));
     });
   };
-  const durationName = (minutes: number) => durationLabel[minutes] ? t(durationLabel[minutes]) : t('wellbeing.minutes', { count: minutes });
-  const isCustom = !(durations as readonly number[]).includes(selectedDuration);
+  const durationName = (minutes: number) => minutes === HARD_MODE_OPEN_MINUTES ? t('ui.hardModeUntilOff') : durationLabel[minutes] ? t(durationLabel[minutes]) : t('wellbeing.minutes', { count: minutes });
+  const isCustom = !(durations as readonly number[]).includes(selectedDuration) && selectedDuration !== HARD_MODE_OPEN_MINUTES;
   const hourWords = t('ui.hourWords', { returnObjects: true }) as string[];
   const minuteWords = t('ui.minuteWords', { returnObjects: true }) as string[];
   const options = [
     { id: 30, num: '30', unit: pluralForm(i18n.language, 30, minuteWords) },
     { id: 60, num: '1', unit: pluralForm(i18n.language, 1, hourWords) },
     { id: 120, num: '2', unit: pluralForm(i18n.language, 2, hourWords) },
+    { id: HARD_MODE_OPEN_MINUTES, num: '∞', unit: t('ui.hardModeUntilOff') },
     { id: -1, num: isCustom ? String(selectedDuration) : t('ui.custom'), unit: isCustom ? pluralForm(i18n.language, selectedDuration, minuteWords) : t('ui.customUnit') },
   ];
   const beginEmergency = () => Alert.alert(t('strictEmergency'), t('strictEmergencyDescription'), [
@@ -90,9 +95,11 @@ export default function StrictModeScreen() {
         <View style={{ marginTop: 20, gap: 14 }}>
           <Text accessibilityRole="header" style={{ color: c.text, fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -1.12 }}>{t('strict')}</Text>
           <HeroCard style={{ gap: 12 }}>
-            <Text style={{ color: c.onHero, fontSize: 15, lineHeight: 20, fontWeight: '600' }}>{t('ui.strictRemaining')}</Text>
-            <Text accessibilityRole="timer" accessibilityLabel={t('strictCountdown', { time: durationText })} style={{ color: '#FFFFFF', fontSize: 48, lineHeight: 52, fontWeight: '800', letterSpacing: -1.2 }}>{durationText}</Text>
-            <Text style={{ color: c.onHero, fontSize: 13, fontWeight: '600' }}>{t('strictEndsAt', { time: startsAtLabel })}</Text>
+            {openEnded ? null : <Text style={{ color: c.onHero, fontSize: 15, lineHeight: 20, fontWeight: '600' }}>{t('ui.strictRemaining')}</Text>}
+            {openEnded ? <Text style={{ color: '#FFFFFF', fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.6 }}>{t('ui.hardModeOpen')}</Text> : <>
+              <Text accessibilityRole="timer" accessibilityLabel={t('strictCountdown', { time: durationText })} style={{ color: '#FFFFFF', fontSize: 48, lineHeight: 52, fontWeight: '800', letterSpacing: -1.2 }}>{durationText}</Text>
+              <Text style={{ color: c.onHero, fontSize: 13, fontWeight: '600' }}>{t('strictEndsAt', { time: startsAtLabel })}</Text>
+            </>}
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 2 }} />
             <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>{t('strictProtectedApps')}</Text>
             {protectedApps.map((id) => (
@@ -103,8 +110,10 @@ export default function StrictModeScreen() {
               </View>
             ))}
           </HeroCard>
-          <Note tone="accent" icon="clock">{t('ui.strictLockNote')}</Note>
-          {emergencyStartedAt ? (
+          <Note tone="accent" icon="clock">{t(openEnded ? 'ui.strictLockNoteOpen' : 'ui.strictLockNote')}</Note>
+          {openEnded ? (
+            <ActionButton secondary title={t('ui.hardModeTurnOff')} onPress={() => setTurnOffOpen(true)} />
+          ) : emergencyStartedAt ? (
             <Card style={{ gap: 10 }}>
               <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{t('strictEmergencyWait')}</Text>
               <Text style={{ color: c.text2, fontSize: 14, lineHeight: 20, fontWeight: '500' }}>{t('strictEmergencyCountdown', { seconds: emergencyRemaining })}</Text>
@@ -146,7 +155,7 @@ export default function StrictModeScreen() {
 
           <View style={{ marginTop: 22, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, backgroundColor: c.soft, boxShadow: c.ringSoft || undefined }}>
             <Icon name="clock" size={22} color={c.ink} />
-            <Text style={{ flex: 1, color: c.ink, fontSize: 14, lineHeight: 19, fontWeight: '600' }}>{t('ui.strictLockNote')}</Text>
+            <Text style={{ flex: 1, color: c.ink, fontSize: 14, lineHeight: 19, fontWeight: '600' }}>{t(selectedDuration === HARD_MODE_OPEN_MINUTES ? 'ui.strictLockNoteOpen' : 'ui.strictLockNote')}</Text>
           </View>
 
           {nativeApps.length > 0 ? <View style={{ marginTop: 12, gap: 8 }}>
@@ -169,7 +178,9 @@ export default function StrictModeScreen() {
         </>
       )}
 
-      <Sheet visible={confirmOpen} onClose={() => setConfirmOpen(false)} title={t('ui.strictConfirmTitle')} message={t('ui.strictConfirmBody', { duration: durationName(selectedDuration) })}>
+      <TurnOffSheet visible={turnOffOpen} name={t('ui.hardMode')} minutesPerDay={0} onKeep={() => setTurnOffOpen(false)} onTurnOff={() => { setTurnOffOpen(false); void endStrictModeEarly(); }} />
+
+      <Sheet visible={confirmOpen} onClose={() => setConfirmOpen(false)} title={t('ui.strictConfirmTitle')} message={selectedDuration === HARD_MODE_OPEN_MINUTES ? t('ui.strictConfirmBodyOpen') : t('ui.strictConfirmBody', { duration: durationName(selectedDuration) })}>
         <SheetActions cancel={t('ui.strictCancel')} confirm={t('ui.strictConfirm')} onCancel={() => setConfirmOpen(false)} onConfirm={confirmStart} />
       </Sheet>
 

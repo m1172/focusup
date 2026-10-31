@@ -15,7 +15,7 @@ describe('native shield handoff', () => {
     await expect(protectionBridge.consumePendingLaunch()).resolves.toBe(target);
   });
 
-  it.each(['', null, undefined, '/browser/instagram?private=value', 'https://example.com', { platform: 'instagram' }, 'instagram:delete', 'tiktok:open', 'protection:open'])('rejects arbitrary native payloads: %p', async (target) => {
+  it.each(['', null, undefined, '/browser/instagram?private=value', 'https://example.com', { platform: 'instagram' }, 'instagram:delete', 'x:open', 'tiktok:delete', 'protection:open'])('rejects arbitrary native payloads: %p', async (target) => {
     native.consumePendingLaunch!.mockResolvedValue(target);
     await expect(protectionBridge.consumePendingLaunch()).resolves.toBeNull();
   });

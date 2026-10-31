@@ -67,6 +67,19 @@ type ProductEvent =
   | 'usage_weekly';
 type Properties = Record<string, string | number | boolean | undefined>;
 function safely(action: () => void) { try { action(); } catch { /* Observability must never interrupt the app. */ } }
+
+/**
+ * Replay pauses while a social site fills the screen. That page is masked in recordings, so its frames show
+ * nothing, and capturing a playing video every second costs battery and heats the phone.
+ */
+let replayPaused = false;
+const replaySupported = () => (Platform.OS === 'ios' || Platform.OS === 'android') && !Constants.expoVersion;
+export function setSessionReplayPaused(paused: boolean) {
+  if (replayPaused === paused) return;
+  replayPaused = paused;
+  if (!client || !consent || !replaySupported()) return;
+  safely(() => { void (paused ? client!.stopSessionRecording() : client!.startSessionRecording()).catch(() => undefined); });
+}
 function context() { return { screen: currentScreen ?? null, previous_screen: previousScreen ?? null }; }
 
 /** True when the event was handed to PostHog; false without consent or a client. */
@@ -133,7 +146,7 @@ export async function initializeProductAnalytics(): Promise<void> {
       client = new PostHog(key, options);
       await client.ready();
       if (!consent) await client.optOut();
-      else { await client.optIn(); applyIdentity(); sendScreen(); }
+      else { await client.optIn(); applyIdentity(); sendScreen(); if (native && replayPaused) await client.stopSessionRecording(); }
     } catch {
       // Fail closed when consent storage or the SDK is unavailable.
       consent = false; consentLoaded = true;
@@ -168,7 +181,7 @@ export async function setAnalyticsConsent(granted: boolean): Promise<void> {
         await client.optIn();
         if (revision !== consentRevision) return;
         applyIdentity(); sendScreen();
-        if ((Platform.OS === 'ios' || Platform.OS === 'android') && !Constants.expoVersion) await client.startSessionRecording();
+        if (replaySupported() && !replayPaused) await client.startSessionRecording();
       }
     }
     if (storageError) throw storageError;

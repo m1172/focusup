@@ -23,6 +23,10 @@ export const createPageIdleScript = (hidden: boolean) => `(function () { try {
   if (idle.hidden === ${hidden}) return;
   idle.hidden = ${hidden};
   if (idle.hidden) {
+    // FocusUp's own page watchers stop too; showing the page injects the scripts again, which reconnects them.
+    [window.__focusUpInstagram, window.__focusUpYouTube, window.__focusUpAppPromo].forEach(function (state) { if (state && state.observer) state.observer.disconnect(); });
+    var viewport = window.__focusUpViewport;
+    if (viewport) ['observer', 'pageObserver', 'themeObserver'].forEach(function (name) { if (viewport[name]) viewport[name].disconnect(); });
     document.querySelectorAll('video, audio').forEach(function (media) { if (!media.paused) media.pause(); });
     var focused = document.activeElement; if (focused && focused.blur) focused.blur();
   }

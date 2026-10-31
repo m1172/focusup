@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Config } from './config.ts';
 import { ApiError } from './errors.ts';
 import type { Settings } from './schemas.ts';
+import type { TelegramProfile } from './telegramLogin.ts';
 
 export type Session = { accessToken: string; refreshToken: string; expiresAt: number | null; user: { id: string; email: string | null } };
 export type Backup = { revision: number; payload: Settings | null; updatedAt: string | null };
@@ -16,6 +17,8 @@ export interface Gateway {
   refresh(refreshToken: string): Promise<Session>;
   exchangeOAuth(code: string, codeVerifier: string): Promise<Session>;
   signInWithIdToken(provider: 'apple' | 'google', token: string, nonce: string): Promise<Session>;
+  /** Signs in (creating the account on first use) a Telegram user whose ID token the server already verified. */
+  signInWithTelegram(profile: TelegramProfile, emailDomain: string): Promise<Session>;
   verify(tokenHash: string, type: 'email' | 'recovery'): Promise<Session>;
   verifyCode(email: string, token: string, type: 'signup' | 'recovery'): Promise<Session>;
   resendConfirmation(email: string, captchaToken?: string): Promise<void>;
@@ -118,6 +121,45 @@ export function createGateway(config: Config): Gateway {
       const { data, error } = await client().auth.signInWithIdToken({ provider, token, nonce });
       authError(error);
       return sessionDto(data.session);
+    },
+    async signInWithTelegram(profile, emailDomain) {
+      if (!config.SUPABASE_SECRET_KEY) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.');
+      const admin = client(undefined, true).auth.admin;
+      // Telegram gives no email. Each account gets a fixed address on our own domain; nothing is ever sent to it.
+      const syntheticEmail = `tg-${profile.id}@${emailDomain}`;
+      const { data: existingId, error: lookupError } = await client(undefined, true).rpc('find_telegram_user', { p_telegram_id: profile.id });
+      databaseError(lookupError);
+      let email = syntheticEmail;
+      if (typeof existingId === 'string' && existingId) {
+        const { data, error } = await admin.getUserById(existingId);
+        authError(error);
+        // Accounts made by the old Supabase-hosted Telegram login have no email; give them the fixed one.
+        if (data.user?.email) email = data.user.email;
+        else authError((await admin.updateUserById(existingId, { email: syntheticEmail, email_confirm: true, app_metadata: { telegram_id: profile.id } })).error);
+      } else {
+        const { error } = await admin.createUser({
+          email: syntheticEmail, email_confirm: true, app_metadata: { telegram_id: profile.id },
+          user_metadata: { full_name: profile.name, preferred_username: profile.username, avatar_url: profile.picture },
+        });
+        // A parallel first sign-in may have created it already; the address is unique, so carry on.
+        if (error && error.status !== 422) authError(error);
+      }
+      // A magic link made server-side and redeemed at once: no email is sent and the link never leaves the server.
+      const { data: link, error: linkError } = await admin.generateLink({ type: 'magiclink', email });
+      authError(linkError);
+      const tokenHash = link.properties?.hashed_token;
+      if (!tokenHash) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.');
+      const { data, error } = await client().auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+      authError(error);
+      const session = sessionDto(data.session);
+      if (profile.name) {
+        const identity = { id: session.user.id, email: session.user.email, token: session.accessToken };
+        try {
+          const current = await this.getProfile(identity);
+          if (!current.displayName) await this.saveProfile(identity, profile.name);
+        } catch { /* The account works without a display name; the user can set it later. */ }
+      }
+      return session;
     },
     async verify(tokenHash, type) {
       const { data, error } = await client().auth.verifyOtp({ token_hash: tokenHash, type });

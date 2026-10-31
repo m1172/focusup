@@ -99,26 +99,37 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
     root.shouldBlock = function(url, currentConfig) { try { var parsed = new URL(url); return Boolean(currentConfig && currentConfig.enabled && currentConfig.shorts && (parsed.hostname === 'youtube.com' || parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && (SHORTS_PATH.test(parsed.pathname) || REMOTE_ROUTES.some(function(route) { return parsed.pathname === route || parsed.pathname.indexOf(route.endsWith('/') ? route : route + '/') === 0; }))); } catch (_) { return false; } };
     if (root.observer) root.observer.disconnect();
     var passScheduled = false;
+    var slowPassTimer = null;
+    var lastPassAt = 0;
     var pendingRoots = [];
     var pendingSeen = new WeakSet();
-    function scheduleFilterPass(node) {
+    // New content and label changes are filtered on the next frame so they never show. Text edits (video timers,
+    // like and view counts) arrive many times a second; filtering each one every frame kept the CPU busy.
+    var TEXT_PASS_MS = 300;
+    var runFilterPass = function() {
+      passScheduled = false; lastPassAt = Date.now();
+      var roots = pendingRoots; pendingRoots = []; pendingSeen = new WeakSet();
+      roots.forEach(function(rootNode) {
+        applyFocusUpYouTubeFilters(rootNode);
+        var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('ytm-pivot-bar-renderer, ytd-watch-next-secondary-results-renderer, ytm-watch-next-secondary-results-renderer, ytd-comments, ytd-rich-grid-renderer, ytm-rich-grid-renderer, ytd-reel-shelf-renderer, ytm-reel-shelf-renderer');
+        if (semanticParent) applyFocusUpYouTubeFilters(semanticParent);
+      });
+    };
+    var scheduleFilterPass = function(node, urgent) {
       if (!node || node.nodeType !== 1) return;
       if (!pendingSeen.has(node)) { pendingSeen.add(node); pendingRoots.push(node); }
       if (passScheduled) return;
-      passScheduled = true;
-      requestAnimationFrame(function() {
-        var roots = pendingRoots; pendingRoots = []; pendingSeen = new WeakSet(); passScheduled = false;
-        roots.forEach(function(rootNode) {
-          applyFocusUpYouTubeFilters(rootNode);
-          var semanticParent = rootNode.parentElement && rootNode.parentElement.closest('ytm-pivot-bar-renderer, ytd-watch-next-secondary-results-renderer, ytm-watch-next-secondary-results-renderer, ytd-comments, ytd-rich-grid-renderer, ytm-rich-grid-renderer, ytd-reel-shelf-renderer, ytm-reel-shelf-renderer');
-          if (semanticParent) applyFocusUpYouTubeFilters(semanticParent);
-        });
-      });
-    }
+      var wait = urgent ? 0 : TEXT_PASS_MS - (Date.now() - lastPassAt);
+      if (wait <= 0) {
+        if (slowPassTimer) { clearTimeout(slowPassTimer); slowPassTimer = null; }
+        passScheduled = true; requestAnimationFrame(runFilterPass); return;
+      }
+      if (!slowPassTimer) slowPassTimer = setTimeout(function() { slowPassTimer = null; if (!passScheduled) { passScheduled = true; requestAnimationFrame(runFilterPass); } }, wait);
+    };
     root.observer = new MutationObserver(function(records) {
       records.forEach(function(record) {
         var additions = record.type === 'characterData' ? [record.target.parentElement] : record.type === 'attributes' ? [record.target] : Array.from(record.addedNodes);
-        additions.forEach(scheduleFilterPass);
+        additions.forEach(function(node) { scheduleFilterPass(node, record.type !== 'characterData'); });
       });
     });
     var initialize = function() { if (!document.documentElement) return; if (CONFIG.enabled) root.observer.observe(document.documentElement, { childList: true, characterData: true, attributes: true, attributeFilter: ['href', 'aria-label', 'title', 'tab-identifier', 'pivot-identifier'], subtree: true }); applyFocusUpYouTubeFilters(document); root.post({ type: 'READY', observerActive: Boolean(CONFIG.enabled) }); };

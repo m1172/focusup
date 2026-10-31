@@ -48,7 +48,7 @@ function EstimateStep() {
       : a.to === Infinity ? t('onboarding.rangeOver', { time: formatDuration(a.from, locale) })
         : `${formatDuration(a.from, locale)}–${formatDuration(a.to, locale)}`,
   }));
-  return <Screen glow={300} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={() => { setMinutes(minutes); router.push('/onboarding/reveal'); }} />}>
+  return <Screen glow={300} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={() => { setMinutes(minutes); router.push('/onboarding/age'); }} />}>
     <OnboardingHeader step={1} />
     <View style={{ marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {ONBOARDING_APPS.map((id, i) => <Animated.View key={id} entering={reducedMotion ? undefined : ZoomIn.delay(60 + i * 90).springify().damping(13)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, height: 34, paddingLeft: 4, paddingRight: 12, borderRadius: 17, backgroundColor: c.apps[id].bg }}>
@@ -56,9 +56,9 @@ function EstimateStep() {
         <Text style={{ color: c.apps[id].ink, fontSize: 14, fontWeight: '800' }}>{shortFormLabels[id]}</Text>
       </Animated.View>)}
     </View>
-    <View style={{ marginTop: 16 }}><StepTitle title={t('onboarding.estimateTitle')} body={t('onboarding.estimateBody')} /></View>
-    <View style={{ marginTop: 22 }}><AnswerChips options={options} onSelect={setMinutes} delay={180} /></View>
-    <Animated.View entering={reducedMotion ? undefined : FadeIn.delay(450).duration(600).easing(Easing.out(Easing.cubic))} style={{ marginTop: 26, alignItems: 'center' }}>
+    <View style={{ marginTop: 16 }}><StepTitle title={t('onboarding.estimateTitle')} /></View>
+    <View style={{ marginTop: 26 }}><AnswerChips options={options} onSelect={setMinutes} delay={180} /></View>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.delay(450).duration(600).easing(Easing.out(Easing.cubic))} style={{ marginTop: 32, alignItems: 'center' }}>
       <PoppingValue value={minutes} stretch>
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ alignSelf: 'stretch', color: c.text, fontSize: 56, lineHeight: 64, fontWeight: '800', letterSpacing: -2.5, textAlign: 'center', fontVariant: ['tabular-nums'] }}>{label}</Text>
       </PoppingValue>
@@ -109,7 +109,7 @@ function MeasureStep({ onManual }: { onManual: () => void }) {
     return () => { alive = false; sub.remove(); };
   }, [load]);
   const footer = state.kind === 'ready'
-    ? <ActionButton title={t('continue')} arrow onPress={() => router.push('/onboarding/reveal')} />
+    ? <ActionButton title={t('continue')} arrow onPress={() => router.push('/onboarding/age')} />
     : <View style={{ gap: 6 }}>
       <ActionButton title={t('onboarding.allowUsage')} icon={<Icon name="lock" size={19} color="#FFFFFF" strokeWidth={2.2} />} disabled={state.kind !== 'intro'} onPress={() => { asked.current = true; void androidUsage.openSettings(); }} />
       <ActionButton ghost title={t('onboarding.enterManually')} onPress={onManual} />

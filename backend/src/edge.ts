@@ -1,13 +1,14 @@
 import { ZodError } from 'zod';
-import type { Config } from './config.ts';
+import { telegramLoginConfig, type Config } from './config.ts';
 import { ApiError } from './errors.ts';
 import { createGateway, type Gateway, type Identity } from './gateway.ts';
 import { RateLimitError, rateLimitSubject, type ConsumeLimit } from './edgeRateLimit.ts';
 import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, pushTokenSchema, recoverySchema, removePushTokenSchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, supportCursorSchema, supportMessageSchema, verifyCodeSchema, verifySchema } from './schemas.ts';
 import { createExpoPush, supportReplyPreview, type PushSender } from './push.ts';
 import { createSupportRelay, supportPostText, type SupportRelay, type TelegramUpdate } from './telegram.ts';
+import { createTelegramLogin, TELEGRAM_CODE_PREFIX, type TelegramLogin } from './telegramLogin.ts';
 
-type Result = { data?: unknown; status?: number };
+type Result = { data?: unknown; status?: number; redirect?: string };
 type Route = { private?: boolean; auth?: boolean; body?: boolean; run: (body: unknown, user: Identity, request: Request) => Promise<Result> };
 const BODY_LIMIT = 65_536;
 
@@ -39,10 +40,15 @@ async function jsonBody(request: Request): Promise<unknown> {
   } finally { clearTimeout(timer); reader.releaseLock(); }
 }
 
+function telegramLoginFrom(config: Config) {
+  const settings = telegramLoginConfig(config);
+  return settings ? createTelegramLogin(settings) : null;
+}
+
 /** Fetch-based API used by the Supabase runtime. Public login routes deliberately
  * have no platform JWT requirement; every private route verifies the user's
  * token through Auth, and the gateway uses that token for RLS-scoped data access. */
-export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config), relay: SupportRelay = createSupportRelay(config), push: PushSender = createExpoPush()) {
+export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config), relay: SupportRelay = createSupportRelay(config), push: PushSender = createExpoPush(), telegramLogin: TelegramLogin | null = telegramLoginFrom(config)) {
   if (!config.SUPABASE_SECRET_KEY) throw new Error('Edge API requires a server secret key');
   const secret = config.SUPABASE_SECRET_KEY;
   const origins = config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean);
@@ -62,11 +68,26 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   route('POST', '/v1/auth/oauth/start', async (body) => {
     const { provider, codeChallenge } = oauthStartSchema.parse(body);
     if (!providers.includes(provider) || !config.AUTH_REDIRECT_URL) throw new ApiError(503, 'PROVIDER_UNAVAILABLE', 'This sign-in provider is not configured.');
+    // Telegram on our own domain when configured, so Telegram never shows the Supabase host to the user.
+    if (provider === 'telegram' && telegramLogin) return { data: { url: await telegramLogin.start(codeChallenge), redirectUrl: config.AUTH_REDIRECT_URL } };
     const url = new URL('/auth/v1/authorize', config.SUPABASE_URL);
     url.search = new URLSearchParams({ provider: provider === 'telegram' ? 'custom:telegram' : provider, redirect_to: config.AUTH_REDIRECT_URL, code_challenge: codeChallenge, code_challenge_method: 's256' }).toString();
     return { data: { url: url.toString(), redirectUrl: config.AUTH_REDIRECT_URL } };
   }, auth);
-  route('POST', '/v1/auth/oauth/exchange', async (body) => { const value = oauthExchangeSchema.parse(body); return { data: await gateway.exchangeOAuth(value.code, value.codeVerifier) }; }, auth);
+  route('POST', '/v1/auth/oauth/exchange', async (body) => {
+    const value = oauthExchangeSchema.parse(body);
+    if (value.code.startsWith(TELEGRAM_CODE_PREFIX)) {
+      if (!telegramLogin) throw new ApiError(400, 'INVALID_CALLBACK', 'Start a new sign-in attempt.');
+      const profile = await telegramLogin.redeem(value.code, value.codeVerifier);
+      return { data: await gateway.signInWithTelegram(profile, new URL(telegramLogin.redirectUri).hostname) };
+    }
+    return { data: await gateway.exchangeOAuth(value.code, value.codeVerifier) };
+  }, auth);
+  // Telegram's redirect arrives here through the website's /telegram/callback (TELEGRAM_LOGIN_ORIGIN); it always ends in the app.
+  route('GET', '/v1/auth/telegram/callback', async (_body, _user, request) => {
+    if (!telegramLogin) throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
+    return { redirect: await telegramLogin.callback(new URL(request.url)) };
+  }, { auth: true });
   route('POST', '/v1/auth/id-token', async (body) => {
     const value = idTokenSchema.parse(body);
     if (!providers.includes(value.provider)) throw new ApiError(503, 'PROVIDER_UNAVAILABLE', 'This sign-in provider is not configured.');
@@ -195,6 +216,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
       }
       // Private handlers only receive identities returned by Auth, never body IDs.
       const result = await handler.run(body, user!, request);
+      if (result.redirect) { headers.set('Location', result.redirect); return new Response(null, { status: 302, headers }); }
       if (path === '/v1/blocker-config') headers.set('Cache-Control', 'public, max-age=900');
       return respond(result.data, result.status);
     } catch (error) {

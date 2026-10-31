@@ -28,6 +28,8 @@ import { useNativeAppHandoff } from '../hooks/useNativeAppHandoff';
 import { AnalyticsObserver } from '../components/AnalyticsObserver';
 import { startSettingsSync } from '../services/backend/settingsSyncRuntime';
 import { BrowserLayer } from '../features/webview/BrowserLayer';
+import { OnboardingPaywall } from '../features/onboarding/OnboardingPaywall';
+import { useOnboardingStore } from '../store/onboardingStore';
 import { SupportReplyOpener } from '../features/support/SupportReplyOpener';
 import { syncSupportPush } from '../features/support/push';
 import { perfLogsEnabled, recordTap, startMainThreadSampler } from '../services/performance/tapTiming';
@@ -83,8 +85,8 @@ export default function RootLayout() {
     const appChanges = useAppStore.subscribe((state, previous) => {
       reconcileNative();
       if (!useAppStore.persist.hasHydrated() || isClearingFocusUpData()) return;
-      if (state.onboardingCompleted && !previous.onboardingCompleted) captureProductEvent('onboarding_completed');
-      for (const appId of ['instagram', 'youtube'] as const) {
+      if (state.onboardingCompleted && !previous.onboardingCompleted) captureProductEvent('onboarding_completed', { referral_code: useOnboardingStore.getState().referralCode || undefined });
+      for (const appId of ['instagram', 'youtube', 'tiktok'] as const) {
         if (state.apps[appId].enabled !== previous.apps[appId].enabled) captureProductEvent('app_protection_changed', { social_platform: appId, enabled: state.apps[appId].enabled });
         for (const [feature, enabled] of Object.entries(state.apps[appId].filters)) {
           if (enabled !== previous.apps[appId].filters[feature]) captureProductEvent('filter_changed', { social_platform: appId, feature, enabled });
@@ -113,10 +115,10 @@ export default function RootLayout() {
     return () => { stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
   }, []);
   if ((!fontsLoaded && !fontError) || !hydrated || !account.ready) return <View style={{ flex: 1, backgroundColor: c.background, justifyContent: 'center' }}><ActivityIndicator accessibilityLabel={i18n.t('cloudAuth.loading')} /></View>;
-  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
+  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed} /><OnboardingPaywall enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
-      <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/account" />
+      <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/age" /><Stack.Screen name="onboarding/why" /><Stack.Screen name="onboarding/life-weeks" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/instead" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/goals" /><Stack.Screen name="onboarding/commit" /><Stack.Screen name="onboarding/referral" /><Stack.Screen name="onboarding/account" />
     </Stack.Protected>
     <Stack.Protected guard={!appAllowed && !account.recoveryRequired} redirectTo="/start">
       <Stack.Screen name="auth/sign-in" /><Stack.Screen name="auth/sign-up" />
@@ -128,7 +130,7 @@ export default function RootLayout() {
     </Stack.Protected>
     <Stack.Protected guard={appAllowed} redirectTo="/start">
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="app-settings/[appId]" />
+      <Stack.Screen name="app-settings/[appId]" /><Stack.Screen name="configure-apps" />
       {/* The page is drawn by BrowserLayer above the stack, so this route must not be a native modal, which would cover it. */}
       <Stack.Screen name="browser/[appId]" options={{ animation: 'fade', animationDuration: 120, statusBarHidden: true }} />
       <Stack.Screen name="permissions" /><Stack.Screen name="language" /><Stack.Screen name="theme" />
@@ -136,7 +138,7 @@ export default function RootLayout() {
       <Stack.Screen name="native-app/[appId]" />
       <Stack.Protected guard={PRO_ENABLED} redirectTo="/(tabs)">
         <Stack.Screen name="temporary-access" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: false }} />
-        <Stack.Screen name="strict-mode" /><Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="protection" /><Stack.Screen name="pro" />
+        <Stack.Screen name="strict-mode" /><Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="protection" /><Stack.Screen name="pro" /><Stack.Screen name="daily-limits" />
       </Stack.Protected>
     </Stack.Protected>
   </Stack>{appAllowed ? <BrowserLayer /> : null}</View></SafeAreaProvider>;

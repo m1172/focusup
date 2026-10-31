@@ -13,9 +13,10 @@ describe('full-screen website viewport', () => {
   });
   afterEach(async () => {
     await Promise.resolve();
-    const state = (dom.window as unknown as { __focusUpViewport?: { observer?: MutationObserver; pageObserver?: MutationObserver; frame?: number } }).__focusUpViewport;
+    const state = (dom.window as unknown as { __focusUpViewport?: { observer?: MutationObserver; pageObserver?: MutationObserver; themeObserver?: MutationObserver; frame?: number } }).__focusUpViewport;
     state?.observer?.disconnect();
     state?.pageObserver?.disconnect();
+    state?.themeObserver?.disconnect();
     if (state?.frame) dom.window.clearTimeout(state.frame);
     dom.window.close();
   });

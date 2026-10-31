@@ -35,6 +35,7 @@ final class FocusUpShield: ShieldConfigurationDataSource {
     guard let token = token else { return nil }
     if ProtectionShared.selection("instagram").applicationTokens.contains(token) { return "Instagram" }
     if ProtectionShared.selection("youtube").applicationTokens.contains(token) { return "YouTube" }
+    if ProtectionShared.selection("tiktok").applicationTokens.contains(token) { return "TikTok" }
     return nil
   }
 

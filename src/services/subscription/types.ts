@@ -1,7 +1,7 @@
 import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 export type PlanId = 'monthly' | 'annual';
-export type PaywallSource = 'settings' | 'instagram_clean_browsing' | 'instagram_explore' | 'instagram_suggested_posts' | 'instagram_recommendations' | 'youtube_home_recommendations' | 'youtube_related_recommendations' | 'youtube_comments' | 'strict_mode' | 'schedules' | 'advanced_statistics';
+export type PaywallSource = 'settings' | 'instagram_clean_browsing' | 'instagram_explore' | 'instagram_suggested_posts' | 'instagram_recommendations' | 'youtube_home_recommendations' | 'youtube_related_recommendations' | 'youtube_comments' | 'tiktok_feeds' | 'strict_mode' | 'schedules' | 'advanced_statistics';
 export type SubscriptionPackage = PurchasesPackage & { planId: PlanId };
 export type SubscriptionOffering = PurchasesOffering;
 export type SubscriptionCustomerInfo = CustomerInfo;

@@ -2,7 +2,7 @@ import type { CloudBackup, CloudSettings } from './types';
 import { validateSleepPlan } from '../protection/engine';
 
 const platforms = ['instagram', 'youtube', 'tiktok', 'x', 'reddit', 'snapchat', 'facebook', 'linkedin'];
-const filterNames = ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed', 'shorts', 'homeRecommendations', 'comments', 'sponsoredContent', 'forYou'];
+const filterNames = ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed', 'shorts', 'homeRecommendations', 'comments', 'sponsoredContent', 'forYou', 'following'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const keys = (value: Record<string, unknown>, allowed: string[]) => Object.keys(value).every((key) => allowed.includes(key));
 const integer = (value: unknown, min: number, max: number) => Number.isInteger(value) && (value as number) >= min && (value as number) <= max;
@@ -19,9 +19,9 @@ export function isCloudSettings(value: unknown): value is CloudSettings {
   const p = value.preferences, w = value.wellbeing;
   if (!keys(p, ['selectedLanguage', 'themeMode', 'apps', 'schedules', 'dailyGoalMinutes', 'goalNotifications', 'completionNotifications']) || !keys(w, ['launchDestination', 'sleep'])) return false;
   if (!['uz', 'ru', 'en'].includes(p.selectedLanguage as string) || !['system', 'light', 'dark'].includes(p.themeMode as string) || !integer(p.dailyGoalMinutes, 1, 1440) || typeof p.goalNotifications !== 'boolean' || typeof p.completionNotifications !== 'boolean') return false;
-  if (!object(p.apps) || !keys(p.apps, platforms) || Object.keys(p.apps).length !== platforms.length || !Object.values(p.apps).every((app) => object(app) && keys(app, ['enabled', 'filters']) && typeof app.enabled === 'boolean' && filters(app.filters))) return false;
+  if (!object(p.apps) || !keys(p.apps, platforms) || Object.keys(p.apps).length !== platforms.length || !Object.values(p.apps).every((app) => object(app) && keys(app, ['enabled', 'filters', 'blockNativeApp', 'blockWebsite']) && typeof app.enabled === 'boolean' && filters(app.filters) && ['blockNativeApp', 'blockWebsite'].every((key) => app[key] === undefined || typeof app[key] === 'boolean'))) return false;
   if (!Array.isArray(p.schedules) || p.schedules.length > 50 || !p.schedules.every(schedule) || new Set(p.schedules.map((item) => item.id)).size !== p.schedules.length) return false;
-  if (!['home', 'instagram', 'youtube'].includes(w.launchDestination as string) || !object(w.sleep) || !keys(w.sleep, ['enabled', 'bedtime', 'wakeTime', 'windDownMinutes', 'morningMinutes', 'weekdays', 'apps', 'allowedApps', 'notify']) || !validateSleepPlan(w.sleep)) return false;
+  if (!['home', 'instagram', 'youtube', 'tiktok'].includes(w.launchDestination as string) || !object(w.sleep) || !keys(w.sleep, ['enabled', 'bedtime', 'wakeTime', 'windDownMinutes', 'morningMinutes', 'weekdays', 'apps', 'allowedApps', 'notify']) || !validateSleepPlan(w.sleep)) return false;
   return list(w.sleep.weekdays, [0, 1, 2, 3, 4, 5, 6], 1) && list(w.sleep.apps, platforms, 1) && list(w.sleep.allowedApps, platforms);
 }
 export function isCloudBackup(value: unknown): value is CloudBackup {

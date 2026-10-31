@@ -21,13 +21,13 @@ describe('Instagram Clean Mode entitlement', () => {
   });
 
   it('keeps Reels protection free while disabling saved Pro filters', () => {
-    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
-    expect(getEffectiveAppConfig('youtube')).toEqual({ enabled: true, filters: { shorts: true } });
+    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
+    expect(getEffectiveAppConfig('youtube')).toEqual({ enabled: true, blocking: true, filters: { shorts: true } });
   });
 
   it('restores saved Instagram preferences for an active Pro subscription', () => {
     setPro(true);
-    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, filters: { reels: true, explore: true, sponsoredPosts: true } });
+    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: true, sponsoredPosts: true } });
     useAppStore.getState().setAppEnabled('instagram', false);
     expect(getEffectiveAppConfig('instagram').enabled).toBe(false);
   });
@@ -36,7 +36,20 @@ describe('Instagram Clean Mode entitlement', () => {
     setPro(true);
     expect(getEffectiveAppConfig('instagram').enabled).toBe(true);
     setPro(false);
-    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
+    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
     expect(useAppStore.getState().apps.instagram).toEqual({ enabled: true, filters: { reels: true, explore: true, sponsoredPosts: true } });
+  });
+
+  it('blocks the short-video feed for apps not added to Vaqtim, and only that', () => {
+    setPro(true);
+    useAppStore.getState().setAppEnabled('instagram', false);
+    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: false, blocking: true, filters: { reels: true } });
+  });
+
+  it('keeps the short-video feed blocked for free users who turned it off', () => {
+    useAppStore.getState().setFilter('youtube', 'shorts', false);
+    expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(true);
+    setPro(true);
+    expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(false);
   });
 });

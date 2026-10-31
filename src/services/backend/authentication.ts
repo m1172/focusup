@@ -66,7 +66,9 @@ export async function signInWithProvider(provider: OAuthProvider) {
   const url = await oauthFlow().begin(provider);
   if (Platform.OS === 'web') { window.location.assign(url); return; }
   try {
-    const result = await WebBrowser.openAuthSessionAsync(url, authRedirectUrl());
+    // A private session skips iOS's "Vaqtim wants to use <backend host> to sign in" alert, which shows the raw
+    // backend domain and looks untrustworthy. The cost: the sign-in page doesn't reuse Safari's logins.
+    const result = await WebBrowser.openAuthSessionAsync(url, authRedirectUrl(), { preferEphemeralSession: true });
     if (result.type === 'success') await oauthFlow().complete(result.url);
     else { await oauthFlow().cancel(); throw new BackendError(0, 'AUTH_CANCELLED', 'Sign-in was cancelled.'); }
   } catch (error) { await oauthFlow().cancel(); throw error; }

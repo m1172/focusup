@@ -68,7 +68,7 @@ export function StatisticsScreen() {
   const barWidth = count <= 7 ? 34 : Math.max(4, Math.floor((HERO_INNER_WIDTH - (count - 1) * 3) / count));
 
   const platforms = statistics.platforms.filter((entry) => entry.durationMs > 0).sort((a, b) => b.durationMs - a.durationMs);
-  const platformRows = platforms.length > 0 ? platforms : (['instagram', 'youtube'] as const).map((platform) => ({ platform, durationMs: 0 }));
+  const platformRows = platforms.length > 0 ? platforms : (['instagram', 'youtube', 'tiktok'] as const).map((platform) => ({ platform, durationMs: 0 }));
   const maxPlatform = Math.max(1, ...platformRows.map((row) => row.durationMs));
 
   const totalMinutes = Math.floor(statistics.cleanModeDurationMs / 60_000);

@@ -1,4 +1,4 @@
-import { MINUTE_ANSWERS, answerFor, formatInteger, reclaimedFreeDays, splitDay, targetMinutes, unitFor, yearCost } from '../dayBudget';
+import { HORIZON_YEARS, MINUTE_ANSWERS, answerFor, formatInteger, insteadOf, reclaimedFreeDays, splitDay, targetMinutes, unitFor, wakingShare, weekGridRuns, weeksAhead, yearCost } from '../dayBudget';
 
 describe('splitDay', () => {
   it('takes 3 hours a day out of the 8 free hours', () => {
@@ -72,5 +72,73 @@ describe('answer chips', () => {
 
   it('picks a value inside its own range', () => {
     MINUTE_ANSWERS.forEach((a, i) => expect(answerFor(a.pick, MINUTE_ANSWERS)).toBe(i));
+  });
+});
+
+describe('wakingShare', () => {
+  it('measures against the 16 waking hours', () => {
+    expect(wakingShare(240)).toBe(0.25);
+    expect(wakingShare(2000)).toBe(1);
+    expect(wakingShare(-5)).toBe(0);
+  });
+});
+
+describe('weeksAhead', () => {
+  it('splits the next 10 years for someone scrolling 3 hours a day', () => {
+    const weeks = weeksAhead(10, 180);
+    expect(weeks.total).toBe(520);
+    expect(weeks.scrolling).toBe(65); // 520 × 3/24
+    expect(weeks.sleep).toBe(173); // 520 × 8/24 (173.3 rounded)
+    expect(weeks.remaining).toBe(520 - 65 - 173);
+    expect(weeks.scrollingYears).toBeCloseTo(1.25, 2);
+  });
+
+  it('always adds up to the whole horizon', () => {
+    for (const [years, minutes] of [[1, 15], [5, 600], [10, 1440], [1, 0]]) {
+      const w = weeksAhead(years, minutes);
+      expect(w.scrolling + w.sleep + w.remaining).toBe(w.total);
+      expect(Math.min(w.sleep, w.scrolling, w.remaining)).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('takes scrolling out of sleep once free time is gone', () => {
+    const heavy = weeksAhead(10, 16 * 60);
+    expect(heavy.sleep).toBe(0);
+    expect(heavy.remaining).toBe(Math.round(520 * 8 / 24));
+  });
+});
+
+describe('weekGridRuns', () => {
+  it('fills rows in order and wraps runs across rows', () => {
+    const runs = weekGridRuns({ total: 9, scrolling: 3, sleep: 5, remaining: 1, scrollingYears: 0 }, 4);
+    expect(runs).toEqual([
+      { row: 0, start: 0, length: 3, kind: 'scrolling' },
+      { row: 0, start: 3, length: 1, kind: 'sleep' },
+      { row: 1, start: 0, length: 4, kind: 'sleep' },
+      { row: 2, start: 0, length: 1, kind: 'remaining' },
+    ]);
+  });
+
+  it('covers every week of each horizon exactly once', () => {
+    for (const years of HORIZON_YEARS) {
+      const runs = weekGridRuns(weeksAhead(years, 180), 26);
+      expect(runs.reduce((sum, r) => sum + r.length, 0)).toBe(years * 52);
+    }
+  });
+});
+
+describe('insteadOf', () => {
+  it('splits a year of 2 hours a day into reading, workouts and evenings', () => {
+    const year = insteadOf(120, 1); // 43,830 minutes
+    expect(year.hours).toBe(730);
+    expect(year.books).toBe(62); // 438 reading hours / 7
+    expect(year.workouts).toBe(292); // 30% / 45 min
+    expect(year.evenings).toBe(24); // 4,383 minutes left / 180
+  });
+
+  it('scales with the period and never goes negative', () => {
+    expect(insteadOf(120, 5).hours).toBe(3652);
+    expect(insteadOf(0, 1)).toEqual({ hours: 0, books: 0, workouts: 0, evenings: 0 });
+    expect(insteadOf(60, -1).hours).toBe(0);
   });
 });

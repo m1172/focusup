@@ -20,6 +20,13 @@ struct ProtectionPlan: Codable {
   let locale: String
   let liveActivity: Bool
   let baseline: [String]
+  /// Website domains per platform; absent in plans written by older app versions.
+  let websites: [String: [String]]?
+  let adultFilter: Bool?
+  /// Vaqtim cannot be deleted while this is on.
+  let uninstallProtection: Bool?
+  /// Minutes a day per platform; reaching one blocks that app until midnight.
+  let dailyLimits: [String: Int]?
   let routines: [ProtectionRoutine]
   let strict: ProtectionInterval?
   let temporary: TemporaryWindow?
@@ -49,14 +56,24 @@ enum ProtectionShared {
     if start < end { return routine.weekdays.contains(day) && minute >= start && minute < end }
     return (minute >= start && routine.weekdays.contains(day)) || (minute < end && routine.weekdays.contains((day + 6) % 7))
   }
+  static func dayKey(_ date: Date = Date()) -> String {
+    let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+    return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+  }
+  /// Platforms whose daily limit was reached today (written by the monitor extension).
+  static func limitReached(at date: Date = Date()) -> Set<String> {
+    guard let plan = plan(), let limits = plan.dailyLimits else { return [] }
+    return Set(limits.keys.filter { defaults?.string(forKey: "limitReached.\($0)") == dayKey(date) })
+  }
   static func platforms(at date: Date = Date()) -> Set<String> {
     guard let plan = plan() else { return [] }
-    var result = Set(plan.baseline)
+    var result = Set(plan.baseline).union(limitReached(at: date))
     for routine in plan.routines where active(routine, at: date) { result.formUnion(Set(routine.apps).subtracting(routine.allowedApps ?? [])) }
     let now = date.timeIntervalSince1970 * 1000
+    if let strict = plan.strict, strict.endsAt > now { result.formUnion(strict.platforms) }
+    // A break lifts Hard Mode for its one app; strict routines still win.
     if let temporary = plan.temporary, temporary.endsAt > now { result.remove(temporary.platform) }
     for routine in plan.routines where routine.strict == true && active(routine, at: date) { result.formUnion(Set(routine.apps).subtracting(routine.allowedApps ?? [])) }
-    if let strict = plan.strict, strict.endsAt > now { result.formUnion(strict.platforms) }
     return result
   }
   static func apply() {
@@ -72,6 +89,23 @@ enum ProtectionShared {
     store.shield.applications = applications.isEmpty ? nil : applications
     store.shield.applicationCategories = categories.isEmpty ? nil : .specific(categories, except: allowedApplications)
     store.shield.webDomains = domains.isEmpty ? nil : domains
+    applyWebFilter()
+    store.application.denyAppRemoval = plan()?.uninstallProtection == true ? true : nil
+  }
+
+  /// Blocks each platform's website in Safari and other browsers, unless that platform has temporary access.
+  /// Apple's adult filter (`.auto`) also blocks the listed domains, so one policy covers both switches.
+  static func applyWebFilter(at date: Date = Date()) {
+    guard let plan = plan() else { store.webContent.blockedByFilter = nil; return }
+    let now = date.timeIntervalSince1970 * 1000
+    let open = plan.temporary.flatMap { $0.endsAt > now ? $0.platform : nil }
+    var blocked = Set<WebDomain>()
+    for (platform, list) in plan.websites ?? [:] where platform != open {
+      for domain in list.prefix(10) { blocked.insert(WebDomain(domain: domain)) }
+    }
+    if plan.adultFilter == true { store.webContent.blockedByFilter = .auto(blocked) }
+    else if !blocked.isEmpty { store.webContent.blockedByFilter = .specific(blocked) }
+    else { store.webContent.blockedByFilter = nil }
   }
   static func register(_ plan: ProtectionPlan) throws {
     let center = DeviceActivityCenter()
@@ -82,11 +116,24 @@ enum ProtectionShared {
       guard start >= 0, end >= 0, length >= 15 else { throw NSError(domain: "FocusUp", code: 15) }
       try center.startMonitoring(.init("focusup.routine.\(index)"), during: DeviceActivitySchedule(intervalStart: DateComponents(hour: start / 60, minute: start % 60), intervalEnd: DateComponents(hour: end / 60, minute: end % 60), repeats: true))
     }
+    let minimum = 15 * 60 * 1000.0
     func registerInterval(_ name: String, _ start: Double, _ end: Double) throws {
       guard end > Date().timeIntervalSince1970 * 1000 else { return }
-      guard end - start >= 15 * 60 * 1000 else { throw NSError(domain: "FocusUp", code: 15) }
+      // Hard Mode until turned off has no end to wait for; the shield stays from apply().
+      guard end - start <= 7 * 24 * 60 * 60 * 1000 else { return }
+      // DeviceActivity intervals last at least 15 minutes. A shorter break uses a 15-minute interval whose warning
+      // fires at the real end, and the monitor re-applies the shield then.
+      let scheduledEnd = max(end, start + minimum)
+      let warning = scheduledEnd > end ? DateComponents(second: Int((scheduledEnd - end) / 1000)) : nil
       let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
-      try center.startMonitoring(.init(name), during: DeviceActivitySchedule(intervalStart: Calendar.current.dateComponents(components, from: Date(timeIntervalSince1970: start / 1000)), intervalEnd: Calendar.current.dateComponents(components, from: Date(timeIntervalSince1970: end / 1000)), repeats: false))
+      try center.startMonitoring(.init(name), during: DeviceActivitySchedule(intervalStart: Calendar.current.dateComponents(components, from: Date(timeIntervalSince1970: start / 1000)), intervalEnd: Calendar.current.dateComponents(components, from: Date(timeIntervalSince1970: scheduledEnd / 1000)), repeats: false, warningTime: warning))
+    }
+    // Daily limits: a repeating all-day interval whose usage event fires at the limit.
+    for (platform, minutes) in plan.dailyLimits ?? [:] where minutes > 0 {
+      let selected = selection(platform)
+      guard !selected.applicationTokens.isEmpty || !selected.categoryTokens.isEmpty else { continue }
+      let event = DeviceActivityEvent(applications: selected.applicationTokens, categories: selected.categoryTokens, webDomains: selected.webDomainTokens, threshold: DateComponents(minute: minutes))
+      try center.startMonitoring(.init("focusup.limit.\(platform)"), during: DeviceActivitySchedule(intervalStart: DateComponents(hour: 0, minute: 0), intervalEnd: DateComponents(hour: 23, minute: 59, second: 59), repeats: true), events: [.init("limit"): event])
     }
     if let strict = plan.strict, !strict.platforms.isEmpty { try registerInterval("focusup.strict", strict.startedAt, strict.endsAt) }
     if let temporary = plan.temporary { try registerInterval("focusup.temporary", temporary.startedAt, temporary.endsAt) }

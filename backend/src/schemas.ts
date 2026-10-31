@@ -4,7 +4,7 @@ export const appId = z.enum(['instagram', 'youtube', 'tiktok', 'x', 'reddit', 's
 const apps = z.array(appId).max(8).refine((values) => new Set(values).size === values.length, 'Duplicate apps');
 const weekdays = z.array(z.number().int().min(0).max(6)).min(1).max(7).refine((values) => new Set(values).size === values.length, 'Duplicate weekdays');
 const clock = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
-const filterNames = ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed', 'shorts', 'homeRecommendations', 'comments', 'sponsoredContent', 'forYou'] as const;
+const filterNames = ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed', 'shorts', 'homeRecommendations', 'comments', 'sponsoredContent', 'forYou', 'following'] as const;
 const filters = z.partialRecord(z.enum(filterNames), z.boolean());
 const platformFilters = z.partialRecord(appId, filters);
 const schedule = z.strictObject({
@@ -16,13 +16,13 @@ export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
   preferences: z.strictObject({
     selectedLanguage: z.enum(['uz', 'ru', 'en']), themeMode: z.enum(['system', 'light', 'dark']),
-    apps: z.record(appId, z.strictObject({ enabled: z.boolean(), filters })),
+    apps: z.record(appId, z.strictObject({ enabled: z.boolean(), filters, blockNativeApp: z.boolean().optional(), blockWebsite: z.boolean().optional() })),
     schedules: z.array(schedule).max(50).refine((values) => new Set(values.map((value) => value.id)).size === values.length, 'Duplicate schedule IDs'),
     dailyGoalMinutes: z.number().int().min(1).max(1440),
     goalNotifications: z.boolean(), completionNotifications: z.boolean(),
   }),
   wellbeing: z.strictObject({
-    launchDestination: z.enum(['home', 'instagram', 'youtube']),
+    launchDestination: z.enum(['home', 'instagram', 'youtube', 'tiktok']),
     sleep: z.strictObject({
       enabled: z.boolean(), bedtime: clock, wakeTime: clock,
       windDownMinutes: z.number().int().min(0).max(180), morningMinutes: z.number().int().min(0).max(180),

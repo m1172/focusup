@@ -1,5 +1,11 @@
 export const browserTranslations = {
   en: {
+    paste: 'Paste',
+    blockingTitle: 'Blocking',
+    blockRealApp: 'Block the {{name}} app', blockRealAppHint: 'Opening it brings you to Vaqtim instead.',
+    blockWebsite: 'Block the website', blockWebsiteHint: 'Safari and other browsers can’t open {{domain}}. Vaqtim still can.',
+    websiteIosOnly: 'Available on iPhone for now.', websiteUnavailable: 'Website blocking needs the Vaqtim app from the App Store, with Screen Time access.',
+    nativeBlockOffSwitch: 'Turn on to block the original app.',
     fullScreen: 'Full screen', showControls: 'Show browser controls',
     launchTitle: 'Open {{name}} in Vaqtim', launchBody: 'Your social app. A little more intentional.',
     openApp: 'Open {{name}}', openLink: 'Open a link', linkBody: 'Paste an {{name}} link to open it inside Vaqtim.',
@@ -27,6 +33,12 @@ export const browserTranslations = {
     cleanModeProDetail: 'Unlock focused search and additional Instagram filters while keeping messages, profiles, and individual videos available.',
   },
   uz: {
+    paste: 'Qo‘yish',
+    blockingTitle: 'Bloklash',
+    blockRealApp: '{{name}} ilovasini bloklash', blockRealAppHint: 'Uni ochsangiz, o‘rniga Vaqtim ochiladi.',
+    blockWebsite: 'Saytni bloklash', blockWebsiteHint: 'Safari va boshqa brauzerlar {{domain}} saytini ocha olmaydi. Vaqtim ocha oladi.',
+    websiteIosOnly: 'Hozircha faqat iPhone’da.', websiteUnavailable: 'Saytni bloklash uchun App Store’dagi Vaqtim ilovasi va Screen Time ruxsati kerak.',
+    nativeBlockOffSwitch: 'Asl ilovani bloklash uchun yoqing.',
     fullScreen: 'To‘liq ekran', showControls: 'Brauzer boshqaruvini ko‘rsatish',
     launchTitle: '{{name}}’ni Vaqtim’da oching', launchBody: 'Ijtimoiy tarmoqdan ongliroq foydalaning.',
     openApp: '{{name}}’ni ochish', openLink: 'Havolani ochish', linkBody: '{{name}} havolasini Vaqtim ichida ochish uchun kiriting.',
@@ -54,6 +66,12 @@ export const browserTranslations = {
     cleanModeProDetail: 'Maxsus qidiruv va qo‘shimcha Instagram filtrlarini oching. Xabarlar, profillar va alohida videolar ochiq qoladi.',
   },
   ru: {
+    paste: 'Вставить',
+    blockingTitle: 'Блокировка',
+    blockRealApp: 'Блокировать приложение {{name}}', blockRealAppHint: 'Вместо него откроется Vaqtim.',
+    blockWebsite: 'Блокировать сайт', blockWebsiteHint: 'Safari и другие браузеры не откроют {{domain}}. Vaqtim откроет.',
+    websiteIosOnly: 'Пока только на iPhone.', websiteUnavailable: 'Для блокировки сайта нужно приложение Vaqtim из App Store и доступ к «Экранному времени».',
+    nativeBlockOffSwitch: 'Включите, чтобы блокировать оригинальное приложение.',
     fullScreen: 'На весь экран', showControls: 'Показать панель браузера',
     launchTitle: 'Откройте {{name}} в Vaqtim', launchBody: 'Пользуйтесь соцсетями осознаннее.',
     openApp: 'Открыть {{name}}', openLink: 'Открыть ссылку', linkBody: 'Вставьте ссылку {{name}}, чтобы открыть её внутри Vaqtim.',

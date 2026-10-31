@@ -44,4 +44,13 @@ describe('parseSocialWebViewEvent', () => {
       expect(parseSocialWebViewEvent(JSON.stringify(invalid), 'instagram')).toBeNull();
     }
   });
+
+  it('accepts TikTok feed events and rejects other platforms\' features', () => {
+    expect(parseSocialWebViewEvent(JSON.stringify({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: 'forYou' }), 'tiktok'))
+      .toEqual({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: 'forYou' });
+    expect(parseSocialWebViewEvent(JSON.stringify({ type: 'FILTER_APPLIED', platform: 'tiktok', feature: 'following', count: 1 }), 'tiktok'))
+      .toEqual({ type: 'FILTER_APPLIED', platform: 'tiktok', feature: 'following', count: 1 });
+    expect(parseSocialWebViewEvent(JSON.stringify({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: 'shorts' }), 'tiktok')).toBeNull();
+    expect(parseSocialWebViewEvent(JSON.stringify({ type: 'READY', platform: 'tiktok', observerActive: true }), 'youtube')).toBeNull();
+  });
 });

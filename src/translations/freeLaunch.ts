@@ -3,17 +3,17 @@ export const freeLaunchCopy = {
   en: {
     promise: 'Without Reels or Shorts.', instagramDesc: 'Hide Reels',
     privacyText: 'Vaqtim stores preferences on this device. A Vaqtim account is required and uses Supabase Auth. Social website sign-in stays within the social platform; its passwords are not sent to Vaqtim.',
-    design: { instagramDesc: 'Hide Reels inside Vaqtim', youtubeDesc: 'Hide Shorts inside Vaqtim', onboardingBody: 'Open Instagram and YouTube in Vaqtim to hide Reels and Shorts.' },
+    design: { instagramDesc: 'Hide Reels inside Vaqtim', youtubeDesc: 'Hide Shorts inside Vaqtim', tiktokDesc: 'Hide the For You feed inside Vaqtim', onboardingBody: 'Only the endless videos disappear.' },
     cloudAuth: {
       intro: 'Manage your Vaqtim account. Your settings are backed up automatically.',
       unavailable: 'Sign-in is unavailable in this build. An account is required to continue. Try again with an updated app or contact support.',
       signedOutBody: 'Sign in or create a free account to use Vaqtim.',
-      onboardingTitle: 'Your account, your focus', onboardingBody: 'Sign in or create a free account to start using Vaqtim. Your setup will be kept.',
+      onboardingTitle: 'Your account, your focus', onboardingBody: 'Your setup will be kept.',
       benefitBackup: 'Back up your filters and goals',
       signOutDescription: 'Your settings stay on this device and your cloud backup is kept. Sign in again to use Vaqtim.',
       deleteAccountDescription: 'This deletes your Vaqtim cloud account, profile and backup. Local settings are kept. Sign in or create another account to use Vaqtim again.',
       restoreDescription: 'Your current settings will be replaced with this cloud backup. Saved settings for unavailable features remain inactive. Device permissions and website sessions are kept.',
-      freePermissions: 'Reels and Shorts filtering works inside Vaqtim. Blocking the original Instagram and YouTube apps needs a new app build on this device.',
+      freePermissions: 'Reels, Shorts and For You filtering works inside Vaqtim. Blocking the original Instagram, YouTube and TikTok apps needs a new app build on this device.',
       requiredHelp: 'A Vaqtim account is required. Create an account, confirm your email code, then sign in. If sign-in fails, check your connection or reset your password. Social websites have their own separate sign-in.',
     },
     wellbeing: {
@@ -24,17 +24,17 @@ export const freeLaunchCopy = {
   ru: {
     promise: 'Без Reels и Shorts.', instagramDesc: 'Скрыть Reels',
     privacyText: 'Vaqtim хранит настройки на устройстве. Для работы нужен аккаунт Vaqtim с Supabase Auth. Вход на социальные сайты остаётся внутри платформы; их пароли не передаются Vaqtim.',
-    design: { instagramDesc: 'Скрыть Reels внутри Vaqtim', youtubeDesc: 'Скрыть Shorts внутри Vaqtim', onboardingBody: 'Открывайте Instagram и YouTube в Vaqtim, чтобы скрыть Reels и Shorts.' },
+    design: { instagramDesc: 'Скрыть Reels внутри Vaqtim', youtubeDesc: 'Скрыть Shorts внутри Vaqtim', tiktokDesc: 'Скрыть ленту «Для вас» внутри Vaqtim', onboardingBody: 'Исчезают только бесконечные видео.' },
     cloudAuth: {
       intro: 'Управляйте аккаунтом Vaqtim. Настройки сохраняются в облаке автоматически.',
       unavailable: 'Вход недоступен в этой версии. Для продолжения нужен аккаунт. Попробуйте обновить приложение или обратитесь в поддержку.',
       signedOutBody: 'Войдите или создайте бесплатный аккаунт, чтобы пользоваться Vaqtim.',
-      onboardingTitle: 'Ваш аккаунт, ваш фокус', onboardingBody: 'Войдите или создайте бесплатный аккаунт, чтобы начать пользоваться Vaqtim. Ваши настройки сохранятся.',
+      onboardingTitle: 'Ваш аккаунт, ваш фокус', onboardingBody: 'Ваши настройки сохранятся.',
       benefitBackup: 'Резервная копия фильтров и целей',
       signOutDescription: 'Настройки останутся на устройстве, а резервная копия — в облаке. Для работы с Vaqtim войдите снова.',
       deleteAccountDescription: 'Облачный аккаунт Vaqtim, профиль и резервная копия будут удалены. Локальные настройки сохранятся. Чтобы снова пользоваться Vaqtim, войдите или создайте другой аккаунт.',
       restoreDescription: 'Текущие настройки будут заменены облачной копией. Настройки недоступных функций останутся неактивными. Разрешения устройства и сеансы сайтов сохранятся.',
-      freePermissions: 'Фильтрация Reels и Shorts работает внутри Vaqtim. Для блокировки приложений Instagram и YouTube нужна новая версия приложения на этом устройстве.',
+      freePermissions: 'Фильтрация Reels, Shorts и For You работает внутри Vaqtim. Для блокировки приложений Instagram, YouTube и TikTok нужна новая версия приложения на этом устройстве.',
       requiredHelp: 'Для работы нужен аккаунт Vaqtim. Создайте аккаунт, подтвердите код из письма и войдите. При ошибке проверьте соединение или сбросьте пароль. Вход на социальные сайты выполняется отдельно.',
     },
     wellbeing: {
@@ -45,17 +45,17 @@ export const freeLaunchCopy = {
   uz: {
     promise: 'Reels va Shorts’siz.', instagramDesc: 'Reels’ni yashirish',
     privacyText: 'Vaqtim sozlamalarni qurilmada saqlaydi. Ishlash uchun Supabase Auth orqali Vaqtim hisobi talab qilinadi. Ijtimoiy saytlarga kirish o‘sha platformada qoladi; ularning parollari Vaqtim’ga yuborilmaydi.',
-    design: { instagramDesc: 'Vaqtim ichida Reels’ni yashirish', youtubeDesc: 'Vaqtim ichida Shorts’ni yashirish', onboardingBody: 'Reels va Shorts’ni yashirish uchun Instagram va YouTube’ni Vaqtim’da oching.' },
+    design: { instagramDesc: 'Vaqtim ichida Reels’ni yashirish', youtubeDesc: 'Vaqtim ichida Shorts’ni yashirish', tiktokDesc: 'Vaqtim ichida For You lentasini yashirish', onboardingBody: 'Faqat cheksiz videolar yo‘qoladi.' },
     cloudAuth: {
       intro: 'Vaqtim hisobingizni boshqaring. Sozlamalaringiz avtomatik saqlanadi.',
       unavailable: 'Bu versiyada hisobga kirish mavjud emas. Davom etish uchun hisob kerak. Ilovani yangilang yoki yordam xizmatiga murojaat qiling.',
       signedOutBody: 'Vaqtim’dan foydalanish uchun kiring yoki bepul hisob yarating.',
-      onboardingTitle: 'Hisobingiz, diqqatingiz', onboardingBody: 'Vaqtim’dan foydalanishni boshlash uchun kiring yoki bepul hisob yarating. Sozlamalaringiz saqlanadi.',
+      onboardingTitle: 'Hisobingiz, diqqatingiz', onboardingBody: 'Sozlamalaringiz saqlanib qoladi.',
       benefitBackup: 'Filtrlar va maqsadlarni zaxiralash',
       signOutDescription: 'Sozlamalaringiz qurilmada, zaxirangiz esa bulutda saqlanadi. Vaqtim’dan foydalanish uchun qayta kiring.',
       deleteAccountDescription: 'Vaqtim bulutli hisobingiz, profilingiz va zaxirangiz o‘chiriladi. Mahalliy sozlamalar saqlanadi. Qayta foydalanish uchun kiring yoki boshqa hisob yarating.',
       restoreDescription: 'Joriy sozlamalar bulutli nusxa bilan almashtiriladi. Mavjud bo‘lmagan funksiyalarning sozlamalari faol bo‘lmaydi. Qurilma ruxsatlari va sayt seanslari saqlanadi.',
-      freePermissions: 'Reels va Shorts filtrlari Vaqtim ichida ishlaydi. Instagram va YouTube ilovalarini bloklash uchun bu qurilmada ilovaning yangi versiyasi kerak.',
+      freePermissions: 'Reels, Shorts va For You filtrlari Vaqtim ichida ishlaydi. Instagram, YouTube va TikTok ilovalarini bloklash uchun bu qurilmada ilovaning yangi versiyasi kerak.',
       requiredHelp: 'Vaqtim hisobi talab qilinadi. Hisob yarating, pochtadagi kodni tasdiqlang va kiring. Xatolik bo‘lsa, internetni tekshiring yoki parolni tiklang. Ijtimoiy saytlarga alohida kiriladi.',
     },
     wellbeing: {

@@ -2,7 +2,7 @@ import { PRO_ENABLED } from '../config/release';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { FocusSchedule, Locale, SocialAppId, SocialAppSettings, StrictSession, ThemeMode } from '../types/app';
+import type { BlockingSwitch, FocusSchedule, Locale, SocialAppId, SocialAppSettings, StrictSession, ThemeMode } from '../types/app';
 import type { DiagnosticsByPlatform, WebViewDiagnostics } from '../types/social';
 
 type AppState = {
@@ -20,6 +20,7 @@ type AppState = {
   setTheme: (mode: ThemeMode) => void;
   setAppEnabled: (appId: SocialAppId, enabled: boolean) => void;
   setFilter: (appId: SocialAppId, filter: string, enabled: boolean) => void;
+  setBlocking: (appId: SocialAppId, key: BlockingSwitch, enabled: boolean) => void;
   completeOnboarding: () => void;
   saveSchedule: (schedule: FocusSchedule) => void;
   deleteSchedule: (id: string) => void;
@@ -34,13 +35,13 @@ type AppState = {
   setWebViewDiagnostics: (appId: SocialAppId, diagnostics: WebViewDiagnostics | null) => void;
 };
 
-export const supportedAppIds: SocialAppId[] = ['instagram', 'youtube'];
+export const supportedAppIds: SocialAppId[] = ['instagram', 'youtube', 'tiktok'];
 // New users start uncleaned: they turn Clean Mode on in each app's protection screen, which blocks the original
 // app first. Saved settings are kept as they are.
 const defaults: Record<SocialAppId, SocialAppSettings> = {
   instagram: { enabled: false, filters: { reels: true, explore: true, recommendations: true, suggestedPosts: true, sponsoredPosts: false, homeFeed: false } },
   youtube: { enabled: false, filters: { shorts: true, recommendations: true, homeRecommendations: true, comments: false, sponsoredContent: false } },
-  tiktok: { enabled: false, filters: { forYou: true } },
+  tiktok: { enabled: false, filters: { forYou: true, following: true, explore: false } },
   x: { enabled: false, filters: { recommendations: true } },
   reddit: { enabled: false, filters: { recommendations: true } },
   snapchat: { enabled: false, filters: {} },
@@ -49,9 +50,9 @@ const defaults: Record<SocialAppId, SocialAppSettings> = {
 };
 
 const starterSchedules: FocusSchedule[] = [
-  { id: 'starter-work', name: 'work', start: '09:00', end: '18:00', weekdays: [1, 2, 3, 4, 5], apps: ['instagram', 'youtube'], enabled: false },
-  { id: 'starter-sleep', name: 'sleep', start: '22:00', end: '07:00', weekdays: [0, 1, 2, 3, 4, 5, 6], apps: ['instagram', 'youtube'], enabled: false },
-  { id: 'starter-study', name: 'study', start: '19:00', end: '21:00', weekdays: [1, 2, 3, 4, 5], apps: ['instagram', 'youtube'], enabled: false },
+  { id: 'starter-work', name: 'work', start: '09:00', end: '18:00', weekdays: [1, 2, 3, 4, 5], apps: ['instagram', 'youtube', 'tiktok'], enabled: false },
+  { id: 'starter-sleep', name: 'sleep', start: '22:00', end: '07:00', weekdays: [0, 1, 2, 3, 4, 5, 6], apps: ['instagram', 'youtube', 'tiktok'], enabled: false },
+  { id: 'starter-study', name: 'study', start: '19:00', end: '21:00', weekdays: [1, 2, 3, 4, 5], apps: ['instagram', 'youtube', 'tiktok'], enabled: false },
 ];
 
 export const useAppStore = create<AppState>()(persist((set, get) => ({
@@ -75,6 +76,11 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     if (PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], filters: { ...state.apps[appId].filters, [filter]: enabled } } } };
   }),
+  setBlocking: (appId, key, enabled) => set((state) => {
+    // Strict sessions may switch blocking on but never off.
+    if (!enabled && PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
+    return { apps: { ...state.apps, [appId]: { ...state.apps[appId], [key]: enabled } } };
+  }),
   completeOnboarding: () => set({ onboardingCompleted: true }),
   saveSchedule: (schedule) => set((state) => ({ schedules: [...state.schedules.filter((item) => item.id !== schedule.id), schedule] })),
   deleteSchedule: (id) => set((state) => ({ schedules: state.schedules.filter((item) => item.id !== id) })),
@@ -97,7 +103,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 }), {
   name: 'focusup-preferences-v1',
   storage: createJSONStorage(() => AsyncStorage),
-  version: 4,
+  version: 5,
   partialize: (state) => ({
     onboardingCompleted: state.onboardingCompleted,
     selectedLanguage: state.selectedLanguage,
@@ -128,13 +134,17 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       sponsoredContent: storedYouTube.filters.sponsoredContent ?? false,
     };
     delete (youtubeFilters as Record<string, unknown>).ads;
+    const storedTikTok = storedApps.tiktok ?? defaults.tiktok;
+    // Before v5 the original app was blocked exactly while clean mode and its short-video filter were on.
+    const withBlocking = (settings: SocialAppSettings, filter: string): SocialAppSettings => ({ ...settings, blockNativeApp: settings.blockNativeApp ?? Boolean(settings.enabled && settings.filters[filter]), blockWebsite: settings.blockWebsite ?? false });
     return {
       ...state,
       apps: {
         ...defaults,
         ...storedApps,
-        instagram: { ...defaults.instagram, ...storedInstagram, filters: instagramFilters },
-        youtube: { ...defaults.youtube, ...storedYouTube, filters: youtubeFilters },
+        instagram: withBlocking({ ...defaults.instagram, ...storedInstagram, filters: instagramFilters }, 'reels'),
+        youtube: withBlocking({ ...defaults.youtube, ...storedYouTube, filters: youtubeFilters }, 'shorts'),
+        tiktok: withBlocking({ ...defaults.tiktok, ...storedTikTok, filters: { ...defaults.tiktok.filters, ...storedTikTok.filters } }, 'forYou'),
       },
       webViewDiagnostics: {},
     } as AppState;

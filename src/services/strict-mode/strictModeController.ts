@@ -4,6 +4,7 @@ import { track } from '../analytics/localAnalytics';
 import { nativeAppBlocker, type NativeAppBlocker } from '../native-blocking';
 import { createStrictModeSession, isStrictModeExpired, normalizeStrictSession, snapshotProtectedSettings, type ProtectedPlatform, type StrictModeSession } from './strictModeService';
 import { strictModeStorage } from './strictModeStorage';
+import { isOpenEndedSession } from './types';
 import { cancelStrictModeCompletion, scheduleStrictModeCompletion } from '../notifications/notificationService';
 import { canUseFeature } from '../subscription/subscriptionService';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
@@ -17,8 +18,8 @@ export async function startStrictMode(input: { durationMinutes: number; protecte
   if (!canUseFeature(useSubscriptionStore.getState().isPro, 'strictMode')) throw new Error('FocusUp Pro is required to start Strict Mode.');
   const state = useAppStore.getState();
   const selected = [...new Set(input.protectedPlatforms)];
-  if (selected.some((id) => id !== 'instagram' && id !== 'youtube' && !useWellbeingStore.getState().nativeApps.includes(id))) throw new Error('This platform needs native protection setup.');
-  if (selected.some((id) => id !== 'instagram' && id !== 'youtube') && (!(await blocker.isSupported()) || await blocker.getAuthorizationStatus() !== 'authorized')) throw new Error('Native protection authorization is required for this app.');
+  if (selected.some((id) => id !== 'instagram' && id !== 'youtube' && id !== 'tiktok' && !useWellbeingStore.getState().nativeApps.includes(id))) throw new Error('This platform needs native protection setup.');
+  if (selected.some((id) => id !== 'instagram' && id !== 'youtube' && id !== 'tiktok') && (!(await blocker.isSupported()) || await blocker.getAuthorizationStatus() !== 'authorized')) throw new Error('Native protection authorization is required for this app.');
   const snapshot = snapshotProtectedSettings(state.apps, selected);
   const session = createStrictModeSession(input.durationMinutes, selected, snapshot);
   strictModeStorage.saveSession({ ...session, appIds: selected, filters: Object.fromEntries(selected.map((id) => [id, { ...snapshot[id]!.filters }])) });
@@ -36,7 +37,7 @@ export async function startStrictMode(input: { durationMinutes: number; protecte
     }
   } catch { nativeActive = false; }
   strictModeStorage.setNativeProtectionActive(nativeActive);
-  if (state.completionNotifications) void scheduleStrictModeCompletion(session.endsAt);
+  if (state.completionNotifications && !isOpenEndedSession(session)) void scheduleStrictModeCompletion(session.endsAt);
   void track({ type: 'STRICT_MODE_EVENT', event: 'strict_mode_started', durationMinutes: input.durationMinutes, protectedPlatformCount: selected.length, timestamp: session.startedAt });
   return { ...session, nativeProtectionActive: nativeActive };
 }
@@ -57,7 +58,7 @@ export function reconcileStrictModeState(now = Date.now(), blocker: NativeAppBlo
       if (stored) strictModeStorage.clearSession();
       return;
     }
-    if (useAppStore.getState().completionNotifications) void scheduleStrictModeCompletion(session.endsAt);
+    if (useAppStore.getState().completionNotifications && !isOpenEndedSession(session)) void scheduleStrictModeCompletion(session.endsAt);
     if (isStrictModeExpired(session, now)) {
       try { if ((await blocker.isSupported()) && (await blocker.getBlockingStatus()).active) await blocker.stopBlocking(); } catch { /* Expiry always unlocks in-app settings. */ }
       strictModeStorage.clearSession();

@@ -22,6 +22,21 @@ export type YouTubeBlockerConfig = {
 
 export type YouTubeFilterFeature = keyof YouTubeBlockerConfig;
 
+export type TikTokBlockerConfig = {
+  forYou: boolean;
+  following: boolean;
+  explore: boolean;
+};
+
+export type TikTokFilterFeature = keyof TikTokBlockerConfig;
+
+/** Websites FocusUp opens in its clean in-app browser. */
+export type CleanPlatform = 'instagram' | 'youtube' | 'tiktok';
+export const CLEAN_PLATFORMS: readonly CleanPlatform[] = ['instagram', 'youtube', 'tiktok'];
+export function isCleanPlatform(value: unknown): value is CleanPlatform {
+  return value === 'instagram' || value === 'youtube' || value === 'tiktok';
+}
+
 export type InstagramWebViewEvent =
   | { type: 'READY'; platform: 'instagram'; observerActive: boolean }
   | { type: 'CONTENT_DETECTED'; platform: 'instagram'; feature: 'sponsoredPosts' | 'suggestedPosts'; count: number }
@@ -37,8 +52,15 @@ export type YouTubeWebViewEvent =
   | { type: 'BLOCKED_NAVIGATION'; platform: 'youtube'; feature: 'shorts' }
   | { type: 'ERROR'; platform: 'youtube'; scope: string };
 
-export type SocialWebViewEvent = InstagramWebViewEvent | YouTubeWebViewEvent
-  | { type: 'PAGE_APPEARANCE'; platform: 'instagram' | 'youtube'; backgroundColor: string; isStory: boolean };
+export type TikTokWebViewEvent =
+  | { type: 'READY'; platform: 'tiktok'; observerActive: boolean }
+  | { type: 'FILTER_APPLIED'; platform: 'tiktok'; feature: TikTokFilterFeature; count: number }
+  | { type: 'URL_CHANGED'; platform: 'tiktok'; route: SocialBrowserRoute }
+  | { type: 'BLOCKED_NAVIGATION'; platform: 'tiktok'; feature: TikTokFilterFeature }
+  | { type: 'ERROR'; platform: 'tiktok'; scope: string };
+
+export type SocialWebViewEvent = InstagramWebViewEvent | YouTubeWebViewEvent | TikTokWebViewEvent
+  | { type: 'PAGE_APPEARANCE'; platform: CleanPlatform; backgroundColor: string; isStory: boolean };
 
 export type WebViewDiagnostics = {
   currentUrl: string;
@@ -48,7 +70,7 @@ export type WebViewDiagnostics = {
   lastInjectionAt: string;
   lastFilterPassAt?: string;
   blockerConfig: SocialWebViewConfig;
-  filterCounts?: Partial<Record<InstagramFilterFeature | YouTubeFilterFeature, number>>;
+  filterCounts?: Partial<Record<InstagramFilterFeature | YouTubeFilterFeature | TikTokFilterFeature, number>>;
 };
 
 export type SocialWebViewConfig = Record<string, boolean>;

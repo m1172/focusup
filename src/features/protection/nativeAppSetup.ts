@@ -36,7 +36,7 @@ async function refreshStatus() {
  * Android finishes in system Accessibility settings, so it returns `needsPermission` while the user is there.
  * `cancelled` means the user said no to FocusUp's explanation or Apple's picker.
  */
-export async function setUpNativeAppBlock(appId: SocialAppId, name: string, options: { feature?: string } = {}): Promise<NativeBlockState | 'cancelled'> {
+export async function setUpNativeAppBlock(appId: SocialAppId, name: string, options: { feature?: string; confirmed?: boolean } = {}): Promise<NativeBlockState | 'cancelled'> {
   let status = await refreshStatus();
   const state = nativeBlockState(status, appId);
   if (state === 'unsupported' || state === 'active') return state;
@@ -46,11 +46,11 @@ export async function setUpNativeAppBlock(appId: SocialAppId, name: string, opti
   if (state === 'needsPermission') {
     const steps = i18n.t(Platform.OS === 'ios' ? 'browser.nativeBlockIOSSteps' : 'browser.nativeBlockAndroidSteps', { name });
     const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
-    if (!await confirm(title, `${reason}${steps}\n\n${disclosure}`, i18n.t('wellbeing.authorize'))) return 'cancelled';
+    if (!options.confirmed && !await confirm(title, `${reason}${steps}\n\n${disclosure}`, i18n.t('wellbeing.authorize'))) return 'cancelled';
     if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
     status = await refreshStatus();
     if (!status.authorized) return 'needsPermission';
-  } else if (!await confirm(title, `${reason}${i18n.t('browser.nativeBlockChoose', { name })}`, i18n.t('browser.nativeBlockChooseAction'))) return 'cancelled';
+  } else if (!options.confirmed && !await confirm(title, `${reason}${i18n.t('browser.nativeBlockChoose', { name })}`, i18n.t('browser.nativeBlockChooseAction'))) return 'cancelled';
   // A picked app is ready even when the status cannot say so yet (builds before `selectedPlatforms`).
   let picked = false;
   if (nativeBlockState(status, appId) === 'needsSelection') {
@@ -64,23 +64,35 @@ export async function setUpNativeAppBlock(appId: SocialAppId, name: string, opti
 }
 
 /** Android: the filter waits while the user turns on the Accessibility service, then turns on when FocusUp returns. */
-let pendingEnable: { appId: SocialAppId; enable: () => void; until: number } | null = null;
+let pendingEnable: { appId: SocialAppId; enable: (blocked: boolean) => void; until: number } | null = null;
 useProtectionStatusStore.subscribe(({ status }) => {
   if (!pendingEnable) return;
   if (Date.now() > pendingEnable.until) { pendingEnable = null; return; }
   if (nativeBlockState(status, pendingEnable.appId) !== 'active') return;
   const { enable } = pendingEnable;
   pendingEnable = null;
-  enable();
+  enable(true);
 });
 
 /**
  * Reels/Shorts blocking requires blocking the original app first. Calls `enable` once FocusUp can block it,
  * or right away on builds that cannot block other apps (Expo Go, simulators), where only the in-app filter exists.
+ * `blocked` says whether the original app is really blocked now.
  */
-export async function enableAfterNativeBlock(appId: SocialAppId, name: string, feature: string, enable: () => void): Promise<void> {
+export async function enableAfterNativeBlock(appId: SocialAppId, name: string, feature: string, enable: (blocked: boolean) => void, options: { confirmed?: boolean } = {}): Promise<void> {
   pendingEnable = null;
-  const state = await setUpNativeAppBlock(appId, name, { feature });
-  if (state === 'active' || state === 'unsupported') { enable(); return; }
+  const state = await setUpNativeAppBlock(appId, name, { feature, ...options });
+  if (state === 'active' || state === 'unsupported') { enable(state === 'active'); return; }
   if (state === 'needsPermission' && Platform.OS === 'android') pendingEnable = { appId, enable, until: Date.now() + 10 * 60_000 };
+}
+
+/** Website blocking and other device-wide settings need only the system permission, not an app selection. */
+export async function ensureNativeAuthorization(): Promise<'authorized' | 'unsupported' | 'needsPermission' | 'cancelled'> {
+  const status = await refreshStatus();
+  if (!status.supported) return 'unsupported';
+  if (status.authorized) return 'authorized';
+  const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
+  if (!await confirm(i18n.t('wellbeing.disclosureTitle'), disclosure, i18n.t('wellbeing.authorize'))) return 'cancelled';
+  if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
+  return (await refreshStatus()).authorized ? 'authorized' : 'needsPermission';
 }

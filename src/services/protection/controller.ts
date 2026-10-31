@@ -5,7 +5,7 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import type { SocialAppId } from '../../types/app';
 import { track } from '../analytics/localAnalytics';
-import { activeRoutines, buildNativePlan, createTemporaryAccess, shortVideoBlockedApps } from './engine';
+import { activeRoutines, blockedWebsites, breaksLeft, buildNativePlan, createTemporaryAccess, localDayKey, shortVideoBlockedApps } from './engine';
 import { protectionBridge } from './nativeBridge';
 import { scheduleWellbeingNotifications } from '../notifications/wellbeingNotifications';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
@@ -24,7 +24,7 @@ export function reconcileProtection(requireNative = false): Promise<void> {
       void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_completed', platform: ended.platform, durationMs: ended.endsAt - ended.startedAt, timestamp: ended.endsAt, eventId: ended.id + ':completed' });
     }
     const latest = useWellbeingStore.getState();
-    const plan = buildNativePlan({ baseline: latest.nativeApps, filterBlocked: shortVideoBlockedApps(app.apps), routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
+    const plan = buildNativePlan({ baseline: latest.nativeApps, filterBlocked: shortVideoBlockedApps(app.apps), websites: blockedWebsites(app.apps), adultFilter: latest.adultFilter, uninstallProtection: latest.uninstallProtection, dailyLimits: latest.dailyLimits, routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
     plan.locale = app.selectedLanguage;
     plan.liveActivity = PRO_ENABLED && latest.liveActivity;
     plan.utcOffsetMinutes = new Date().getTimezoneOffset();
@@ -48,17 +48,21 @@ export function reconcileProtection(requireNative = false): Promise<void> {
 export async function startTemporaryAccess(platform: SocialAppId, minutes: number): Promise<void> {
   const app = useAppStore.getState();
   if (!canUseFeature(useSubscriptionStore.getState().isPro, 'temporaryAccess')) throw new Error('proRequired');
-  if (app.strictSession && app.strictSession.endsAt > Date.now() && app.strictSession.appIds.includes(platform)) throw new Error('strictActive');
+  // Hard Mode allows a few short breaks a day; strict routines allow none.
+  const hardMode = Boolean(app.strictSession && app.strictSession.endsAt > Date.now() && (app.strictSession.protectedPlatforms ?? app.strictSession.appIds).includes(platform));
+  if (hardMode && (breaksLeft(useWellbeingStore.getState().breaks) === 0 || minutes > 15)) throw new Error('noBreaksLeft');
   if (activeRoutines(app.schedules).some((routine) => routine.strict && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) throw new Error('strictActive');
   const status = await protectionBridge.getStatus();
   if (!status.supported || !status.authorized || !status.selectedCount) throw new Error('nativeUnavailable');
-  if (!useWellbeingStore.getState().nativeApps.includes(platform)) throw new Error('selectProtectedApp');
+  if (!useWellbeingStore.getState().nativeApps.includes(platform) && !shortVideoBlockedApps(app.apps).includes(platform) && !hardMode) throw new Error('selectProtectedApp');
   if (status.protectedPlatforms && !status.protectedPlatforms.includes(platform) && useWellbeingStore.getState().temporary?.platform !== platform) throw new Error('selectProtectedApp');
-  const access = createTemporaryAccess(platform, minutes, Platform.OS === 'ios' ? 15 : 1);
+  // iOS breaks shorter than 15 minutes end on the monitor's early warning (see ProtectionShared.register).
+  const access = createTemporaryAccess(platform, minutes, Platform.OS === 'ios' ? 5 : 1);
   const previous = useWellbeingStore.getState().temporary;
   useWellbeingStore.getState().setTemporary(access);
   try { lastPlan = ''; await reconcileProtection(true); }
   catch { useWellbeingStore.getState().setTemporary(previous); throw new Error('nativeUnavailable'); }
+  if (hardMode) useWellbeingStore.getState().recordBreak(localDayKey());
   void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_started', platform, durationMs: minutes * 60_000, timestamp: access.startedAt });
   if (previous) recordCompletion(previous);
 }

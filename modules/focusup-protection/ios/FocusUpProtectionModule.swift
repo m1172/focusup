@@ -27,7 +27,7 @@ public class FocusUpProtectionModule: Module {
       guard let defaults = ProtectionShared.defaults else { return "" }
       guard let request = defaults.dictionary(forKey: "pendingNativeAppLaunch") else { return "" }
       defaults.removeObject(forKey: "pendingNativeAppLaunch")
-      guard let target = request["platform"] as? String, ["instagram", "youtube", "protection", "instagram:open", "instagram:link", "youtube:open", "youtube:link"].contains(target),
+      guard let target = request["platform"] as? String, ["instagram", "youtube", "tiktok", "protection", "instagram:open", "instagram:link", "youtube:open", "youtube:link", "tiktok:open", "tiktok:link"].contains(target),
         let createdAt = request["createdAt"] as? Double,
         Date().timeIntervalSince1970 - createdAt >= 0, Date().timeIntervalSince1970 - createdAt <= 300 else { return "" }
       return target
@@ -87,7 +87,7 @@ public class FocusUpProtectionModule: Module {
     AsyncFunction("reset") { () async in
       let center = DeviceActivityCenter(); center.stopMonitoring(center.activities.filter { $0.rawValue.hasPrefix("focusup.") })
       ProtectionShared.store.clearAllSettings()
-      if let defaults = ProtectionShared.defaults { for key in defaults.dictionaryRepresentation().keys where key == "plan" || key == "pendingNativeAppLaunch" || key.hasPrefix("selection.") { defaults.removeObject(forKey: key) } }
+      if let defaults = ProtectionShared.defaults { for key in defaults.dictionaryRepresentation().keys where key == "plan" || key == "pendingNativeAppLaunch" || key.hasPrefix("selection.") || key.hasPrefix("limitReached.") { defaults.removeObject(forKey: key) } }
       for activity in Activity<FocusUpActivityAttributes>.activities { await activity.end(nil, dismissalPolicy: .immediate) }
     }
   }

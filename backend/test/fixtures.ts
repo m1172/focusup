@@ -20,7 +20,7 @@ const unused = async (): Promise<never> => { throw new Error('Unexpected gateway
 export function fakeGateway(overrides: Partial<Gateway> = {}): Gateway {
   return {
     authenticate: async (token) => { if (token !== user.token) throw new ApiError(401, 'INVALID_TOKEN', 'Invalid token.'); return user; },
-    signUp: unused, signIn: unused, refresh: unused, exchangeOAuth: unused, signInWithIdToken: unused,
+    signUp: unused, signIn: unused, refresh: unused, exchangeOAuth: unused, signInWithIdToken: unused, signInWithTelegram: unused,
     verify: unused, verifyCode: unused, resendConfirmation: unused, recover: unused, changePassword: unused, signOut: unused,
     getProfile: unused, saveProfile: unused, getSettings: unused, saveSettings: unused,
     deleteAccount: unused, listSupportMessages: unused, addSupportMessage: unused, linkSupportMessage: unused, removeSupportMessage: unused, findSupportThread: unused,
