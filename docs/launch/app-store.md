@@ -60,7 +60,7 @@ Not collected: location, health, financial info, contacts, browsing history, sea
 
 When paid plans launch, add **Purchases → Purchase History** (App Functionality).
 
-**Privacy Policy URL:** `https://vaqtim.com/privacy/` (set by `store.config.json`).
+**Privacy Policy URL:** `https://vaqtim.pages.dev/en/privacy/` (set by `store.config.json`).
 
 ## 5. App Review information
 

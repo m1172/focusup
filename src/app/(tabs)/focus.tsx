@@ -106,7 +106,10 @@ export default function ProtectScreen() {
   const protection = useProtectionStatusStore((state) => state.status);
   // Adding an app asks for access to the real app first; it joins already locked once access is given.
   const requestConnect = (appId: SocialAppId) => {
-    if (isSavingsApp(appId) && nativeBlockState(protection, appId) !== 'active') setLockInfo({ appId, add: true });
+    const state = isSavingsApp(appId) ? nativeBlockState(protection, appId) : 'active';
+    // Nothing to ask when this phone cannot lock the real app (Android without the Accessibility service): just add it.
+    if (state === 'unsupported') connect(appId, true, true);
+    else if (state !== 'active') setLockInfo({ appId, add: true });
     else connect(appId);
   };
 

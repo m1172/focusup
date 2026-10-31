@@ -5,8 +5,8 @@ Package: `com.m1172.focusup`. App name: **Vaqtim**. Paste the text below into Pl
 ## 1. Before the first upload
 
 - **Account type.** Personal accounts created after 13 November 2023 must run a **closed test with at least 12 testers for 14 days in a row** before Production is unlocked. Start this early. Organisation accounts can skip it.
-- **App signing.** Let Google manage the app signing key (Play App Signing). EAS creates and keeps the upload key.
-- **First upload by hand.** Google requires the very first build to be uploaded in Play Console. After that, `eas submit -p android` uploads new builds to the internal track.
+- **App signing.** Let Google manage the app signing key (Play App Signing). You create the upload key once on your Mac (see [local-release-build.md](../local-release-build.md)); Google keeps the app signing key.
+- **First upload by hand.** Google requires the very first build to be uploaded in Play Console. After that, `npm run release` (or `npm run upload:android`) uploads new builds to the internal track as a draft.
 
 ## 2. Store listing
 
@@ -16,117 +16,111 @@ Default language: **English (United States)**. Add **Russian** and, if Play Cons
 
 **App name** (30): `Vaqtim: Block Reels & Shorts`
 
-**Short description** (80): `Instagram and YouTube without Reels and Shorts. Messages and friends stay.`
+**Short description** (80): `Instagram, YouTube and TikTok without the short-video feeds. Messages stay.`
 
 **Full description:**
 
 ```
 Vaqtim gives you social media without the endless scroll.
 
-Open Instagram and YouTube inside Vaqtim and the short-video feeds are gone. Reels and Shorts disappear, while everything you actually came for stays: messages, friends, profiles, posts and regular videos.
+Open Instagram, YouTube and TikTok inside Vaqtim and the short-video feeds are gone. Reels, Shorts and the For You feed are always hidden, while everything you actually came for stays: messages, friends, profiles, posts and regular videos.
 
 WHAT DISAPPEARS
 • Instagram Reels
 • YouTube Shorts
-• Endless short-video feeds
+• The TikTok For You feed
+• Endless short-video scrolling
 
 WHAT STAYS
 • Messages and friends
 • Profiles and posts
-• Regular YouTube videos
-• Your subscriptions
-
-BLOCK THE ORIGINAL APP, IF YOU WANT
-When you turn on the Reels or Shorts filter, Vaqtim can send you from the original Instagram or YouTube app to the clean version in Vaqtim. This uses Android's Accessibility service, only with your permission, and only to see which app is open. Vaqtim does not read your messages, passwords, typed text or screen content. You can turn it off at any time.
+• Regular YouTube videos and your subscriptions
+• Videos people send you
 
 SEE YOUR TIME
 Vaqtim shows how much time short videos were taking from your day, and how much you get back.
 
 PRIVATE BY DESIGN
-• You sign in on Instagram's and Google's own pages. Your social media passwords never reach our servers.
+• You sign in on Instagram's, Google's and TikTok's own pages. Your social media passwords never reach our servers.
 • Delete your account and its data in the app at any time.
 
 Vaqtim is free and available in English, Russian and Uzbek.
 
-Instagram is a trademark of Meta Platforms, Inc. and YouTube is a trademark of Google LLC. Vaqtim is not affiliated with, endorsed or sponsored by them.
+Instagram is a trademark of Meta Platforms, Inc., YouTube is a trademark of Google LLC and TikTok is a trademark of ByteDance Ltd. Vaqtim is not affiliated with, endorsed or sponsored by them.
 ```
 
 ### Russian
 
 **Название** (30): `Vaqtim: без Reels и Shorts`
 
-**Краткое описание** (80): `Instagram и YouTube без Reels и Shorts. Сообщения и друзья остаются.`
+**Краткое описание** (80): `Instagram, YouTube и TikTok без лент коротких видео. Сообщения остаются.`
 
 **Полное описание:**
 
 ```
 Vaqtim — соцсети без бесконечной ленты.
 
-Откройте Instagram и YouTube внутри Vaqtim, и ленты коротких видео исчезнут. Reels и Shorts пропадают, а всё, ради чего вы заходите, остаётся: сообщения, друзья, профили, посты и обычные видео.
+Откройте Instagram, YouTube и TikTok внутри Vaqtim, и ленты коротких видео исчезнут. Reels, Shorts и лента «Рекомендации» в TikTok всегда скрыты, а всё, ради чего вы заходите, остаётся: сообщения, друзья, профили, посты и обычные видео.
 
 ЧТО ИСЧЕЗАЕТ
 • Instagram Reels
 • YouTube Shorts
-• Бесконечные ленты коротких видео
+• Лента «Рекомендации» в TikTok
+• Бесконечная прокрутка коротких видео
 
 ЧТО ОСТАЁТСЯ
 • Сообщения и друзья
 • Профили и посты
-• Обычные видео на YouTube
-• Ваши подписки
-
-БЛОКИРОВКА ОРИГИНАЛЬНОГО ПРИЛОЖЕНИЯ — ПО ЖЕЛАНИЮ
-Когда вы включаете фильтр Reels или Shorts, Vaqtim может перенаправлять вас из оригинального Instagram или YouTube в чистую версию в Vaqtim. Для этого используется служба Специальных возможностей Android — только с вашего разрешения и только чтобы понять, какое приложение открыто. Vaqtim не читает сообщения, пароли, вводимый текст и содержимое экрана. Это можно выключить в любой момент.
+• Обычные видео на YouTube и ваши подписки
+• Видео, которые вам присылают
 
 ВАШЕ ВРЕМЯ
 Vaqtim показывает, сколько времени короткие видео отнимали у вас в день и сколько вы возвращаете.
 
 КОНФИДЕНЦИАЛЬНОСТЬ
-• Вы входите на страницах самого Instagram и Google. Пароли от соцсетей не попадают на наши серверы.
+• Вы входите на страницах самих Instagram, Google и TikTok. Пароли от соцсетей не попадают на наши серверы.
 • Аккаунт и его данные можно удалить в приложении в любой момент.
 
 Vaqtim бесплатный, на русском, английском и узбекском языках.
 
-Instagram — товарный знак Meta Platforms, Inc., YouTube — товарный знак Google LLC. Vaqtim не связан с ними и не одобрен ими.
+Instagram — товарный знак Meta Platforms, Inc., YouTube — товарный знак Google LLC, TikTok — товарный знак ByteDance Ltd. Vaqtim не связан с ними и не одобрен ими.
 ```
 
 ### Uzbek
 
 **Nomi** (30): `Vaqtim: Reels va Shorts’siz`
 
-**Qisqa tavsif** (80): `Instagram va YouTube — Reels va Shorts’siz. Xabarlar va do‘stlar qoladi.`
+**Qisqa tavsif** (80): `Instagram, YouTube va TikTok qisqa video lentalarisiz. Xabarlar qoladi.`
 
 **To‘liq tavsif:**
 
 ```
 Vaqtim — cheksiz lentasiz ijtimoiy tarmoqlar.
 
-Instagram va YouTube’ni Vaqtim ichida oching — qisqa video lentalari yo‘qoladi. Reels va Shorts yashiriladi, siz kirgan narsalar esa qoladi: xabarlar, do‘stlar, profillar, postlar va oddiy videolar.
+Instagram, YouTube va TikTok’ni Vaqtim ichida oching — qisqa video lentalari yo‘qoladi. Reels, Shorts va TikTok’dagi «Siz uchun» lentasi doim yashirin, siz kirgan narsalar esa qoladi: xabarlar, do‘stlar, profillar, postlar va oddiy videolar.
 
 NIMA YO‘QOLADI
 • Instagram Reels
 • YouTube Shorts
+• TikTok’dagi «Siz uchun» lentasi
 • Cheksiz qisqa video lentalari
 
 NIMA QOLADI
 • Xabarlar va do‘stlar
 • Profillar va postlar
-• Oddiy YouTube videolari
-• Obunalaringiz
-
-ASL ILOVANI BLOKLASH — XOHLASANGIZ
-Reels yoki Shorts filtrini yoqsangiz, Vaqtim sizni asl Instagram yoki YouTube ilovasidan Vaqtim’dagi toza versiyaga yo‘naltiradi. Buning uchun Android’ning Maxsus imkoniyatlar xizmati faqat ruxsatingiz bilan va faqat qaysi ilova ochiqligini bilish uchun ishlatiladi. Vaqtim xabarlar, parollar, yozilgan matn va ekran mazmunini o‘qimaydi. Istalgan vaqtda o‘chirasiz.
+• Oddiy YouTube videolari va obunalaringiz
+• Sizga yuborilgan videolar
 
 VAQTINGIZ
 Vaqtim qisqa videolar kuningizdan qancha vaqt olganini va qanchasini qaytarib olganingizni ko‘rsatadi.
 
 MAXFIYLIK
-• Siz Instagram va Google’ning o‘z sahifalarida kirasiz. Ijtimoiy tarmoq parollaringiz serverlarimizga yetib bormaydi.
+• Siz Instagram, Google va TikTok’ning o‘z sahifalarida kirasiz. Ijtimoiy tarmoq parollaringiz serverlarimizga yetib bormaydi.
 • Hisobingiz va ma’lumotlarini ilovada istalgan vaqtda o‘chirasiz.
 
 Vaqtim bepul, o‘zbek, rus va ingliz tillarida.
 
-Instagram — Meta Platforms, Inc., YouTube — Google LLC savdo belgilari. Vaqtim ular bilan bog‘liq emas va ular tomonidan ma’qullanmagan.
+Instagram — Meta Platforms, Inc., YouTube — Google LLC, TikTok — ByteDance Ltd. savdo belgilari. Vaqtim ular bilan bog‘liq emas va ular tomonidan ma’qullanmagan.
 ```
 
 ### Graphics
@@ -134,15 +128,15 @@ Instagram — Meta Platforms, Inc., YouTube — Google LLC savdo belgilari. Vaqt
 | Asset | Size | Source |
 |---|---|---|
 | App icon | 512 × 512 PNG | `assets/icon.png` resized |
-| Feature graphic | 1024 × 500 PNG/JPG | To make (logo + "Instagram and YouTube without Reels and Shorts") |
+| Feature graphic | 1024 × 500 PNG/JPG | To make (logo + "Instagram, YouTube and TikTok without the short-video feeds") |
 | Phone screenshots | 2–8, 9:16, at least 1080 px wide | See the screenshot plan in [README.md](README.md) |
 
-**Category:** Productivity. **Contact email:** support@vaqtim.com. **Website:** https://vaqtim.com. **Privacy policy:** https://vaqtim.com/privacy/
+**Category:** Productivity. **Contact email:** vaqtim.app@gmail.com (switch to support@vaqtim.com once it forwards mail). **Website:** https://vaqtim.pages.dev. **Privacy policy:** https://vaqtim.pages.dev/privacy/ (switch to vaqtim.com once the domain is connected)
 
 ## 3. App content (Policy → App content)
 
 ### Privacy policy
-`https://vaqtim.com/privacy/`
+`https://vaqtim.pages.dev/privacy/`
 
 ### Ads
 **No**, the app does not contain ads.
@@ -163,7 +157,7 @@ Instagram — Meta Platforms, Inc., YouTube — Google LLC savdo belgilari. Vaqt
 
 ### Data safety
 
-Answer **Yes** to "Does your app collect or share any of the required user data types?" and **Yes** to "Is all of the user data collected by your app encrypted in transit?". Users can request deletion: **Yes**, with the URL `https://vaqtim.com/delete-account/`.
+Answer **Yes** to "Does your app collect or share any of the required user data types?" and **Yes** to "Is all of the user data collected by your app encrypted in transit?". Users can request deletion: **Yes**, with the URL `https://vaqtim.pages.dev/delete-account/`.
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
@@ -183,24 +177,26 @@ When paid plans launch, add **Financial info → Purchase history** (purchases t
 
 ### Sensitive permissions
 
+> **Not in the current release.** Android real-app locking is switched off (`ANDROID_APP_BLOCKING = false` in `src/config/release.ts`, `withAndroidAccessibility` `{ "enabled": false }` in app.json), so the build has no Accessibility service and Play does not ask for the declaration below. Keep it for when the feature returns.
+
 **Accessibility API declaration** (Play Console asks when the build includes an Accessibility service):
 
 - Is the app's core functionality based on Accessibility? **No.** It is one optional feature.
 - Description to paste:
 
 ```
-Vaqtim uses the AccessibilityService API only for an optional feature that the user turns on: when the user enables the Reels or Shorts filter, Vaqtim detects when the original Instagram or YouTube app comes to the foreground and shows a Vaqtim screen that opens the filtered version inside Vaqtim instead.
+Vaqtim uses the AccessibilityService API only for an optional feature that the user turns on: when the user adds an app on the Protect tab and allows it, Vaqtim detects when the original Instagram, YouTube or TikTok app comes to the foreground and shows a Vaqtim screen that opens the filtered version inside Vaqtim instead.
 
 The service only listens to TYPE_WINDOW_STATE_CHANGED events to read the package name of the foreground app; canRetrieveWindowContent is false, so it cannot read screen content. It does not read, store or transmit messages, passwords or typed text, and no accessibility data leaves the device. Before the user is sent to Android settings, Vaqtim shows an in-app disclosure explaining this. The user can turn the feature off at any time in Vaqtim, and the service off in Android settings.
 ```
 
 - **Video** (Google asks for a short screen recording, uploaded to YouTube as unlisted). Record on an Android phone:
-  1. Open Vaqtim → Instagram settings → turn on the Reels filter.
+  1. Open Vaqtim → Protect tab → tap Instagram to add it.
   2. Show the in-app disclosure dialog, then tap continue.
   3. Show Android settings → Accessibility → turn on "Vaqtim protection".
-  4. Return to Vaqtim; the filter is on.
+  4. Return to Vaqtim; Instagram shows as locked.
   5. Open the real Instagram app; the Vaqtim screen appears and opens the clean version.
-  6. Turn the feature off again in Vaqtim.
+  6. Turn it off again: drag Instagram out on the Protect tab.
 
 **Usage access (`PACKAGE_USAGE_STATS`)**: used during onboarding to show how much time the user spent on Instagram, YouTube and TikTok, after the user grants it in Android settings. If Play Console asks, explain exactly that.
 
@@ -210,7 +206,7 @@ The service only listens to TYPE_WINDOW_STATE_CHANGED events to read the package
 
 ### Data deletion
 - In app: Settings → Account → Delete account.
-- Web URL: `https://vaqtim.com/delete-account/`
+- Web URL: `https://vaqtim.pages.dev/delete-account/`
 
 ### Government, financial, health, news apps
 Not applicable.
