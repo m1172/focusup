@@ -132,6 +132,32 @@ Upload `android/app/build/outputs/bundle/release/app-release.aab` in Play Consol
 (start with **Testing › Internal testing**). Play asks for the Accessibility service declaration
 and Usage access explanation: answers are in [launch/google-play.md](launch/google-play.md).
 
+## Fix the filters without a store release
+
+Most Instagram, YouTube and TikTok fixes don't need a new App Store or Google Play build.
+
+**1. Remote rules (minutes, no app change).** The app downloads [`website/public/blocker-config.json`](../website/public/blocker-config.json)
+(served at `https://vaqtim.pages.dev/blocker-config.json`, re-checked at most every 15 minutes). A rule can switch a
+filter off, add CSS selectors of things to hide, and add feed pages to block, for `instagram`, `youtube` and `tiktok`.
+The app rejects anything else ([remoteBlockerConfig.ts](../src/services/remote-config/remoteBlockerConfig.ts)). Edit the
+file, raise that platform's `version`, then `cd website && npm run deploy`. Example:
+
+```json
+{ "schemaVersion": 1, "platforms": { "tiktok": { "version": 2, "enabled": true, "features": {}, "selectors": { "forYouNavigation": ["[data-e2e=\"nav-home-new\"]"] } } } }
+```
+
+**2. Over-the-air updates (EAS Update, for code fixes).** Any change to JavaScript (the filter scripts, screens, text)
+reaches phones without store review:
+
+```sh
+npm run update:publish -- "Fix Instagram Search tab"
+```
+
+Phones download it in the background on launch and use it from the next launch. An update only reaches builds with the
+same `version` in `app.json` (`runtimeVersion.policy: appVersion`). **Native changes** (new native module, permissions,
+plugins, Screen Time or Accessibility switches) need a new store build *and* a new `version` (for example 1.0.1), so an
+update never lands on a build without the native code it needs. Test with a release build, not a development build.
+
 ## Try a release build on a phone first
 
 ```sh

@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.m1172.focusup",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "appleTeamId": "GH6PP8FUU8",
       "infoPlist": {
         "com.posthog.posthog.CAPTURE_PUSH_NOTIFICATION_OPENED": false,
@@ -31,7 +31,7 @@
     },
     "android": {
       "package": "com.m1172.focusup",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#5B4FE9",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -51,9 +51,19 @@
       "expo-router",
       "expo-font",
       "expo-notifications",
-      ["./plugins/withFocusUpProtection", { "familyControls": false }],
+      [
+        "./plugins/withFocusUpProtection",
+        {
+          "familyControls": false
+        }
+      ],
       "./plugins/withAndroidReleaseSigning",
-      ["./plugins/withAndroidAccessibility", { "enabled": false }],
+      [
+        "./plugins/withAndroidAccessibility",
+        {
+          "enabled": false
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       "expo-sharing",
@@ -70,6 +80,17 @@
         "projectId": "40dbc295-f4f0-4e25-9049-50658e8bc2d9"
       }
     },
-    "owner": "m1172"
+    "owner": "m1172",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/40dbc295-f4f0-4e25-9049-50658e8bc2d9",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      },
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

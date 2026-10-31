@@ -26,6 +26,7 @@
     "expo-sharing": "~58.0.21",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.7",
+    "expo-updates": "~58.0.20",
     "expo-web-browser": "~58.0.7",
     "i18next": "^26.4.6",
     "jest-expo": "~58.0.13",
@@ -79,7 +80,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
     "backend:dev": "npm --prefix backend run dev",
-    "backend:check": "npm --prefix backend run lint && npm --prefix backend run typecheck && npm --prefix backend test"
+    "backend:check": "npm --prefix backend run lint && npm --prefix backend run typecheck && npm --prefix backend test",
+    "update:publish": "npx eas-cli@latest update --channel production --environment production --message"
   },
   "private": true,
   "expo": {

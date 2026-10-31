@@ -120,3 +120,29 @@ describe('Instagram bottom Search tab', () => {
     expect(browser.document.activeElement).toBe(browser.document.body);
   });
 });
+
+describe('Instagram bottom Search tab labelled Explore', () => {
+  const run = (html: string) => {
+    const dom = new JSDOM(html, { url: 'https://www.instagram.com/', runScripts: 'outside-only', pretendToBeVisual: true });
+    const browser = dom.window as unknown as Browser;
+    browser.ReactNativeWebView = { postMessage: jest.fn() };
+    browser.console.debug = jest.fn();
+    browser.eval(generateInstagramBlockingScript({ reels: true, explore: true }));
+    const hidden = (id: string) => browser.document.getElementById(id)!.closest('[data-focusup-hidden]') !== null;
+    return { dom, browser, hidden };
+  };
+
+  it('keeps the phone bar /explore/ tab even when Instagram labels it Explore, and still hides Reels', () => {
+    const { dom, browser, hidden } = run('<nav><a id="home" href="/">Home</a><a id="reels" href="/reels/"><svg aria-label="Reels"></svg></a><a href="/direct/inbox/">Messages</a><a id="explore" href="/explore/"><svg aria-label="Explore"></svg></a><a href="/person/">Profile</a></nav>');
+    expect(hidden('explore')).toBe(false);
+    expect(hidden('reels')).toBe(true);
+    browser.__focusUpInstagram.observer.disconnect(); dom.window.close();
+  });
+
+  it('still hides an Explore link when the bar has its own Search entry', () => {
+    const { dom, browser, hidden } = run('<nav><a id="home" href="/">Home</a><a href="/direct/inbox/">Messages</a><a id="searchLink" href="/explore/search/"><svg aria-label="Search"></svg></a><a id="explore" href="/explore/"><svg aria-label="Explore"></svg></a><a href="/person/">Profile</a></nav>');
+    expect(hidden('explore')).toBe(true);
+    expect(hidden('searchLink')).toBe(false);
+    browser.__focusUpInstagram.observer.disconnect(); dom.window.close();
+  });
+});

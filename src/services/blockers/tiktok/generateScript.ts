@@ -1,17 +1,22 @@
 import type { TikTokBlockerConfig } from '../../../types/social';
+import type { RemotePlatformRule } from '../../../store/remoteBlockerConfigStore';
 import { normalizeTikTokBlockerConfig } from './config';
 import { tiktokExplorePathPattern, tiktokFollowingPathPattern, tiktokForYouPathPattern } from './detectors';
 import { tiktokNavigationListener } from './navigation';
 import { tiktokSelectors } from './selectors';
 import { socialBrowserRouteScript } from '../../social-browser/routeScript';
 
-export function generateTikTokBlockingScript(input: Partial<TikTokBlockerConfig>, enabled = true): string {
+/** `rule` is the validated remote rule: its selectors are added to the built-in ones, and its routes block extra feed pages. */
+export function generateTikTokBlockingScript(input: Partial<TikTokBlockerConfig>, enabled = true, rule?: RemotePlatformRule): string {
   const config = normalizeTikTokBlockerConfig(input);
+  const selectors: Record<string, readonly string[]> = { ...tiktokSelectors };
+  Object.entries(rule?.selectors ?? {}).forEach(([group, extra]) => { if (group in tiktokSelectors && group !== 'promoDismiss') selectors[group] = [...(selectors[group] ?? []), ...extra]; });
   return `(function(){
     'use strict';
-    var CONFIG = ${JSON.stringify({ ...config, enabled, behaviorVersion: 1 })};
+    var CONFIG = ${JSON.stringify({ ...config, enabled, behaviorVersion: 1, ruleKey: JSON.stringify([rule?.selectors, rule?.routes]) })};
+    var REMOTE_ROUTES = ${JSON.stringify(rule?.routes ?? [])};
     var PATHS = { forYou: new RegExp(${JSON.stringify(tiktokForYouPathPattern.source)}, 'i'), following: new RegExp(${JSON.stringify(tiktokFollowingPathPattern.source)}, 'i'), explore: new RegExp(${JSON.stringify(tiktokExplorePathPattern.source)}, 'i') };
-    var SELECTORS = ${JSON.stringify(tiktokSelectors)};
+    var SELECTORS = ${JSON.stringify(selectors)};
     var MARKER = 'data-focusup-tiktok-hidden';
     var STYLE_ID = 'focusup-tiktok-clean-styles';
     var root = window.__focusUpTikTok;
@@ -26,6 +31,9 @@ export function generateTikTokBlockingScript(input: Partial<TikTokBlockerConfig>
         if (!current || !current.enabled || !isTikTokHost(parsed.hostname)) return null;
         var features = ['forYou', 'following', 'explore'];
         for (var i = 0; i < features.length; i++) if (current[features[i]] && PATHS[features[i]].test(parsed.pathname)) return features[i];
+        // Feed pages added by a remote rule count as For You.
+        var path = parsed.pathname.replace(/\\/+$/, '') || '/';
+        if (current.forYou && REMOTE_ROUTES.some(function(route) { var base = route.replace(/\\/+$/, ''); return path === base || path.indexOf(base + '/') === 0; })) return 'forYou';
         return null;
       } catch (_) { return null; }
     };

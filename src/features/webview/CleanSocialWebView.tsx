@@ -12,7 +12,7 @@ import { isBlockedInstagramNavigation, isInstagramAuthenticationUrl } from '../.
 import { generateInstagramBlockingScript } from '../../services/blockers/instagram/index';
 import { generateBlockingScript } from '../../services/blockers';
 import { createYouTubeBlockingScript, isBlockedYouTubeNavigation, YOUTUBE_BASE_URL } from '../../services/blockers/youtube';
-import { isBlockedTikTokNavigation, tiktokFeedFeature, TIKTOK_BASE_URL } from '../../services/blockers/tiktok';
+import { createTikTokBlockingScript, isBlockedTikTokNavigation, tiktokFeedFeature, TIKTOK_BASE_URL } from '../../services/blockers/tiktok';
 import { parseSocialWebViewEvent } from '../../services/social-browser/messages';
 import { classifySocialBrowserNavigation, isSameDocumentLocation, normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
 import { useAppTheme } from '../../theme';
@@ -101,7 +101,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   });
   const source = useMemo(() => ({ uri: initialRequest.url }), [initialRequest.url]);
   const initialBlockReported = useRef(false);
-  const remoteRule = useRemoteBlockerConfigStore((state) => platform === 'instagram' || platform === 'youtube' ? state.config.platforms[platform] : undefined);
+  const remoteRule = useRemoteBlockerConfigStore((state) => platform === 'instagram' || platform === 'youtube' || platform === 'tiktok' ? state.config.platforms[platform] : undefined);
   const pro = useSubscriptionStore((state) => state.isPro);
   const grayscale = useWellbeingStore((state) => state.grayscale) && canUseFeature(pro, 'grayscale');
   const lastInjectedScript = useRef('');
@@ -120,6 +120,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   const blockerScript = useMemo(() => {
     if (platform === 'instagram') return generateInstagramBlockingScript(blockerConfig, enabled, remoteRule, canUseFeature(pro, 'instagramCleanBrowsing'));
     if (platform === 'youtube') return createYouTubeBlockingScript(blockerConfig as Partial<YouTubeBlockerConfig>, enabled, remoteRule);
+    if (platform === 'tiktok') return createTikTokBlockingScript(blockerConfig as Partial<TikTokBlockerConfig>, enabled, remoteRule);
     return generateBlockingScript(platform, enabled, blockerConfig) ?? '';
   }, [platform, enabled, blockerConfig, remoteRule, pro]);
   const script = useMemo(() => PAGE_READY_SCRIPT + '\n' + createBrowserViewportScript(fullScreen, insets, platform) + '\n' + createAppPromoScript() + '\n' + grayscaleScript(grayscale) + '\n' + blockerScript,

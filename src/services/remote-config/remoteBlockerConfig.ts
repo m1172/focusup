@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRemoteBlockerConfigStore, type RemoteBlockerConfig, type RemotePlatformRule } from '../../store/remoteBlockerConfigStore';
+import { useRemoteBlockerConfigStore, type RemoteBlockerConfig, type RemotePlatform, type RemotePlatformRule } from '../../store/remoteBlockerConfigStore';
 
 const CACHE_KEY = '@focusup/remote-blocker-config-v1';
 const MAX_RESPONSE_BYTES = 32_768;
@@ -9,18 +9,28 @@ const MIN_REFRESH_INTERVAL_MS = 15 * 60_000;
 const featuresByPlatform = {
   instagram: ['reels', 'explore', 'suggestedPosts', 'recommendations', 'sponsoredPosts', 'homeFeed'],
   youtube: ['shorts', 'homeRecommendations', 'recommendations', 'comments', 'sponsoredContent'],
+  tiktok: ['forYou', 'following', 'explore'],
 } as const;
+const platformIds = ['instagram', 'youtube', 'tiktok'] as const;
+// Extra paths a rule may block, per platform: only short-video feed pages, never messages or profiles.
+const routePatterns: Record<RemotePlatform, RegExp> = {
+  instagram: /^\/(?:reels?|explore\/reels)(?:\/[a-z_-]+)?\/?$/,
+  youtube: /^\/(?:shorts|feed\/shorts)(?:\/[a-z_-]+)?\/?$/,
+  tiktok: /^\/(?:foryou|for-you|following|friends|explore|discover)(?:\/[a-z_-]+)?\/?$/,
+};
 let initialized = false;
 let requestInFlight: Promise<void> | null = null;
 let lastRequestAt = 0;
 let activeController: AbortController | null = null;
 let generation = 0;
 
-const selectorRoots: Record<'instagram' | 'youtube', Record<string, string[]>> = {
+const selectorRoots: Record<RemotePlatform, Record<string, string[]>> = {
   instagram: { reels: ['a['], explore: ['a['], suggestedPosts: ['article', '[role="article"]'], recommendations: ['section', '[role="region"]', '[role="group"]'], homeFeed: ['article', '[role="article"]'] },
   youtube: { shortsNavigation: ['a[', 'ytd-guide-entry-renderer', 'ytm-pivot-bar-item-renderer'], shortsShelves: ['ytd-reel-', 'ytm-reel-', 'ytm-shorts-', 'ytd-shorts'], homeRecommendations: ['ytd-rich-grid-renderer', 'ytm-rich-grid-renderer'], recommendations: ['ytd-watch-next-secondary-results-renderer', 'ytm-watch-next-secondary-results-renderer', 'ytd-compact-video-renderer'], comments: ['ytd-comments', 'ytm-comments-entry-point-header-renderer'] },
+  // TikTok labels its controls with data-e2e attributes. Remote rules can only add elements to hide, never buttons to press.
+  tiktok: { forYouNavigation: ['[data-e2e=', 'a['], followingNavigation: ['[data-e2e=', 'a['], exploreNavigation: ['[data-e2e=', 'a['], nextVideos: ['[data-e2e='], appPromo: ['[data-e2e=', 'a['] },
 };
-export function isSafeRemoteSelector(platform: 'instagram' | 'youtube', group: string, selector: unknown): selector is string {
+export function isSafeRemoteSelector(platform: RemotePlatform, group: string, selector: unknown): selector is string {
   return typeof selector === 'string' && selector.length <= 200 && selectorRoots[platform][group]?.some((root) => selector.startsWith(root)) === true && !/[;{}\\\\`<>*]/.test(selector) && !/:has|:not|input|textarea|password|cookie|contenteditable|javascript|direct|message|\bon[a-z]+\s*=/i.test(selector);
 }
 
@@ -34,9 +44,9 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: string[]): boolean
 
 export function validateRemoteBlockerConfig(value: unknown): RemoteBlockerConfig | null {
   if (!isObject(value) || !hasOnlyKeys(value, ['schemaVersion', 'platforms']) || value.schemaVersion !== 1 || !isObject(value.platforms)) return null;
-  if (!hasOnlyKeys(value.platforms, ['instagram', 'youtube'])) return null;
+  if (!hasOnlyKeys(value.platforms, [...platformIds])) return null;
   const platforms: RemoteBlockerConfig['platforms'] = {};
-  for (const platform of ['instagram', 'youtube'] as const) {
+  for (const platform of platformIds) {
     const raw = value.platforms[platform];
     if (raw === undefined) continue;
     if (!isObject(raw) || !hasOnlyKeys(raw, ['version', 'enabled', 'features', 'selectors', 'routes']) || !Number.isInteger(raw.version) || (raw.version as number) < 1 || (raw.version as number) > 100_000 || typeof raw.enabled !== 'boolean' || !isObject(raw.features) || !hasOnlyKeys(raw.features, [...featuresByPlatform[platform]])) return null;
@@ -52,7 +62,7 @@ export function validateRemoteBlockerConfig(value: unknown): RemoteBlockerConfig
     }
     let routes: string[] | undefined;
     if (raw.routes !== undefined) {
-      if (!Array.isArray(raw.routes) || raw.routes.length > 12 || !raw.routes.every((route) => typeof route === 'string' && (platform === 'instagram' ? /^\/(?:reels?|explore\/reels)(?:\/[a-z_-]+)?\/?$/ : /^\/(?:shorts|feed\/shorts)(?:\/[a-z_-]+)?\/?$/).test(route))) return null;
+      if (!Array.isArray(raw.routes) || raw.routes.length > 12 || !raw.routes.every((route) => typeof route === 'string' && routePatterns[platform].test(route))) return null;
       routes = raw.routes;
     }
     platforms[platform] = { version: raw.version as number, enabled: raw.enabled, features, ...(raw.selectors ? { selectors } : {}), ...(routes ? { routes } : {}) } as RemotePlatformRule;
@@ -113,7 +123,7 @@ export function refreshRemoteBlockerConfig(): Promise<void> {
   return requestInFlight;
 }
 
-export function getBlockerRuleVersion(platform: 'instagram' | 'youtube'): number | null {
+export function getBlockerRuleVersion(platform: RemotePlatform): number | null {
   return useRemoteBlockerConfigStore.getState().config.platforms[platform]?.version ?? null;
 }
 export function resetRemoteBlockerConfig() {

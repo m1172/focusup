@@ -165,7 +165,21 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
         var label = (link.getAttribute('aria-label') || '').toLowerCase();
         if (href.toLowerCase().indexOf('/explore/') === -1 && !label.includes('explore')) return null;
         if (href.toLowerCase().indexOf('/explore/search') !== -1 || label.includes('search') || link.querySelector('[aria-label*="Search" i], [aria-label*="Поиск" i], [aria-label*="Qidir" i]')) return null;
-        return navigationSlotFor(link);
+        var slot = navigationSlotFor(link);
+        // The phone bottom bar has one /explore/ tab and it is Search, whatever Instagram labels it.
+        // Keep it (tapping it opens the search box, not the Explore grid) unless the bar has its own Search entry.
+        var row = slot.parentElement;
+        var exploreTab = false;
+        try { exploreTab = /^\/explore\/?$/.test(new URL(href, location.origin).pathname); } catch (_) {}
+        if (exploreTab && row && row.hasAttribute('data-focusup-nav-row')) {
+          var separateSearch = Array.from(row.querySelectorAll('a[href], button, [role="button"]')).some(function(item) {
+            if (item === link || link.contains(item) || item.contains(link)) return false;
+            var text = ((item.getAttribute('aria-label') || '') + ' ' + Array.from(item.querySelectorAll('[aria-label]')).map(function(node) { return node.getAttribute('aria-label'); }).join(' ')).toLowerCase();
+            return /search|поиск|qidir/.test(text);
+          });
+          if (!separateSearch) return null;
+        }
+        return slot;
       });
       applyFeature('suggestedPosts', rootNode, function(post) { return isSuggestedPost(post) ? post : null; });
       applyFeature('recommendations', rootNode, function(section) { return isRecommendationSection(section) ? section : null; });
