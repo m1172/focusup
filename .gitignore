@@ -57,3 +57,10 @@ supabase/.branches/
 # Gradle caches and outputs of local native modules
 .gradle/
 /modules/*/android/build/
+
+# Store upload keys (Google Play service account etc.). Never commit.
+/keys/
+
+# EAS credentials download (signing keys)
+credentials.json
+/credentials/

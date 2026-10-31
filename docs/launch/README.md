@@ -15,17 +15,17 @@ Everything needed to publish the iOS app, the Android app and vaqtim.com, in ord
 | 9 | Store listings: App Store ([store.config.json](../../store.config.json)), Google Play ([google-play.md](google-play.md)) in English, Russian and Uzbek | Ready | Done |
 | 10 | Privacy answers: App Privacy ([app-store.md §4](app-store.md#4-app-privacy-the-privacy-nutrition-label)), Data safety ([google-play.md](google-play.md#data-safety)) | Ready | Done |
 | 11 | Age rating, content rating, Accessibility declaration, review notes | Ready | Done |
-| 12 | Production config: iPhone-only, privacy/terms/support URLs in the build ([eas.json](../../eas.json)) | Ready | Done |
+| 12 | Production config: iPhone-only, privacy/terms URLs in the build (`.env.production`, checked by `npm run release:check`) | Ready | Done; support email waits for step 4 |
 | 13 | Screenshots and Google Play feature graphic (below) | You (capture) + me (frames) | To do |
 | 14 | Test on a real Android phone (never done yet) | You | To do |
-| 15 | Builds: `eas build --profile production` for iOS and Android | You (login) | After 1 and 6 |
+| 15 | Local builds: `npm run build:ios && npm run upload:ios`, `npm run build:android` ([local-release-build.md](../local-release-build.md)) | You (Xcode login, Android upload key) | After 1 and 6 |
 | 16 | TestFlight and Play internal test; then closed test (12 testers × 14 days for personal Play accounts) | You | After 15 |
 | 17 | Submit for review | You | After 16 |
 
 ## Decided
 
 - **Google Play account:** personal, so the 12-tester, 14-day closed test is required. Start it as soon as the first Android build passes internal testing.
-- **App functionality:** stays as it is. The Reels/Shorts filter turns on only after the original app is blocked; the App Store review notes ask reviewers to have YouTube installed so they can see it.
+- **App functionality:** Reels, Shorts and TikTok's For You are always hidden inside Vaqtim (free users cannot turn this off). Adding an app on the Protect tab also asks to block the original app.
 - **Parent controls:** not part of 1.0.
 
 ## Website

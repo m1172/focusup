@@ -42,7 +42,8 @@
     "production": {
       "android": {
         "track": "internal",
-        "releaseStatus": "draft"
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./keys/google-play-service-account.json"
       },
       "ios": {}
     }
