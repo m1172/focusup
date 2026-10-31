@@ -138,8 +138,8 @@ export default async function Home({ params }: PageProps<'/[lang]'>) {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="section">
+      {/* Final CTA (the /app link sends computers here) */}
+      <section className="section" id="download">
         <div className="wrap cta">
           <Reveal><PulseRings><Logo size={104} /></PulseRings></Reveal>
           <Words className="h2" text={t.final.title} />

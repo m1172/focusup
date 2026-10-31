@@ -2,30 +2,19 @@
 
 Bundle ID: `com.m1172.focusup`. Team: `GH6PP8FUU8`. App name: **Vaqtim**. The listing text (English and Russian) is in [`store.config.json`](../../store.config.json) and is uploaded with `eas metadata:push`. App Store Connect does not offer Uzbek as a listing language.
 
-## 1. Family Controls distribution entitlement (do this first)
+## 1. Family Controls distribution entitlement
 
-Blocking the original Instagram and YouTube apps uses Screen Time (Family Controls). Development builds work without Apple's approval; **TestFlight and App Store builds don't**. Request it at developer.apple.com → Account → *Request Family Controls (Distribution)*, once for each of these bundle IDs:
+Locking the original Instagram, YouTube and TikTok apps uses Screen Time (Family Controls). Development builds work without Apple's approval; **TestFlight and App Store builds don't**: they fail at signing.
 
-| Bundle ID | Target |
-|---|---|
-| `com.m1172.focusup` | App |
-| `com.m1172.focusup.FocusUpShield` | Shield configuration extension |
-| `com.m1172.focusup.FocusUpShieldAction` | Shield action extension |
-| `com.m1172.focusup.FocusUpMonitor` | Device activity monitor extension |
-
-Text for the request:
-
-```
-Vaqtim helps people use Instagram and YouTube without short-video feeds (Reels and Shorts). The app opens these services in a filtered in-app browser. When the user turns on a Reels or Shorts filter, Vaqtim asks for individual Screen Time authorization (AuthorizationCenter, .individual) and lets the user choose the original app in FamilyActivityPicker. ManagedSettings then shields that app; the shield (ShieldConfiguration and ShieldAction extensions) offers a single button that opens the filtered version in Vaqtim. A DeviceActivity monitor extension keeps the selection in effect. The user can turn this off at any time. Selections are opaque tokens stored only on the device in our App Group and are never sent to our servers.
-```
-
-Approval often takes one to three weeks. While waiting, everything else below can be done.
+- **Requested:** 31 October 2026 at developer.apple.com/contact/request/family-controls-distribution (request ID `V27JP2FB77`). The form is one click per team now, not per bundle ID. Apple answers by email, usually within one to three weeks.
+- **Until it is approved, version 1.0 ships without it:** `IOS_APP_BLOCKING = false` in `src/config/release.ts` and `["./plugins/withFocusUpProtection", { "familyControls": false }]` in `app.json`. The build then has no Family Controls entitlement and no Monitor/Shield/ShieldAction extensions (the Live Activity stays), and the app treats iOS like a phone without Screen Time: in-app filters only.
+- **After approval:** check that *Family Controls (Distribution)* appears on the App IDs `com.m1172.focusup`, `.FocusUpShield`, `.FocusUpShieldAction` and `.FocusUpMonitor` (Certificates, Identifiers & Profiles), turn both switches back on, put the "lock the original app" text back into the listing and review notes, and ship an update.
 
 ## 2. Create the app in App Store Connect
 
 My Apps → **+** → New App: platform iOS, name **Vaqtim** (if taken, use the full title `Vaqtim: Block Reels & Shorts`), primary language English (U.S.), bundle ID `com.m1172.focusup`, SKU `vaqtim-ios`.
 
-Then copy the app's **Apple ID** (a number under App Information) into `eas.json` → `submit.production.ios.ascAppId`, so `eas submit` and `eas metadata:push` know which app to use.
+Done on 31 October 2026: the app's Apple ID is **6829294178** (saved in `eas.json` → `submit.production.ios.ascAppId`). China mainland is switched off in Pricing and Availability (it needs an ICP filing number, and the social sites are blocked there).
 
 ## 3. App Information
 
@@ -64,25 +53,24 @@ When paid plans launch, add **Purchases → Purchase History** (App Functionalit
 
 ## 5. App Review information
 
-- **Sign-in required:** Yes. Create a Vaqtim account just for Apple (email + password) and enter it under *Sign-in information*. Don't use your personal account.
+- **Sign-in required:** Yes. Use the same reviewer account as Google Play: `vaqtim.review@gmail.com` (the password is in Play Console → App content → Sign in details; never put it in the repository).
 - **Contact:** your name, email and phone (with country code).
-- **Notes** (paste):
+- **Notes** (paste; this is the version 1.0 text, without Screen Time):
 
 ```
-Vaqtim lets people use Instagram and YouTube without short-video feeds.
+Vaqtim lets people use Instagram, YouTube and TikTok without short-video feeds (Reels, Shorts and the For You feed).
 
 How to review:
-1. Sign in with the demo account above (Continue with email → Sign in).
-2. On Home, tap the filters row under YouTube and turn on the Shorts filter. Vaqtim first explains that it will block the original YouTube app, asks for Screen Time permission, and opens Apple's app picker: choose YouTube there (the YouTube app needs to be installed on the device to appear in the picker).
-3. Open YouTube from Home. YouTube works without signing in; the Shorts shelf and Shorts tab are hidden.
-4. Open the original YouTube app from the Home Screen: a Vaqtim shield appears with one button that opens the filtered version in Vaqtim.
-5. Instagram works the same way, but needs the reviewer's own Instagram account to show content.
+1. Sign in with the demo account above: on the first screen choose "Continue with email" → "Sign in", then enter the email and password. The account is already confirmed, so no verification code is needed.
+2. On Home, open YouTube. YouTube works without signing in; the Shorts shelf and the Shorts tab are hidden, while regular videos, search and subscriptions work.
+3. Open Instagram or TikTok from Home. Reels and the For You feed are hidden; messages, profiles and posts stay. These need the reviewer's own Instagram or TikTok account to show content.
+4. The Statistics tab shows how much time short videos were taking and how much the user gets back.
 
-The user can turn blocking off at any time. Screen Time selections are opaque tokens that stay on the device.
+The user signs in to Instagram, Google and TikTok on their own websites inside the app. Vaqtim never receives social media passwords. Account deletion is in Settings → Account → Delete account.
 
-The user signs in to Instagram and Google on their own websites inside the app. Vaqtim never receives social media passwords. Account deletion is in Settings → Account → Delete account.
+This version does not use Screen Time (Family Controls) and does not block other apps.
 
-Vaqtim is not affiliated with Meta or Google; the content is loaded from their public websites with the user's own account.
+Vaqtim is not affiliated with Meta, Google or ByteDance; the content is loaded from their public websites with the user's own account.
 ```
 
 ## 6. Screenshots
@@ -103,4 +91,4 @@ Then in App Store Connect: test in TestFlight, attach the build to version 1.0, 
 
 - **Guideline 5.2.2 (third-party content):** Apple can ask whether you have permission to show Instagram and YouTube. The notes above explain that users load the services' public websites with their own accounts, as similar apps on the App Store do. If Apple asks, answer in Resolution Center with the same explanation.
 - **Guideline 2.3.7 (trademarks in metadata):** the title uses "Reels" and "Shorts" descriptively. If Apple objects, change the title to `Vaqtim: Less Short Videos` and resubmit; nothing else needs to change.
-- **Guideline 4.2 (minimum functionality):** reviewers sometimes call web-view apps "just a website". The Screen Time blocking, statistics and native onboarding are what make Vaqtim more than a browser; mention them if asked.
+- **Guideline 4.2 (minimum functionality):** reviewers sometimes call web-view apps "just a website". Version 1.0 has no Screen Time blocking, so this risk is higher: point to the filters that run on top of three services, the statistics, the Live Activity and the native onboarding if asked.

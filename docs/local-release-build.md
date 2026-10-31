@@ -39,7 +39,7 @@ If `pod install` fails with `Encoding::CompatibilityError`, add `export LANG=en_
 | What | Why | How |
 | --- | --- | --- |
 | Xcode signed in to team `GH6PP8FUU8` | iOS signing and upload | Xcode › Settings › Accounts |
-| Family Controls (Distribution) approved | iOS archive/upload fails without it | [launch/app-store.md §1](launch/app-store.md) |
+| Family Controls (Distribution) approved | Only when `familyControls` is on: the archive/upload fails without it | [launch/app-store.md §1](launch/app-store.md) (requested 31 Oct 2026; v1.0 ships without it) |
 | Android upload key | Play rejects debug-signed builds | [Android › One-time setup](#one-time-setup-1) below |
 | Google Play service account | Lets `upload:android` upload builds | Below |
 | Expo account login | EAS Submit and EAS Metadata run under it | `npx eas-cli@latest login` once (project `m1172/focusup`) |
@@ -82,9 +82,10 @@ The build appears in App Store Connect › TestFlight after Apple finishes proce
 
 The app ships four extensions (Family Controls monitor/shield/shield action and a Live Activity).
 Each needs a distribution profile, and Family Controls needs Apple's **distribution** entitlement
-approval for every extension bundle ID, not only the development entitlement
-([launch/app-store.md §1](launch/app-store.md)). Until Apple approves it, the archive or the upload fails
-at signing.
+approval, not only the development entitlement ([launch/app-store.md §1](launch/app-store.md)). Until Apple
+approves it, keep `["./plugins/withFocusUpProtection", { "familyControls": false }]` in `app.json` and
+`IOS_APP_BLOCKING = false` in `src/config/release.ts`: the build then leaves out the entitlement and the three
+Screen Time extensions (only the Live Activity is built) and signs without the approval.
 
 ## Android (Google Play)
 

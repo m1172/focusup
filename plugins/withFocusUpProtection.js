@@ -3,18 +3,23 @@ const fs = require('fs');
 const path = require('path');
 const plist = require('@expo/plist');
 
-const extensions = [
+const allExtensions = [
   { name: 'FocusUpMonitor', point: 'com.apple.deviceactivity.monitor-extension', files: ['ProtectionShared.swift', 'FocusUpMonitor.swift'] },
   { name: 'FocusUpShield', point: 'com.apple.ManagedSettingsUI.shield-configuration-service', files: ['ProtectionShared.swift', 'FocusUpShield.swift'] },
   { name: 'FocusUpShieldAction', point: 'com.apple.ManagedSettings.shield-action-service', files: ['FocusUpShieldAction.swift'] },
   { name: 'FocusUpLiveActivity', point: 'com.apple.widgetkit-extension', files: ['FocusUpActivityAttributes.swift', 'FocusUpLiveActivity.swift'] },
 ];
-function withFocusUpProtection(config) {
+// Screen Time (Family Controls) needs Apple's distribution approval before TestFlight/App Store builds can be signed.
+// With { "familyControls": false } the entitlement and the three Screen Time extensions are left out; the Live
+// Activity stays. Keep `IOS_APP_BLOCKING` in src/config/release.ts in sync.
+function withFocusUpProtection(config, { familyControls = true } = {}) {
+  const extensions = allExtensions.filter((ext) => familyControls || ext.name === 'FocusUpLiveActivity');
   const bundle = config.ios?.bundleIdentifier;
   if (!bundle) throw new Error('FocusUp protection requires ios.bundleIdentifier');
   const group = `group.${bundle}.protection`;
   config = withEntitlementsPlist(config, (mod) => {
-    mod.modResults['com.apple.developer.family-controls'] = true;
+    if (familyControls) mod.modResults['com.apple.developer.family-controls'] = true;
+    else delete mod.modResults['com.apple.developer.family-controls'];
     mod.modResults['com.apple.security.application-groups'] = [...new Set([...(mod.modResults['com.apple.security.application-groups'] ?? []), group])];
     return mod;
   });

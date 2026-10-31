@@ -8,3 +8,11 @@ export const PRO_ENABLED: boolean = false;
  * is left out of the build too. Turn both on together.
  */
 export const ANDROID_APP_BLOCKING: boolean = false;
+
+/**
+ * iOS real-app locking uses Screen Time (Family Controls), which needs Apple's distribution approval before
+ * TestFlight/App Store builds can be signed. While this is false the app treats iOS as unsupported (in-app filters
+ * only), and `plugins/withFocusUpProtection.js` must be set to `{ "familyControls": false }` in app.json so the
+ * entitlement and Screen Time extensions are left out of the build. Turn both on together.
+ */
+export const IOS_APP_BLOCKING: boolean = false;

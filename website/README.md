@@ -13,6 +13,8 @@ React website for vaqtim.com, built with Next.js 16 (App Router, static export),
 
 Short links `/privacy/`, `/terms/`, `/support/` and `/delete-account/` redirect to the Uzbek pages on Cloudflare Pages (`public/_redirects`).
 
+**`/app`** is the link to share: iPhone and iPad open the App Store, Android opens Google Play, and computers land on the home page's download section (`#download`). It is a Cloudflare Pages Function (`functions/app/index.ts`), so it only works on Cloudflare (or `npx wrangler pages dev out`), not with `npm run preview`.
+
 ## Where things are
 
 - `src/content/site.ts`: all page text in Uzbek, Russian and English, plus the support email and store links.
@@ -33,11 +35,7 @@ npm run preview    # serve website/out on http://localhost:4173
 npm run typecheck
 ```
 
-When the apps are live, set the store links at build time so the buttons stop saying "coming soon":
-
-```bash
-NEXT_PUBLIC_APP_STORE_URL=https://apps.apple.com/app/idXXXXXXXXX NEXT_PUBLIC_PLAY_STORE_URL=https://play.google.com/store/apps/details?id=com.m1172.focusup npm run build
-```
+Store links live in `src/content/stores.ts` (App Store `id6829294178`, Google Play `com.m1172.focusup`). The buttons and `/app` both use them. To show "coming soon" instead, build with an empty value, for example `NEXT_PUBLIC_APP_STORE_URL= npm run build`.
 
 Then replace the button icons with Apple's and Google's official store badges, as their brand rules require.
 
