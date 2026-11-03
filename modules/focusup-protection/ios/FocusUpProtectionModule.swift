@@ -84,12 +84,74 @@ public class FocusUpProtectionModule: Module {
       URLCache.shared.removeAllCachedResponses()
       store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { promise.resolve(true) }
     }.runOnQueue(.main)
+    // The in-app browser's account switcher saves and restores a site's sign-in cookies. Only listed sites are touched.
+    AsyncFunction("getSiteCookies") { (domain: String, promise: Promise) in
+      guard FocusUpProtectionModule.siteDomains.contains(domain) else { promise.resolve("[]"); return }
+      WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
+        let items = cookies.filter { FocusUpProtectionModule.cookie($0.domain, belongsTo: domain) }.map { cookie -> [String: Any] in
+          var item: [String: Any] = ["name": cookie.name, "value": cookie.value, "domain": cookie.domain, "path": cookie.path, "secure": cookie.isSecure, "httpOnly": cookie.isHTTPOnly]
+          if let expires = cookie.expiresDate { item["expires"] = expires.timeIntervalSince1970 * 1000 }
+          if let sameSite = cookie.sameSitePolicy { item["sameSite"] = sameSite.rawValue }
+          return item
+        }
+        let data = (try? JSONSerialization.data(withJSONObject: items)) ?? Data("[]".utf8)
+        promise.resolve(String(data: data, encoding: .utf8) ?? "[]")
+      }
+    }.runOnQueue(.main)
+    AsyncFunction("setSiteCookies") { (domain: String, json: String, promise: Promise) in
+      guard FocusUpProtectionModule.siteDomains.contains(domain), json.utf8.count < 200_000, let data = json.data(using: .utf8),
+        let items = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { promise.resolve(false); return }
+      let store = WKWebsiteDataStore.default().httpCookieStore
+      let group = DispatchGroup()
+      for item in items.prefix(100) {
+        guard let name = item["name"] as? String, let value = item["value"] as? String, let cookieDomain = item["domain"] as? String,
+          !name.isEmpty, FocusUpProtectionModule.cookie(cookieDomain, belongsTo: domain) else { continue }
+        var properties: [HTTPCookiePropertyKey: Any] = [.name: name, .value: value, .domain: cookieDomain, .path: (item["path"] as? String) ?? "/"]
+        if (item["secure"] as? Bool) == true { properties[.secure] = "TRUE" }
+        if (item["httpOnly"] as? Bool) == true { properties[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
+        if let expires = item["expires"] as? Double {
+          guard expires > Date().timeIntervalSince1970 * 1000 else { continue }
+          properties[.expires] = Date(timeIntervalSince1970: expires / 1000)
+        }
+        if let sameSite = item["sameSite"] as? String { properties[.sameSitePolicy] = sameSite }
+        guard let cookie = HTTPCookie(properties: properties) else { continue }
+        group.enter()
+        store.setCookie(cookie) { group.leave() }
+      }
+      group.notify(queue: .main) { promise.resolve(true) }
+    }.runOnQueue(.main)
+    AsyncFunction("clearSiteData") { (domain: String, promise: Promise) in
+      guard FocusUpProtectionModule.siteDomains.contains(domain) else { promise.resolve(false); return }
+      let dataStore = WKWebsiteDataStore.default()
+      dataStore.httpCookieStore.getAllCookies { cookies in
+        let group = DispatchGroup()
+        for cookie in cookies where FocusUpProtectionModule.cookie(cookie.domain, belongsTo: domain) {
+          group.enter()
+          dataStore.httpCookieStore.delete(cookie) { group.leave() }
+        }
+        // Stored page data (local storage, IndexedDB, caches) belongs to the signed-in account too.
+        var types = WKWebsiteDataStore.allWebsiteDataTypes()
+        types.remove(WKWebsiteDataTypeCookies)
+        group.enter()
+        dataStore.fetchDataRecords(ofTypes: types) { records in
+          let site = records.filter { FocusUpProtectionModule.cookie($0.displayName, belongsTo: domain) }
+          dataStore.removeData(ofTypes: types, for: site) { group.leave() }
+        }
+        group.notify(queue: .main) { promise.resolve(true) }
+      }
+    }.runOnQueue(.main)
     AsyncFunction("reset") { () async in
       let center = DeviceActivityCenter(); center.stopMonitoring(center.activities.filter { $0.rawValue.hasPrefix("focusup.") })
       ProtectionShared.store.clearAllSettings()
       if let defaults = ProtectionShared.defaults { for key in defaults.dictionaryRepresentation().keys where key == "plan" || key == "pendingNativeAppLaunch" || key.hasPrefix("selection.") || key.hasPrefix("limitReached.") { defaults.removeObject(forKey: key) } }
       for activity in Activity<FocusUpActivityAttributes>.activities { await activity.end(nil, dismissalPolicy: .immediate) }
     }
+  }
+  private static let siteDomains: Set<String> = ["instagram.com"]
+  /** True for `instagram.com`, `.instagram.com` and `www.instagram.com`, not for `notinstagram.com`. */
+  private static func cookie(_ cookieDomain: String, belongsTo domain: String) -> Bool {
+    let host = cookieDomain.hasPrefix(".") ? String(cookieDomain.dropFirst()) : cookieDomain
+    return host == domain || host.hasSuffix("." + domain)
   }
   private func updateActivity(_ plan: ProtectionPlan) async {
     for activity in Activity<FocusUpActivityAttributes>.activities { await activity.end(nil, dismissalPolicy: .immediate) }

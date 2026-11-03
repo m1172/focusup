@@ -4,11 +4,12 @@ Bundle ID: `com.m1172.focusup`. Team: `GH6PP8FUU8`. App name: **Vaqtim**. The li
 
 ## 1. Family Controls distribution entitlement
 
-Locking the original Instagram, YouTube and TikTok apps uses Screen Time (Family Controls). Development builds work without Apple's approval; **TestFlight and App Store builds don't**: they fail at signing.
+Locking the original Instagram, YouTube and TikTok apps uses Screen Time (Family Controls). TestFlight and App Store builds need Apple's distribution approval for it.
 
-- **Requested:** 31 October 2026 at developer.apple.com/contact/request/family-controls-distribution (request ID `V27JP2FB77`). The form is one click per team now, not per bundle ID. Apple answers by email, usually within one to three weeks.
-- **Until it is approved, version 1.0 ships without it:** `IOS_APP_BLOCKING = false` in `src/config/release.ts` and `["./plugins/withFocusUpProtection", { "familyControls": false }]` in `app.json`. The build then has no Family Controls entitlement and no Monitor/Shield/ShieldAction extensions (the Live Activity stays), and the app treats iOS like a phone without Screen Time: in-app filters only.
-- **After approval:** check that *Family Controls (Distribution)* appears on the App IDs `com.m1172.focusup`, `.FocusUpShield`, `.FocusUpShieldAction` and `.FocusUpMonitor` (Certificates, Identifiers & Profiles), turn both switches back on, put the "lock the original app" text back into the listing and review notes, and ship an update.
+- **Requested:** 31 October 2026 (request ID `V27JP2FB77`).
+- **Approved:** confirmed 2 November 2026. The App Store provisioning profiles for `com.m1172.focusup`, `.FocusUpMonitor`, `.FocusUpShield` and `.FocusUpShieldAction` now include `com.apple.developer.family-controls`.
+- **Switched on from iOS build 5:** `IOS_APP_BLOCKING = true` in `src/config/release.ts` and `{ "familyControls": true }` in `app.json`. Builds 2–4 shipped without it. iOS has its own `ios.runtimeVersion` (`1.0.0-screentime`), so over-the-air updates for build 5 never reach those older builds.
+- To turn it off again, set both switches back and change `ios.runtimeVersion`.
 
 ## 2. Create the app in App Store Connect
 
@@ -55,7 +56,7 @@ When paid plans launch, add **Purchases → Purchase History** (App Functionalit
 
 - **Sign-in required:** Yes. Use the same reviewer account as Google Play: `vaqtim.review@gmail.com` (the password is in Play Console → App content → Sign in details; never put it in the repository).
 - **Contact:** your name, email and phone (with country code).
-- **Notes** (paste; this is the version 1.0 text, without Screen Time):
+- **Notes** (paste):
 
 ```
 Vaqtim lets people use Instagram, YouTube and TikTok without short-video feeds (Reels, Shorts and the For You feed).
@@ -64,11 +65,12 @@ How to review:
 1. Sign in with the demo account above: on the first screen choose "Continue with email" → "Sign in", then enter the email and password. The account is already confirmed, so no verification code is needed.
 2. On Home, open YouTube. YouTube works without signing in; the Shorts shelf and the Shorts tab are hidden, while regular videos, search and subscriptions work.
 3. Open Instagram or TikTok from Home. Reels and the For You feed are hidden; messages, profiles and posts stay. These need the reviewer's own Instagram or TikTok account to show content.
-4. The Statistics tab shows how much time short videos were taking and how much the user gets back.
+4. On the Protect tab, tap an app's plus button to add it. Vaqtim explains the Screen Time permission, then iOS asks for it and shows Apple's app picker; choose the same app there. The original app is then locked: opening it shows a Vaqtim screen that leads back to the clean version inside Vaqtim. Removing the app on the Protect tab unlocks it again.
+5. The Statistics tab shows how much time short videos were taking and how much the user gets back.
 
 The user signs in to Instagram, Google and TikTok on their own websites inside the app. Vaqtim never receives social media passwords. Account deletion is in Settings → Account → Delete account.
 
-This version does not use Screen Time (Family Controls) and does not block other apps.
+Screen Time (Family Controls) is used only to lock the apps the user picks in Apple's own picker. The choices stay on the device and are never sent to our servers.
 
 Vaqtim is not affiliated with Meta, Google or ByteDance; the content is loaded from their public websites with the user's own account.
 ```

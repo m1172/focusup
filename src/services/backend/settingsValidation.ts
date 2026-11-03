@@ -1,4 +1,4 @@
-import type { CloudBackup, CloudSettings } from './types';
+import type { CloudBackup, CloudOnboarding, CloudSettings } from './types';
 import { validateSleepPlan } from '../protection/engine';
 
 const platforms = ['instagram', 'youtube', 'tiktok', 'x', 'reddit', 'snapchat', 'facebook', 'linkedin'];
@@ -14,8 +14,13 @@ function schedule(value: unknown): boolean {
   if (!object(value) || !keys(value, ['id', 'name', 'start', 'end', 'weekdays', 'apps', 'enabled', 'allowedApps', 'filters', 'strict', 'notify'])) return false;
   return typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 100 && typeof value.name === 'string' && value.name.trim().length > 0 && value.name.length <= 80 && time(value.start) && time(value.end) && value.start !== value.end && list(value.weekdays, [0, 1, 2, 3, 4, 5, 6], 1) && list(value.apps, platforms, 1) && typeof value.enabled === 'boolean' && (value.allowedApps === undefined || list(value.allowedApps, platforms)) && (value.filters === undefined || platformFilters(value.filters)) && (value.strict === undefined || typeof value.strict === 'boolean') && (value.notify === undefined || typeof value.notify === 'boolean');
 }
+/** Onboarding part of a backup; the same limits as the server (backend/src/schemas.ts). */
+export function isCloudOnboarding(value: unknown): value is CloudOnboarding {
+  return object(value) && keys(value, ['completed', 'usualMinutes', 'cut']) && Object.keys(value).length === 3 && typeof value.completed === 'boolean'
+    && integer(value.usualMinutes, 0, 1440) && typeof value.cut === 'number' && value.cut >= 0 && value.cut <= 1;
+}
 export function isCloudSettings(value: unknown): value is CloudSettings {
-  if (!object(value) || !keys(value, ['schemaVersion', 'preferences', 'wellbeing']) || value.schemaVersion !== 1 || !object(value.preferences) || !object(value.wellbeing)) return false;
+  if (!object(value) || !keys(value, ['schemaVersion', 'preferences', 'wellbeing', 'onboarding']) || (value.onboarding !== undefined && !isCloudOnboarding(value.onboarding)) || value.schemaVersion !== 1 || !object(value.preferences) || !object(value.wellbeing)) return false;
   const p = value.preferences, w = value.wellbeing;
   if (!keys(p, ['selectedLanguage', 'themeMode', 'apps', 'schedules', 'dailyGoalMinutes', 'goalNotifications', 'completionNotifications']) || !keys(w, ['launchDestination', 'sleep'])) return false;
   if (!['uz', 'ru', 'en'].includes(p.selectedLanguage as string) || !['system', 'light', 'dark'].includes(p.themeMode as string) || !integer(p.dailyGoalMinutes, 1, 1440) || typeof p.goalNotifications !== 'boolean' || typeof p.completionNotifications !== 'boolean') return false;

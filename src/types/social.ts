@@ -10,7 +10,7 @@ export type InstagramBlockerConfig = {
 };
 
 export type InstagramFilterFeature = keyof InstagramBlockerConfig;
-export type SocialBrowserRoute = 'feed' | 'search' | 'watch' | 'subscriptions' | 'channel' | 'playlist' | 'reels' | 'shorts' | 'profile' | 'other';
+export type SocialBrowserRoute = 'feed' | 'search' | 'watch' | 'subscriptions' | 'channel' | 'playlist' | 'reels' | 'shorts' | 'profile' | 'inbox' | 'other';
 
 export type YouTubeBlockerConfig = {
   shorts: boolean;
@@ -43,6 +43,14 @@ export type InstagramWebViewEvent =
   | { type: 'FILTER_APPLIED'; platform: 'instagram'; feature: InstagramFilterFeature; count: number }
   | { type: 'URL_CHANGED'; platform: 'instagram'; route: SocialBrowserRoute }
   | { type: 'BLOCKED_NAVIGATION'; platform: 'instagram'; feature: 'reels' }
+  /** Feed posts that were at least half on screen, counted once each, for the session strip. */
+  | { type: 'POSTS_SEEN'; platform: 'instagram'; count: number }
+  /** The signed-in account, read from the profile tab. Kept on the phone for the account switcher only. */
+  | { type: 'ACCOUNT'; platform: 'instagram'; username: string; avatar: string }
+  /** Whether Instagram shows its own bottom tab bar on this page. */
+  | { type: 'NAV_BAR'; platform: 'instagram'; visible: boolean }
+  /** The username menu was tapped: Vaqtim shows its own account switcher instead of Instagram's. */
+  | { type: 'OPEN_ACCOUNTS'; platform: 'instagram' }
   | { type: 'ERROR'; platform: 'instagram'; scope: string };
 
 export type YouTubeWebViewEvent =

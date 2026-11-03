@@ -15,7 +15,14 @@ export type CloudSettings = {
     completionNotifications: boolean;
   };
   wellbeing: { launchDestination: 'home' | 'instagram' | 'youtube' | 'tiktok'; sleep: SleepPlan };
+  /**
+   * Whether this account finished onboarding, with the daily scrolling time it gave (Home's savings start from it).
+   * Personal answers (age, reasons, goals) and the invite code stay on the phone. Missing in backups from builds
+   * before 3 November 2026.
+   */
+  onboarding?: CloudOnboarding;
 };
+export type CloudOnboarding = { completed: boolean; usualMinutes: number; cut: number };
 export type CloudBackup = { revision: number; payload: CloudSettings | null; updatedAt: string | null };
 export type AccountProfile = { displayName: string; updatedAt: string | null };
 export type Account = { id: string; email: string | null; profile: AccountProfile };

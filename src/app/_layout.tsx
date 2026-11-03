@@ -6,8 +6,10 @@ import 'react-native-gesture-handler';
 import { isBackendConfigured, refreshAccountSession } from '../services/backend/accountSession';
 import i18n from '../i18n';
 import { useFonts } from 'expo-font';
+import { loadBrowserUserAgent } from '../features/webview/browserUserAgent';
+import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
-import { ActivityIndicator, Appearance, AppState, View } from 'react-native';
+import { ActivityIndicator, Appearance, AppState, Platform, View } from 'react-native';
 import { router, Stack, useRootNavigationState } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -30,6 +32,7 @@ import { startSettingsSync } from '../services/backend/settingsSyncRuntime';
 import { BrowserLayer } from '../features/webview/BrowserLayer';
 import { OnboardingPaywall } from '../features/onboarding/OnboardingPaywall';
 import { useOnboardingStore } from '../store/onboardingStore';
+import { takeReturningSignIn } from '../features/auth/navigation';
 import { SupportReplyOpener } from '../features/support/SupportReplyOpener';
 import { syncSupportPush } from '../features/support/push';
 import { perfLogsEnabled, recordTap, startMainThreadSampler } from '../services/performance/tapTiming';
@@ -70,8 +73,13 @@ export default function RootLayout() {
     'Manrope-600': require('../../assets/fonts/Manrope-600.ttf'),
     'Manrope-700': require('../../assets/fonts/Manrope-700.ttf'),
     'Manrope-800': require('../../assets/fonts/Manrope-800.ttf'),
+    // Icon fonts load here, before the first screen. On Android an icon whose font loaded only when
+    // the icon first appeared stayed blank (browser menu, top strip, sheets).
+    ...Ionicons.font,
+    ...FontAwesome6.font,
   });
   useEffect(() => {
+    void loadBrowserUserAgent();
     void initializeLocalAnalytics().then(() => restoreInterruptedSession());
     const stopSettingsSync = startSettingsSync();
     initializeNotificationHandler();
@@ -85,7 +93,7 @@ export default function RootLayout() {
     const appChanges = useAppStore.subscribe((state, previous) => {
       reconcileNative();
       if (!useAppStore.persist.hasHydrated() || isClearingFocusUpData()) return;
-      if (state.onboardingCompleted && !previous.onboardingCompleted) captureProductEvent('onboarding_completed', { referral_code: useOnboardingStore.getState().referralCode || undefined });
+      if (state.onboardingCompleted && !previous.onboardingCompleted && !takeReturningSignIn()) captureProductEvent('onboarding_completed', { referral_code: useOnboardingStore.getState().referralCode || undefined });
       for (const appId of ['instagram', 'youtube', 'tiktok'] as const) {
         if (state.apps[appId].enabled !== previous.apps[appId].enabled) captureProductEvent('app_protection_changed', { social_platform: appId, enabled: state.apps[appId].enabled });
         for (const [feature, enabled] of Object.entries(state.apps[appId].filters)) {
@@ -132,7 +140,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="app-settings/[appId]" /><Stack.Screen name="configure-apps" />
       {/* The page is drawn by BrowserLayer above the stack, so this route must not be a native modal, which would cover it. */}
-      <Stack.Screen name="browser/[appId]" options={{ animation: 'fade', animationDuration: 120, statusBarHidden: true }} />
+      <Stack.Screen name="browser/[appId]" options={{ animation: 'fade', animationDuration: 120, statusBarHidden: Platform.OS === 'ios' }} />
       <Stack.Screen name="permissions" /><Stack.Screen name="language" /><Stack.Screen name="theme" />
       {/* Opened from a blocked original app: the iOS shield button or the Android shield. */}
       <Stack.Screen name="native-app/[appId]" />

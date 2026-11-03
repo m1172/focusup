@@ -45,7 +45,7 @@ export { leaveAuth } from './navigation';
 export function useLeaveWhenSignedIn(fromOnboarding: boolean) {
   const user = useAccountStore((state) => state.user);
   useEffect(() => { void accountSession.initialize().catch(() => undefined); }, []);
-  useEffect(() => { if (user) leaveAuth(fromOnboarding); }, [user, fromOnboarding]);
+  useEffect(() => { if (user) void leaveAuth(fromOnboarding); }, [user, fromOnboarding]);
 }
 
 type FieldKind = 'text' | 'email' | 'password' | 'code';

@@ -15,7 +15,8 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.m1172.focusup",
-      "buildNumber": "3",
+      "buildNumber": "6",
+      "runtimeVersion": "1.0.0-screentime",
       "appleTeamId": "GH6PP8FUU8",
       "infoPlist": {
         "com.posthog.posthog.CAPTURE_PUSH_NOTIFICATION_OPENED": false,
@@ -31,7 +32,8 @@
     },
     "android": {
       "package": "com.m1172.focusup",
-      "versionCode": 5,
+      "versionCode": 6,
+      "runtimeVersion": "1.0.0-accessibility",
       "adaptiveIcon": {
         "backgroundColor": "#5B4FE9",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -54,14 +56,14 @@
       [
         "./plugins/withFocusUpProtection",
         {
-          "familyControls": false
+          "familyControls": true
         }
       ],
       "./plugins/withAndroidReleaseSigning",
       [
         "./plugins/withAndroidAccessibility",
         {
-          "enabled": false
+          "enabled": true
         }
       ],
       "expo-secure-store",

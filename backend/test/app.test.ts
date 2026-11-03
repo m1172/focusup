@@ -40,6 +40,20 @@ test('settings validate ownership, private data, schedules and revision before w
   assert.deepEqual(calls, [[user, 0, settings]]);
 });
 
+test('settings may say whether onboarding was finished, but never carry personal onboarding answers', async (t) => {
+  const saved: unknown[] = [];
+  const app = await buildApp(config, fakeGateway({ saveSettings: async (_identity, _revision, payload) => { saved.push(payload); return { revision: 1, payload, updatedAt: 'now' }; } })); t.after(() => app.close());
+  const put = (payload: unknown) => app.inject({ method: 'PUT', url: '/v1/me/settings', headers: { authorization }, payload: { expectedRevision: 0, payload } });
+  const onboarding = { completed: true, usualMinutes: 90, cut: 0.5 };
+  assert.equal((await put({ ...settings, onboarding })).statusCode, 200);
+  // Older app builds send no onboarding part.
+  assert.equal((await put(settings)).statusCode, 200);
+  for (const bad of [{ ...onboarding, age: 24 }, { ...onboarding, goals: ['family'] }, { ...onboarding, usualMinutes: 5000 }, { ...onboarding, cut: 2 }, { completed: 'yes', usualMinutes: 90, cut: 0.5 }]) {
+    assert.equal((await put({ ...settings, onboarding: bad })).statusCode, 400);
+  }
+  assert.deepEqual(saved, [{ ...settings, onboarding }, settings]);
+});
+
 test('revision conflicts are explicit and backup deletion keeps the expected revision', async (t) => {
   let deleted = false;
   const app = await buildApp(config, fakeGateway({ saveSettings: async (identity, revision, payload) => {

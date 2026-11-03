@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useAppStore } from '../../../store/appStore';
 import { useWellbeingStore } from '../../../store/wellbeingStore';
+import { useOnboardingStore } from '../../../store/onboardingStore';
 import { reconcileProtection } from '../../protection/controller';
 import { captureSettingsBackup } from '../settingsBackup';
 import { isCloudBackup, isCloudSettings } from '../settingsValidation';
@@ -14,7 +15,9 @@ jest.mock('../../protection/controller', () => ({ reconcileProtection: jest.fn()
 beforeEach(() => {
   jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(true);
   jest.spyOn(useWellbeingStore.persist, 'hasHydrated').mockReturnValue(true);
+  jest.spyOn(useOnboardingStore.persist, 'hasHydrated').mockReturnValue(true);
   useAppStore.setState(useAppStore.getInitialState());
+  useOnboardingStore.setState(useOnboardingStore.getInitialState());
   useWellbeingStore.setState(useWellbeingStore.getInitialState());
   jest.mocked(reconcileProtection).mockReset().mockResolvedValue(undefined);
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false } as Awaited<ReturnType<typeof Notifications.getPermissionsAsync>>);
@@ -29,6 +32,26 @@ test('validates the complete backup and rejects privilege flags, missing apps an
   expect(isCloudSettings({ ...snapshot, pro: true })).toBe(false);
   expect(isCloudSettings({ ...snapshot, preferences: { ...snapshot.preferences, apps: {} } })).toBe(false);
   expect(isCloudSettings({ ...snapshot, preferences: { ...snapshot.preferences, schedules: [{ id: 'bad', start: '30:00' }] } })).toBe(false);
+});
+
+test('accepts backups with and without the onboarding part, and rejects personal answers in it', () => {
+  const snapshot = captureSettingsBackup();
+  const { onboarding: _onboarding, ...older } = snapshot;
+  expect(isCloudSettings(older)).toBe(true);
+  expect(isCloudSettings({ ...snapshot, onboarding: { completed: true, usualMinutes: 90, cut: 0.5 } })).toBe(true);
+  expect(isCloudSettings({ ...snapshot, onboarding: { completed: true, usualMinutes: 90, cut: 0.5, age: 24 } })).toBe(false);
+  expect(isCloudSettings({ ...snapshot, onboarding: { completed: true, usualMinutes: 5000, cut: 0.5 } })).toBe(false);
+});
+
+test('a new phone gets the account’s daily scrolling time; a phone that finished onboarding keeps its own', async () => {
+  const snapshot = { ...captureSettingsBackup(), onboarding: { completed: true, usualMinutes: 120, cut: 0.75 } };
+  await restoreCloudSettings(snapshot);
+  expect(useOnboardingStore.getState()).toMatchObject({ source: 'estimate', shortFormMinutes: 120, cut: 0.75 });
+
+  useOnboardingStore.setState({ shortFormMinutes: 45, cut: 0.5 });
+  useAppStore.setState({ onboardingCompleted: true });
+  await restoreCloudSettings(snapshot);
+  expect(useOnboardingStore.getState()).toMatchObject({ shortFormMinutes: 45, cut: 0.5 });
 });
 
 test('restores preferences while preserving native selections, active access and purchase-independent state', async () => {

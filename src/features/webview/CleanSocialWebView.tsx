@@ -17,6 +17,7 @@ import { parseSocialWebViewEvent } from '../../services/social-browser/messages'
 import { classifySocialBrowserNavigation, isSameDocumentLocation, normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
 import { useAppTheme } from '../../theme';
 import { WebViewErrorState } from './WebViewErrorState';
+import { browserUserAgent } from './browserUserAgent';
 import { WebViewLoadingState } from './WebViewLoadingState';
 import { useRemoteBlockerConfigStore } from '../../store/remoteBlockerConfigStore';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
@@ -25,6 +26,8 @@ import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { createBrowserViewportScript } from '../../services/social-browser/viewport';
 import { createAppPromoScript } from '../../services/social-browser/appPromo';
 import { createPageIdleScript } from '../../services/social-browser/pageIdle';
+import { createInstagramPageScript } from '../../services/social-browser/instagramPage';
+import { protectionBridge } from '../../services/protection/nativeBridge';
 import { msSinceLastTap, perfLogsEnabled } from '../../services/performance/tapTiming';
 
 const platformSites: Record<string, { url: string; hosts: string[]; name: string }> = {
@@ -39,6 +42,12 @@ type CleanSocialWebViewProps = {
   enabled: boolean;
   initialUrl?: string;
   fullScreen?: boolean;
+  /** Full screen only: pad the top for the status bar area. False when the browser shows its own strip there. */
+  coverTop?: boolean;
+  /** The page's top edge color and whether an Instagram Story is open. */
+  onAppearanceChange?: (appearance: { backgroundColor: string; isStory: boolean }) => void;
+  /** Keep the page above the system bar at the bottom. Android's web view does not do this itself (iOS does). */
+  padBottom?: boolean;
   onNavigationChange?: (navigation: WebViewNavigation) => void;
   onEvent?: (event: SocialWebViewEvent) => void;
   onExternalNavigation?: (url: string) => boolean;
@@ -77,7 +86,7 @@ export type CleanSocialWebViewHandle = WebViewHandle & {
   revalidate: () => void;
 };
 
-export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSocialWebViewProps>(function CleanSocialWebView({ platform, blockerConfig, enabled, initialUrl, fullScreen = false, onNavigationChange, onEvent, onExternalNavigation, onSettings, onPageReadyChange, active = true, onContentProcessGone }, forwardedRef) {
+export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSocialWebViewProps>(function CleanSocialWebView({ platform, blockerConfig, enabled, initialUrl, fullScreen = false, coverTop = true, padBottom = false, onAppearanceChange, onNavigationChange, onEvent, onExternalNavigation, onSettings, onPageReadyChange, active = true, onContentProcessGone }, forwardedRef) {
   const c = useAppTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -123,8 +132,9 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     if (platform === 'tiktok') return createTikTokBlockingScript(blockerConfig as Partial<TikTokBlockerConfig>, enabled, remoteRule);
     return generateBlockingScript(platform, enabled, blockerConfig) ?? '';
   }, [platform, enabled, blockerConfig, remoteRule, pro]);
-  const script = useMemo(() => PAGE_READY_SCRIPT + '\n' + createBrowserViewportScript(fullScreen, insets, platform) + '\n' + createAppPromoScript() + '\n' + grayscaleScript(grayscale) + '\n' + blockerScript,
-    [blockerScript, fullScreen, insets, platform, grayscale]);
+  const pageScript = platform === 'instagram' ? createInstagramPageScript(protectionBridge.canSwitchAccounts()) : '';
+  const script = useMemo(() => PAGE_READY_SCRIPT + '\n' + createBrowserViewportScript(fullScreen, insets, platform) + '\n' + createAppPromoScript() + '\n' + grayscaleScript(grayscale) + '\n' + pageScript + '\n' + blockerScript,
+    [blockerScript, fullScreen, insets, platform, grayscale, pageScript]);
 
   useEffect(() => {
     if (!loading && lastInjectedScript.current !== script && script) {
@@ -181,7 +191,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   const receiveMessage = (raw: string) => {
     if (raw === PAGE_READY_MESSAGE) { if (!painted) { timing('first frame (loading screen hidden)'); setPainted(true); } return; }
     const message = parseSocialWebViewEvent(raw, platform);
-    if (message?.type === 'PAGE_APPEARANCE') { setPageBackground(message.backgroundColor); setIsStory(message.isStory); return; }
+    if (message?.type === 'PAGE_APPEARANCE') { setPageBackground(message.backgroundColor); setIsStory(message.isStory); onAppearanceChange?.({ backgroundColor: message.backgroundColor, isStory: message.isStory }); return; }
     if (message) onEvent?.(message);
   };
 
@@ -206,11 +216,12 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
 
   if (!site) return null;
   return (
-    <SafeAreaView edges={fullScreen ? (isStory ? ['left', 'right'] : ['top', 'left', 'right']) : ['bottom']} style={{ flex: 1, backgroundColor: fullScreen ? pageBackground : c.background }}>
+    <SafeAreaView edges={fullScreen ? [...(isStory || !coverTop ? [] : ['top' as const]), 'left', 'right', ...(padBottom ? ['bottom' as const] : [])] : ['bottom']} style={{ flex: 1, backgroundColor: fullScreen ? pageBackground : c.background }}>
       <PostHogMaskView style={{ flex: 1, backgroundColor: c.background }}>
         <NativeWebView
           ref={webRef}
           source={source}
+          userAgent={browserUserAgent(platform)}
           originWhitelist={['https://*', 'http://*']}
           javaScriptEnabled
           domStorageEnabled
@@ -231,7 +242,13 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
           injectedJavaScriptBeforeContentLoaded={script}
           injectedJavaScript={script}
           onMessage={(event) => receiveMessage(event.nativeEvent.data)}
-          onLoadStart={(event) => { currentDocumentUrl.current = event.nativeEvent.url || currentDocumentUrl.current; setLoading(true); setPainted(false); setProgress(0.04); setError(false); }}
+          onLoadStart={(event) => {
+            currentDocumentUrl.current = event.nativeEvent.url || currentDocumentUrl.current;
+            // Android also reports in-page switches (Instagram's Messages, Search) as a load start, with loading false
+            // and no load end. Treating that as a new page covered the page with the loading screen indefinitely.
+            if (event.nativeEvent.loading === false) return;
+            setLoading(true); setPainted(false); setProgress(0.04); setError(false);
+          }}
           onLoadProgress={(event) => { setProgress(event.nativeEvent.progress); if (!loggedVisible.current && event.nativeEvent.progress >= 0.5) { loggedVisible.current = true; timing('progress 50%'); } }}
           onLoad={() => { timing('onLoad'); hasLoadedSuccessfully.current = true; setProgress(1); setError(false); onPageReadyChange?.(true); }}
           onLoadEnd={() => { timing('onLoadEnd'); setLoading(false); }}

@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { useAccountStore } from '../../store/accountStore';
 import { useAppStore } from '../../store/appStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import { isClearingFocusUpData } from '../privacy/clearFocusUpData';
 import { accountApi, isBackendConfigured } from './accountSession';
 import { restoreCloudSettings } from './restoreSettings';
@@ -31,7 +32,8 @@ export function startSettingsSync(): () => void {
   });
   const applyUser = () => {
     const { ready, user, recoveryRequired } = useAccountStore.getState();
-    const hydrated = useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated();
+    // Onboarding answers are part of the backup, so they must be loaded too, or empty answers would be uploaded.
+    const hydrated = useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated() && useOnboardingStore.persist.hasHydrated();
     sync.setUser(ready && hydrated && user && !recoveryRequired ? user.id : null);
   };
   const settingsChanged = () => { if (!isClearingFocusUpData()) sync.notifyChanged(); };
@@ -39,8 +41,10 @@ export function startSettingsSync(): () => void {
     useAccountStore.subscribe(applyUser),
     useAppStore.persist.onFinishHydration(applyUser),
     useWellbeingStore.persist.onFinishHydration(applyUser),
+    useOnboardingStore.persist.onFinishHydration(applyUser),
     useAppStore.subscribe(settingsChanged),
     useWellbeingStore.subscribe(settingsChanged),
+    useOnboardingStore.subscribe(settingsChanged),
   ];
   const appState = AppState.addEventListener('change', (state) => { if (state !== 'inactive' && !isClearingFocusUpData()) void sync.flush(); });
   applyUser();

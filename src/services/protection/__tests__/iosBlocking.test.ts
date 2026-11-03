@@ -16,17 +16,16 @@ jest.mock('expo', () => {
 
 const native = jest.requireMock('expo').testNative as Record<'getStatus' | 'requestAuthorization' | 'selectApps' | 'clearBrowserData', jest.Mock>;
 
-describe('iOS without the Screen Time entitlement', () => {
-  it('is off for this release', () => expect(IOS_APP_BLOCKING).toBe(false));
+describe('iOS with the Screen Time entitlement', () => {
+  it('is on, so connecting an app asks for Screen Time first', () => expect(IOS_APP_BLOCKING).toBe(true));
 
-  it('reports real-app blocking as unsupported and never asks for Screen Time', async () => {
-    await expect(protectionBridge.getStatus()).resolves.toMatchObject({ supported: false, authorized: false });
-    await expect(protectionBridge.requestAuthorization()).resolves.toBe(false);
-    await expect(protectionBridge.selectApps('youtube')).resolves.toBe(0);
-    await expect(protectionBridge.applyPlan('{}')).rejects.toThrow('nativeUnavailable');
-    expect(native.getStatus).not.toHaveBeenCalled();
-    expect(native.requestAuthorization).not.toHaveBeenCalled();
-    expect(native.selectApps).not.toHaveBeenCalled();
+  it('passes status, permission and app selection through to Screen Time', async () => {
+    await expect(protectionBridge.getStatus()).resolves.toMatchObject({ supported: true, authorized: true });
+    await expect(protectionBridge.requestAuthorization()).resolves.toBe(true);
+    await expect(protectionBridge.selectApps('youtube')).resolves.toBe(1);
+    expect(native.getStatus).toHaveBeenCalled();
+    expect(native.requestAuthorization).toHaveBeenCalled();
+    expect(native.selectApps).toHaveBeenCalledWith('youtube');
   });
 
   it('keeps the rest of the module working', async () => {

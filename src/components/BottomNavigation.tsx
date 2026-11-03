@@ -32,7 +32,7 @@ export function BottomNavigation({ active, onSelect }: { active?: TabKey; onSele
       const selected = tab.key === current;
       const color = selected ? c.ink : c.text2;
       return <Pressable key={tab.key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t(tab.label)} onPress={() => { void Haptics.selectionAsync(); if (onSelect) onSelect(tab.key); else router.navigate(tab.href); }} style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, opacity: pressed ? 0.7 : 1 })}>
-        <View style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.soft : 'transparent' }}><Icon name={tab.icon} size={24} color={color} /></View>
+        <View collapsable={false} style={{ width: 52, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.soft : 'transparent' }}><Icon name={tab.icon} size={24} color={color} /></View>
         <Text style={{ color, fontSize: 11, fontWeight: selected ? '800' : '600' }}>{t(tab.label)}</Text>
       </Pressable>;
     })}

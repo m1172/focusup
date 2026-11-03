@@ -79,7 +79,7 @@ function ResetPasswordForm() {
   const submit = () => {
     if (password.length < MIN_PASSWORD_LENGTH) { Alert.alert(t('cloudAuth.title'), t('cloudAuth.passwordHint')); return; }
     if (password !== repeat) { Alert.alert(t('cloudAuth.title'), t('cloudAuth.passwordMismatch')); return; }
-    void run(async () => { await updatePassword(password); setPassword(''); setRepeat(''); Alert.alert(t('cloudAuth.title'), t('cloudAuth.passwordUpdated')); leaveAuth(!useAppStore.getState().onboardingCompleted); });
+    void run(async () => { await updatePassword(password); setPassword(''); setRepeat(''); Alert.alert(t('cloudAuth.title'), t('cloudAuth.passwordUpdated')); void leaveAuth(!useAppStore.getState().onboardingCompleted); });
   };
   return <Card style={{ gap: 18 }}>
     <CardHeader icon="lock" tone="accent" title={t('cloudAuth.resetTitle')} subtitle={t('cloudAuth.passwordHint')} />

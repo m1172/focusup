@@ -29,6 +29,11 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { BrowserFloatingMenu } from './BrowserFloatingMenu';
 import { BrowserSessionBar } from './BrowserSessionBar';
 import { BrowserLinkSheet } from './BrowserLinkSheet';
+import { BrowserTopStrip, isDarkColor } from './BrowserTopStrip';
+import { InstagramTabBar } from './InstagramTabBar';
+import { InstagramAccountsSheet } from './InstagramAccountsSheet';
+import { useInstagramAccountsStore } from '../../store/instagramAccountsStore';
+import { addInstagramAccount, INSTAGRAM_HOME, INSTAGRAM_LOGIN, instagramAccountDetected, switchInstagramAccount } from '../../services/social-browser/instagramAccounts';
 
 function safePath(platform: SocialAppId, url?: string) {
   if (!url) return '';
@@ -59,7 +64,17 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   const [initialUrl] = useState(() => normalizeSocialBrowserLink(appId, rawInitialUrl ?? '') ?? socialBrowserHome[isCleanPlatform(appId) ? appId : 'instagram']);
   const limitReached = useDailyLimitReached(appId);
   const [menuExpanded, setMenuExpanded] = useState(false);
-  const [fullScreen, setFullScreen] = useState(true);
+  /** Full screen hides the status bar and the session strip; the page itself always reaches the bottom edge. */
+  const [fullScreen, setFullScreen] = useState(false);
+  const [appearance, setAppearance] = useState(() => ({ backgroundColor: c.background, isStory: false }));
+  /** Posts (Instagram) or videos (YouTube, TikTok) seen in this open, for the session strip. */
+  const [seen, setSeen] = useState(0);
+  /** Instagram shows its own bottom tab bar on this page. */
+  const [instagramNav, setInstagramNav] = useState(true);
+  const [accountsOpen, setAccountsOpen] = useState(false);
+  const lastVideo = useRef('');
+  const avatar = useInstagramAccountsStore((state) => state.slots.find((slot) => slot.id === state.activeId)?.avatar ?? '');
+  const username = useInstagramAccountsStore((state) => state.slots.find((slot) => slot.id === state.activeId)?.username ?? '');
   const [linkSheetVisible, setLinkSheetVisible] = useState(false);
   const [contentCounts, setContentCounts] = useState({ ads: 0, suggested: 0 });
   const [currentRoute, setCurrentRoute] = useState(() => safePath(appId, initialUrl) || 'feed');
@@ -74,12 +89,15 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   const pro = useSubscriptionStore((state) => state.isPro);
   const setDiagnostics = useAppStore((state) => state.setWebViewDiagnostics);
   const setStatusBarHidden = useBrowserHostStore((state) => state.setStatusBarHidden);
+  const setStatusBarStyle = useBrowserHostStore((state) => state.setStatusBarStyle);
+  const statusBarStyle = isDarkColor(appearance.backgroundColor) ? 'light' : 'dark';
   const [, refresh] = useState(0);
   const effective = getEffectiveAppConfig(appId);
   const cleanModeEnabled = effective.enabled;
   const activeFilters = effective.filters;
   const showHomeCleanMessage = appId === 'youtube' && cleanModeEnabled && activeFilters.homeRecommendations && isHomeYouTubeUrl(navigation?.url ?? '');
   const chromeHidden = fullScreen && !showProtection && !linkSheetVisible;
+  const showInstagramTabBar = appId === 'instagram' && currentRoute === 'inbox' && !instagramNav;
 
   // Schedules and strict mode change the effective blockers over time; a hidden page catches up when it is shown.
   useEffect(() => {
@@ -92,9 +110,9 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   useEffect(() => () => setDiagnostics(appId, null), [appId, setDiagnostics]);
 
   useEffect(() => {
-    if (active) { setOpenCount((n) => n + 1); webRef.current?.revalidate(); return; }
+    if (active) { setOpenCount((n) => n + 1); setSeen(0); lastVideo.current = ''; webRef.current?.revalidate(); return; }
     // Leaving closes transient UI, like unmounting the old screen did.
-    setShowProtection(false); setMenuExpanded(false); setLinkSheetVisible(false);
+    setShowProtection(false); setMenuExpanded(false); setLinkSheetVisible(false); setAccountsOpen(false);
   }, [active]);
 
   const handledRequest = useRef(requestKey);
@@ -105,6 +123,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   }, [active, requestKey, requestedUrl]);
 
   useEffect(() => { if (active) setStatusBarHidden(chromeHidden); }, [active, chromeHidden, setStatusBarHidden]);
+  useEffect(() => { if (active) setStatusBarStyle(statusBarStyle); }, [active, statusBarStyle, setStatusBarStyle]);
 
   useEffect(() => {
     if (active && cleanModeEnabled && pageReady && !showProtection && !linkSheetVisible) void startSession(appId, true);
@@ -139,15 +158,33 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
     useAppStore.getState().setFilter(appId, 'suggestedPosts', true);
   };
 
+  const manageAccountUrl = appId === 'instagram' ? 'https://www.instagram.com/accounts/edit/' : appId === 'tiktok' ? 'https://www.tiktok.com/setting' : 'https://m.youtube.com/account';
+  const switchAccount = (id: string) => {
+    setAccountsOpen(false);
+    void switchInstagramAccount(id).then((switched) => {
+      if (switched) webRef.current?.navigate(INSTAGRAM_HOME);
+      else Alert.alert(t('browser.switchAccount'), t('browser.switchFailed'));
+    }).catch(() => Alert.alert(t('browser.switchAccount'), t('browser.switchFailed')));
+  };
+  const addAccount = () => {
+    setAccountsOpen(false);
+    void addInstagramAccount().then((added) => { if (added) webRef.current?.navigate(INSTAGRAM_LOGIN); })
+      .catch(() => Alert.alert(t('browser.switchAccount'), t('browser.switchFailed')));
+  };
   const openAccount = () => {
     setMenuExpanded(false);
+    if (appId === 'instagram') { setAccountsOpen(true); return; }
     Alert.alert(t('browser.accounts'), t('browser.accountBody', { name: app?.name }), [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('browser.manageAccount'), onPress: () => openWebsite(appId === 'instagram' ? 'https://www.instagram.com/accounts/edit/' : appId === 'tiktok' ? 'https://www.tiktok.com/setting' : 'https://m.youtube.com/account') },
+      { text: t('browser.manageAccount'), onPress: () => openWebsite(manageAccountUrl) },
     ]);
   };
 
   const handleEvent = (event: SocialWebViewEvent) => {
+    if (event.type === 'POSTS_SEEN') { setSeen((count) => count + event.count); return; }
+    if (event.type === 'ACCOUNT') { void instagramAccountDetected(event.username, event.avatar); return; }
+    if (event.type === 'NAV_BAR') { setInstagramNav(event.visible); return; }
+    if (event.type === 'OPEN_ACCOUNTS') { setMenuExpanded(false); setAccountsOpen(true); return; }
     if (event.type === 'CONTENT_DETECTED') {
       setContentCounts((counts) => ({ ...counts, [event.feature === 'sponsoredPosts' ? 'ads' : 'suggested']: counts[event.feature === 'sponsoredPosts' ? 'ads' : 'suggested'] + event.count }));
       return;
@@ -180,7 +217,12 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
 
   const handleNavigation = (value: WebViewNavigation) => {
     setNavigation(value);
-    setCurrentRoute(getSocialBrowserRoute(appId, value.url));
+    const route = getSocialBrowserRoute(appId, value.url);
+    // Each different video page counts once; the URL is compared here and never stored.
+    const video = route === 'watch' && appId !== 'instagram' ? value.url.split('#')[0] ?? '' : '';
+    if (video && video !== lastVideo.current) setSeen((count) => count + 1);
+    lastVideo.current = video || lastVideo.current;
+    setCurrentRoute(route);
     const current = useAppStore.getState().webViewDiagnostics[appId];
     if (current) setDiagnostics(appId, { ...current, currentUrl: safePath(appId, value.url) });
   };
@@ -195,11 +237,13 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   </SafeAreaView>;
 
   return <View style={{ flex: 1, backgroundColor: c.background }}>
-    {Platform.OS !== 'ios' && active ? <StatusBar hidden={chromeHidden} style={c.isDark ? 'light' : 'dark'} animated /> : null}
-    <SafeAreaView edges={fullScreen ? [] : ['top', 'left', 'right']}
+    {Platform.OS !== 'ios' && active ? <StatusBar hidden={chromeHidden} style={statusBarStyle} animated /> : null}
+    <SafeAreaView edges={[]}
       accessibilityElementsHidden={showProtection} importantForAccessibility={showProtection ? 'no-hide-descendants' : 'auto'}
       style={{ flex: 1, backgroundColor: c.background }}>
       <View style={{ flex: 1 }}>
+        {!fullScreen && !appearance.isStory ? <BrowserTopStrip key={`strip-${openCount}`} active={active && pageReady && !showProtection && !linkSheetVisible}
+          background={appearance.backgroundColor} count={seen} unit={appId === 'instagram' ? 'posts' : 'videos'} /> : null}
         <BrowserSessionBar key={openCount} active={active && pageReady && !showProtection && !linkSheetVisible}
           visible={PRO_ENABLED && !fullScreen && appId === 'instagram' && pageReady && currentRoute === 'feed'}
           ads={contentCounts.ads} suggested={contentCounts.suggested}
@@ -209,11 +253,15 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
           <Text style={{ color: c.text, fontSize: 12, lineHeight: 18 }}>{t('youtubeHomeCleanMessage')}</Text>
         </View> : null}
         <CleanSocialWebView ref={webRef} platform={appId} initialUrl={initialUrl}
-          fullScreen={fullScreen} active={active}
+          fullScreen coverTop={fullScreen || appearance.isStory} onAppearanceChange={setAppearance} active={active}
+          padBottom={Platform.OS === 'android' && !showInstagramTabBar}
           blockerConfig={activeFilters} enabled={effective.blocking}
           onNavigationChange={handleNavigation} onEvent={handleEvent}
           onSettings={openSettings} onPageReadyChange={setPageReady}
           onContentProcessGone={active ? undefined : () => onTerminated(appId)} />
+        {showInstagramTabBar ? <InstagramTabBar background={appearance.backgroundColor} avatar={avatar}
+          onHome={() => openWebsite(INSTAGRAM_HOME)} onSearch={() => openWebsite('https://www.instagram.com/explore/')}
+          onProfile={() => openWebsite(username ? `https://www.instagram.com/${username}/` : 'https://www.instagram.com/accounts/edit/')} /> : null}
         <BrowserFloatingMenu expanded={menuExpanded}
           fullScreen={fullScreen} onToggleFullScreen={() => { setFullScreen((value) => !value); setMenuExpanded(false); }}
           canGoBack={Boolean(navigation?.canGoBack)} canGoForward={Boolean(navigation?.canGoForward)}
@@ -225,6 +273,8 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
           onSettings={() => { setMenuExpanded(false); openSettings(); }} />
       </View>
     </SafeAreaView>
+    {appId === 'instagram' ? <InstagramAccountsSheet visible={accountsOpen} onClose={() => setAccountsOpen(false)}
+      onSwitch={switchAccount} onAdd={addAccount} onManage={() => openWebsite(manageAccountUrl)} /> : null}
     <BrowserLinkSheet appId={appId} name={app.name} visible={linkSheetVisible}
       onClose={() => setLinkSheetVisible(false)} onOpen={openWebsite} />
     {showProtection ? <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: c.background }}>

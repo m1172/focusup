@@ -19,9 +19,10 @@ export default function BrowserScreen() {
   const { t } = useTranslation();
   const c = useAppTheme();
   const statusBarHidden = useBrowserHostStore((state) => state.statusBarHidden);
+  const statusBarStyle = useBrowserHostStore((state) => state.statusBarStyle);
 
   if (!app?.supported) return <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}><ScreenStatusBar /><Text style={{ color: c.text, padding: 24 }}>{t('unavailable')}</Text></SafeAreaView>;
   return <View style={{ flex: 1, backgroundColor: c.background }}>
-    {Platform.OS === 'ios' ? <Stack.Screen options={{ statusBarHidden }} /> : null}
+    {Platform.OS === 'ios' ? <Stack.Screen options={{ statusBarHidden, statusBarStyle }} /> : null}
   </View>;
 }

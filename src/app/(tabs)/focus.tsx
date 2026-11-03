@@ -39,18 +39,17 @@ const clock = (seconds: number) => {
  * Tapping an app on the ring: whether its real app is locked. "Lock it" first explains the system permission here,
  * then the system prompt (and Apple's app list) follows; an app already set up locks straight away.
  */
-function LockDialog({ appId, add, lockedApps, onClose, onLock, onAddAnyway }: { appId: SocialAppId | null; add: boolean; lockedApps: readonly SocialAppId[]; onClose: () => void; onLock: () => void; onAddAnyway: () => void }) {
+function LockDialog({ appId, add, lockedApps, onClose, onLock }: { appId: SocialAppId | null; add: boolean; lockedApps: readonly SocialAppId[]; onClose: () => void; onLock: () => void }) {
   const { t } = useTranslation();
   const c = useAppTheme();
   const status = useProtectionStatusStore((state) => state.status);
   // Keep showing the last app (and step) while the dialog fades out, so it never flashes another version.
   const [shown, setShown] = useState(appId);
   const [asking, setAsking] = useState(add);
-  const [adding, setAdding] = useState(add);
   const [wasOpen, setWasOpen] = useState(false);
   if (Boolean(appId) !== wasOpen) {
     setWasOpen(Boolean(appId));
-    if (appId) { setShown(appId); setAsking(add); setAdding(add); }
+    if (appId) { setShown(appId); setAsking(add); }
   }
   const name = shown ? appCatalog[shown].name : '';
   const locked = Boolean(shown && lockedApps.includes(shown));
@@ -58,13 +57,14 @@ function LockDialog({ appId, add, lockedApps, onClose, onLock, onAddAnyway }: { 
   const startLock = () => { if (state === 'active') onLock(); else setAsking(true); };
 
   const title = !asking ? t(locked ? 'ui.appLockedTitle' : 'ui.appUnlockedTitle', { name })
-    : state === 'unsupported' ? t('wellbeing.nativeTitle') : t('ui.lockPermissionTitle', { name });
+    : state === 'unsupported' ? t('ui.cannotAddTitle', { name }) : t('ui.lockPermissionTitle', { name });
   const body = !asking ? t(locked ? 'ui.appLockedBody' : 'ui.appUnlockedBody', { name })
-    : state === 'unsupported' ? t('wellbeing.nativeUnavailable')
+    : state === 'unsupported' ? t('ui.cannotAddBody')
     : state === 'needsSelection' ? t('browser.nativeBlockChoose', { name })
     : `${t(Platform.OS === 'ios' ? 'browser.nativeBlockIOSSteps' : 'browser.nativeBlockAndroidSteps', { name })}\n\n${t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid')}`;
   const primary = asking
-    ? state === 'unsupported' ? (adding ? { title: t('ui.addAnyway'), icon: 'plus' as const, onPress: onAddAnyway } : null) : { title: t(state === 'needsSelection' ? 'browser.nativeBlockChooseAction' : 'wellbeing.authorize'), icon: 'shieldCheck' as const, onPress: onLock }
+    // An app is added only with its real app blocked, so where blocking is impossible there is nothing to offer.
+    ? state === 'unsupported' ? null : { title: t(state === 'needsSelection' ? 'browser.nativeBlockChooseAction' : 'wellbeing.authorize'), icon: 'shieldCheck' as const, onPress: onLock }
     : locked ? null : { title: t('ui.lockIt'), icon: 'lock' as const, onPress: startLock };
 
   return <Modal visible={Boolean(appId)} transparent animationType="fade" onRequestClose={onClose}>
@@ -80,7 +80,7 @@ function LockDialog({ appId, add, lockedApps, onClose, onLock, onAddAnyway }: { 
         <Text style={{ color: c.text2, fontSize: 15, lineHeight: 21, fontWeight: '500', textAlign: 'center' }}>{body}</Text>
         <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 6 }}>
           {primary ? <ActionButton title={primary.title} icon={<Icon name={primary.icon} size={18} color="#FFFFFF" strokeWidth={2.4} />} onPress={primary.onPress} /> : null}
-          <ActionButton variant="secondary" title={t(asking && (adding || state !== 'unsupported') ? 'subscription.notNow' : 'ui.gotIt')} onPress={onClose} />
+          <ActionButton variant="secondary" title={t(asking && state !== 'unsupported' ? 'subscription.notNow' : 'ui.gotIt')} onPress={onClose} />
         </View>
       </Pressable>
     </Pressable>
@@ -104,12 +104,11 @@ export default function ProtectScreen() {
   const { connect, disconnect, lock, isConnected, sheet } = useAppConnection();
   const [lockInfo, setLockInfo] = useState<{ appId: SocialAppId; add: boolean } | null>(null);
   const protection = useProtectionStatusStore((state) => state.status);
-  // Adding an app asks for access to the real app first; it joins already locked once access is given.
+  // Adding an app asks for access to block the real app first; it is added only once the real app is blocked.
+  // Where this phone cannot block apps, the dialog says so and the app stays out.
   const requestConnect = (appId: SocialAppId) => {
     const state = isSavingsApp(appId) ? nativeBlockState(protection, appId) : 'active';
-    // Nothing to ask when this phone cannot lock the real app (Android without the Accessibility service): just add it.
-    if (state === 'unsupported') connect(appId, true, true);
-    else if (state !== 'active') setLockInfo({ appId, add: true });
+    if (state !== 'active') setLockInfo({ appId, add: true });
     else connect(appId);
   };
 
@@ -125,6 +124,8 @@ export default function ProtectScreen() {
 
   const nativeBlocked = shortVideoBlockedApps(apps);
   const connected = AVAILABLE_APPS.filter(isConnected);
+  // Lock badges follow the real block, not just the saved switch (Screen Time access can be taken back).
+  const reallyBlocked = nativeBlocked.filter((appId) => (connected as readonly SocialAppId[]).includes(appId));
   const breakSeconds = temporary ? Math.max(0, Math.ceil((temporary.endsAt - clockNow) / 1000)) : 0;
   const onBreak = Boolean(temporary && breakSeconds > 0);
   const left = breaksLeft(breaks, new Date(now));
@@ -175,7 +176,7 @@ export default function ProtectScreen() {
         </Pressable>
       </View>
 
-      <AppOrbit apps={AVAILABLE_APPS} connected={connected} nativeBlocked={nativeBlocked} height={orbitHeight}
+      <AppOrbit apps={AVAILABLE_APPS} connected={connected} nativeBlocked={reallyBlocked} height={orbitHeight}
         onOpen={(appId) => setLockInfo({ appId, add: false })} onConnect={requestConnect} onDisconnect={disconnect} onDragChange={(dragging) => setScrollable(!dragging)} />
 
       {onBreak && temporary ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.amberSoft }}>
@@ -235,9 +236,8 @@ export default function ProtectScreen() {
     </Sheet>
 
     {sheet}
-    <LockDialog appId={lockInfo?.appId ?? null} add={Boolean(lockInfo?.add)} lockedApps={nativeBlocked} onClose={() => setLockInfo(null)}
+    <LockDialog appId={lockInfo?.appId ?? null} add={Boolean(lockInfo?.add)} lockedApps={reallyBlocked} onClose={() => setLockInfo(null)}
       // The system permission prompt does not show while the dialog is still closing.
-      onLock={() => { const info = lockInfo; setLockInfo(null); if (info) setTimeout(() => info.add ? connect(info.appId, true) : lock(info.appId, true), 350); }}
-      onAddAnyway={() => { const info = lockInfo; setLockInfo(null); if (info) connect(info.appId, true, true); }} />
+      onLock={() => { const info = lockInfo; setLockInfo(null); if (info) setTimeout(() => info.add ? connect(info.appId, true) : lock(info.appId, true), 350); }} />
   </Screen>;
 }

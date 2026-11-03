@@ -98,3 +98,11 @@ describe('getSocialBrowserRoute', () => {
     expect(isInstagramMetaAuthRedirect(url)).toBe(false);
   });
 });
+
+describe('Instagram Messages route', () => {
+  it('names the Messages list "inbox" and keeps conversations as "other"', () => {
+    expect(getSocialBrowserRoute('instagram', 'https://www.instagram.com/direct/inbox/')).toBe('inbox');
+    expect(getSocialBrowserRoute('instagram', 'https://www.instagram.com/direct/')).toBe('inbox');
+    expect(getSocialBrowserRoute('instagram', 'https://www.instagram.com/direct/t/123456/')).toBe('other');
+  });
+});
