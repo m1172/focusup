@@ -2,15 +2,17 @@ import { PRO_ENABLED } from '../../config/release';
 import * as Notifications from 'expo-notifications';
 import { useAppStore } from '../../store/appStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import { activeRoutines } from '../protection/engine';
 import { reconcileProtection } from '../protection/controller';
 import { BackendError } from './client';
 import { captureSettingsBackup } from './settingsBackup';
 import { isCloudSettings } from './settingsValidation';
+import { applyCloudOnboarding } from './onboardingBackup';
 
 export function assertRestoreAllowed() {
   const app = useAppStore.getState();
-  if (!useAppStore.persist.hasHydrated() || !useWellbeingStore.persist.hasHydrated()) throw new BackendError(0, 'LOCAL_NOT_READY', 'Local settings are still loading.');
+  if (!useAppStore.persist.hasHydrated() || !useWellbeingStore.persist.hasHydrated() || !useOnboardingStore.persist.hasHydrated()) throw new BackendError(0, 'LOCAL_NOT_READY', 'Local settings are still loading.');
   if (PRO_ENABLED && (app.strictSession && app.strictSession.endsAt > Date.now() || activeRoutines(app.schedules).some((item) => item.strict))) throw new BackendError(409, 'STRICT_ACTIVE', 'Wait until Strict Mode or your strict routine ends before restoring.');
 }
 /** Explicit restore only. Device permissions, active sessions, native selections
@@ -28,6 +30,7 @@ export async function restoreCloudSettings(value: unknown): Promise<void> {
     next.preferences.schedules = next.preferences.schedules.map((item) => ({ ...item, notify: false }));
     next.wellbeing.sleep.notify = false;
   }
+  // Onboarding answers are applied separately below, never as app settings.
   const apply = (snapshot: typeof value) => {
     useAppStore.setState(snapshot.preferences);
     useWellbeingStore.setState(snapshot.wellbeing);
@@ -39,4 +42,5 @@ export async function restoreCloudSettings(value: unknown): Promise<void> {
     try { await reconcileProtection(); } catch { /* Keep the original local settings; report native failure. */ }
     throw new BackendError(0, 'RESTORE_FAILED', 'Restoring protection failed; your previous settings were kept.');
   }
+  applyCloudOnboarding(next.onboarding);
 }

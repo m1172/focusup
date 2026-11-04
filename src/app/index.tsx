@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
 import { useAccountStore } from '../store/accountStore';
 import { entryDestination } from '../services/backend/accessPolicy';
+import { isBackendConfigured } from '../services/backend/accountSession';
 import { useWellbeingStore } from '../store/wellbeingStore';
 import { useAppTheme } from '../theme';
 import { ActionButton, BackgroundGlow } from '../components/ui';
@@ -84,6 +85,12 @@ export default function SplashScreen() {
           arrow
           onPress={() => { const target = entryDestination(account, completed, destination); router.push(target ?? '/onboarding'); }}
         />
+        {/* Someone who already has an account signs in here and skips onboarding (see leaveAuth). */}
+        {!completed && !account.user && isBackendConfigured() ? <Pressable accessibilityRole="button" onPress={() => router.push('/auth/sign-in')} hitSlop={8}
+          style={({ pressed }) => ({ alignSelf: 'center', minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 5, marginVertical: -12, paddingHorizontal: 12, opacity: pressed ? 0.6 : 1 })}>
+          <Text style={{ color: c.text2, fontSize: 15, fontWeight: '600' }}>{t('cloudAuth.haveAccount')}</Text>
+          <Text style={{ color: c.accent, fontSize: 15, fontWeight: '800' }}>{t('cloudAuth.signIn')}</Text>
+        </Pressable> : null}
         <View accessibilityRole="radiogroup" style={{ alignSelf: 'center', flexDirection: 'row', padding: 4, borderRadius: 16, backgroundColor: c.seg }}>
           {(['uz', 'ru', 'en'] as const).map((lang) => {
             const selected = language === lang;

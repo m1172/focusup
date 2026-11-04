@@ -12,6 +12,8 @@ const schedule = z.strictObject({
   start: clock, end: clock, weekdays, apps, enabled: z.boolean(), allowedApps: apps.optional(),
   filters: platformFilters.optional(), strict: z.boolean().optional(), notify: z.boolean().optional(),
 });
+/** Whether the account finished onboarding, and the daily scrolling time it gave. Optional: builds before 3 November 2026 do not send it. */
+const onboarding = z.strictObject({ completed: z.boolean(), usualMinutes: z.number().int().min(0).max(1440), cut: z.number().min(0).max(1) });
 export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
   preferences: z.strictObject({
@@ -29,6 +31,7 @@ export const settingsSchema = z.strictObject({
       weekdays, apps, allowedApps: apps, notify: z.boolean(),
     }),
   }),
+  onboarding: onboarding.optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export const revisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 1);

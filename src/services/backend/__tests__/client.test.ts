@@ -1,5 +1,6 @@
 import { BackendError, createBackendClient } from '../client';
 import { captureSettingsBackup } from '../settingsBackup';
+import { useOnboardingStore } from '../../../store/onboardingStore';
 import { useAppStore } from '../../../store/appStore';
 
 const response = (status: number, data?: unknown) => ({ status, ok: status >= 200 && status < 300, json: async () => data }) as Response;
@@ -59,9 +60,12 @@ test('rejects credentials, query strings and encoded path separators in API URLs
   }
 });
 
-test('backup capture excludes active enforcement, onboarding answers and analytics', () => {
+test('backup capture excludes active enforcement, personal onboarding answers and analytics', () => {
+  useOnboardingStore.setState({ source: 'estimate', shortFormMinutes: 75, cut: 0.5, age: 24, reasons: ['habit'], goals: ['family'], referralCode: 'FRIEND' });
   const snapshot = captureSettingsBackup();
-  expect(Object.keys(snapshot)).toEqual(['schemaVersion', 'preferences', 'wellbeing']);
+  expect(Object.keys(snapshot)).toEqual(['schemaVersion', 'preferences', 'wellbeing', 'onboarding']);
+  // Only whether onboarding was finished and the daily time it gave; age, reasons, goals and invite code stay on the phone.
+  expect(snapshot.onboarding).toEqual({ completed: useAppStore.getState().onboardingCompleted, usualMinutes: 75, cut: 0.5 });
   expect(snapshot.preferences).not.toHaveProperty('strictSession');
   expect(snapshot.preferences).not.toHaveProperty('webViewDiagnostics');
   expect(snapshot.preferences).not.toHaveProperty('onboardingCompleted');

@@ -18,6 +18,16 @@ export function nativeBlockState(status: NativeProtectionStatus, appId: SocialAp
   return (status.selectedPlatforms ?? status.protectedPlatforms)?.includes(appId) ? 'active' : 'needsSelection';
 }
 
+/**
+ * An app counts as added (protected) only while its real app is blocked through Screen Time (iOS)
+ * or the Accessibility service (Android). Until the phone first answers, the saved switch is trusted,
+ * so the Protect tab does not flash every app as removed on launch.
+ */
+export function isRealAppBlocked(appId: SocialAppId, blockSwitchOn: boolean, status: NativeProtectionStatus, checked: boolean): boolean {
+  if (!blockSwitchOn) return false;
+  return !checked || nativeBlockState(status, appId) === 'active';
+}
+
 const confirm = (title: string, message: string, action: string) => new Promise<boolean>((resolve) => {
   Alert.alert(title, message, [
     { text: i18n.t('subscription.notNow'), style: 'cancel', onPress: () => resolve(false) },
@@ -79,11 +89,12 @@ useProtectionStatusStore.subscribe(({ status }) => {
  * or right away on builds that cannot block other apps (Expo Go, simulators), where only the in-app filter exists.
  * `blocked` says whether the original app is really blocked now.
  */
-export async function enableAfterNativeBlock(appId: SocialAppId, name: string, feature: string, enable: (blocked: boolean) => void, options: { confirmed?: boolean } = {}): Promise<void> {
+export async function enableAfterNativeBlock(appId: SocialAppId, name: string, feature: string, enable: (blocked: boolean) => void, options: { confirmed?: boolean } = {}): Promise<NativeBlockState | 'cancelled'> {
   pendingEnable = null;
   const state = await setUpNativeAppBlock(appId, name, { feature, ...options });
-  if (state === 'active' || state === 'unsupported') { enable(state === 'active'); return; }
+  if (state === 'active' || state === 'unsupported') { enable(state === 'active'); return state; }
   if (state === 'needsPermission' && Platform.OS === 'android') pendingEnable = { appId, enable, until: Date.now() + 10 * 60_000 };
+  return state;
 }
 
 /** Website blocking and other device-wide settings need only the system permission, not an app selection. */

@@ -2,7 +2,7 @@ import { Alert, Platform } from 'react-native';
 import { protectionBridge } from '../../../services/protection/nativeBridge';
 import { useProtectionStatusStore } from '../../../store/protectionStatusStore';
 import type { NativeProtectionStatus } from '../../../services/protection/types';
-import { enableAfterNativeBlock, nativeBlockState } from '../nativeAppSetup';
+import { enableAfterNativeBlock, isRealAppBlocked, nativeBlockState } from '../nativeAppSetup';
 
 jest.mock('../../../services/protection/nativeBridge', () => ({ protectionBridge: { getStatus: jest.fn(), requestAuthorization: jest.fn(), selectApps: jest.fn() } }));
 jest.mock('../../../services/protection/controller', () => ({ reconcileProtection: jest.fn(async () => undefined), resetProtectionController: jest.fn() }));
@@ -83,5 +83,30 @@ describe('Reels/Shorts blocking starts with the original app blocked', () => {
     expect(enable).toHaveBeenCalledTimes(1);
     useProtectionStatusStore.getState().setStatus(status({ authorized: true, active: true }));
     expect(enable).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('An app counts as added only while its real app is blocked', () => {
+  beforeEach(() => setOS('ios'));
+
+  it('is added on iOS only with Screen Time access and the app picked in Apple’s list', () => {
+    expect(isRealAppBlocked('instagram', true, status({ authorized: true, selectedPlatforms: ['instagram'] }), true)).toBe(true);
+    expect(isRealAppBlocked('instagram', true, status({ authorized: true, selectedPlatforms: [] }), true)).toBe(false);
+    expect(isRealAppBlocked('instagram', true, status({ authorized: false, selectedPlatforms: ['instagram'] }), true)).toBe(false);
+  });
+
+  it('is never added where the phone cannot block apps, or with the block switched off', () => {
+    expect(isRealAppBlocked('instagram', true, status({ supported: false }), true)).toBe(false);
+    expect(isRealAppBlocked('instagram', false, status({ authorized: true, selectedPlatforms: ['instagram'] }), true)).toBe(false);
+  });
+
+  it('trusts the saved switch until the phone first answers, so nothing flashes as removed on launch', () => {
+    expect(isRealAppBlocked('instagram', true, status({ supported: false }), false)).toBe(true);
+  });
+
+  it('on Android, needs the Accessibility service', () => {
+    setOS('android');
+    expect(isRealAppBlocked('tiktok', true, status({ authorized: true }), true)).toBe(true);
+    expect(isRealAppBlocked('tiktok', true, status({ authorized: false }), true)).toBe(false);
   });
 });

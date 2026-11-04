@@ -177,7 +177,7 @@ When paid plans launch, add **Financial info → Purchase history** (purchases t
 
 ### Sensitive permissions
 
-> **Not in the current release.** Android real-app locking is switched off (`ANDROID_APP_BLOCKING = false` in `src/config/release.ts`, `withAndroidAccessibility` `{ "enabled": false }` in app.json), so the build has no Accessibility service and Play does not ask for the declaration below. Keep it for when the feature returns.
+> **In the current release.** Android real-app locking is on (`ANDROID_APP_BLOCKING = true` in `src/config/release.ts`, `withAndroidAccessibility` `{ "enabled": true }` in app.json), so the build includes the Accessibility service and Play asks for the declaration and video below before review. Adding an app on the Protect tab requires it, the same as Screen Time on iOS.
 
 **Accessibility API declaration** (Play Console asks when the build includes an Accessibility service):
 

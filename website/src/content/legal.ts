@@ -18,7 +18,7 @@ export const privacy: Record<Locale, LegalDoc> = {
       ]],
       ['What we collect', [
         '<b>Account:</b> your email address, display name and the sign-in method you use (email, Apple, Google or Telegram).',
-        '<b>Settings backup:</b> your app settings (for example which filters are on) so they can be restored on a new phone.',
+        '<b>Settings backup:</b> your app settings (for example which filters are on), whether you finished the first-time setup, and the daily scrolling time you entered there, so they can be restored on a new phone. Your other setup answers (such as your age and goals) stay on your phone.',
         '<b>Support messages:</b> messages you send in the in-app support chat, with your account email and name, and a notification token so we can tell you about replies.',
         '<b>Usage analytics, session replay and crash reports</b> (if enabled): app events such as which screens you open, weekly time summaries, recordings of Vaqtim’s own screens and crash details. Passwords, email fields, the account screen and all social network content are masked. You can turn this off at any time in Settings → Privacy.',
         '<b>Purchases</b> (when paid plans launch): handled by Apple or Google. We receive your subscription status, not your card details.',
@@ -56,7 +56,7 @@ export const privacy: Record<Locale, LegalDoc> = {
       ]],
       ['Что мы собираем', [
         '<b>Аккаунт:</b> адрес почты, отображаемое имя и способ входа (почта, Apple, Google или Telegram).',
-        '<b>Резервная копия настроек:</b> настройки приложения (например, какие фильтры включены), чтобы восстановить их на новом телефоне.',
+        '<b>Резервная копия настроек:</b> настройки приложения (например, какие фильтры включены), завершена ли первая настройка и указанное там ежедневное время в лентах, чтобы восстановить их на новом телефоне. Остальные ответы при настройке (например, возраст и цели) остаются на телефоне.',
         '<b>Сообщения в поддержку:</b> сообщения из чата поддержки в приложении вместе с почтой и именем аккаунта, а также токен уведомлений, чтобы сообщать об ответах.',
         '<b>Аналитика, запись сеансов и отчёты о сбоях</b> (если включены): события приложения, например какие экраны вы открываете, недельные сводки времени, записи собственных экранов Vaqtim и данные о сбоях. Пароли, поля почты, экран аккаунта и весь контент соцсетей скрываются. Это можно выключить в Настройки → Конфиденциальность.',
         '<b>Покупки</b> (когда появятся платные тарифы): обрабатываются Apple или Google. Мы получаем статус подписки, а не данные карты.',
@@ -94,7 +94,7 @@ export const privacy: Record<Locale, LegalDoc> = {
       ]],
       ['Biz nima to‘playmiz', [
         '<b>Hisob:</b> elektron pochta manzilingiz, ismingiz va kirish usuli (pochta, Apple, Google yoki Telegram).',
-        '<b>Sozlamalar zaxirasi:</b> ilova sozlamalari (masalan, qaysi filtrlar yoqilgan) — yangi telefonda tiklash uchun.',
+        '<b>Sozlamalar zaxirasi:</b> ilova sozlamalari (masalan, qaysi filtrlar yoqilgan), dastlabki sozlash tugatilganmi va u yerda kiritilgan kunlik lenta vaqti — yangi telefonda tiklash uchun. Sozlashdagi boshqa javoblar (masalan, yosh va maqsadlar) telefoningizda qoladi.',
         '<b>Yordam xabarlari:</b> ilova ichidagi yordam chatiga yozgan xabarlaringiz, hisob pochtasi va ismi, javob haqida xabar berish uchun bildirishnoma tokeni.',
         '<b>Analitika, sessiya yozuvi va xatolik hisobotlari</b> (yoqilgan bo‘lsa): ilova hodisalari, masalan qaysi ekranlarni ochganingiz, haftalik vaqt xulosalari, Vaqtim’ning o‘z ekranlari yozuvi va xatoliklar. Parollar, pochta maydonlari, hisob ekrani va ijtimoiy tarmoq mazmuni yashiriladi. Buni Sozlamalar → Maxfiylik’da o‘chirishingiz mumkin.',
         '<b>Xaridlar</b> (pullik tariflar chiqqanda): Apple yoki Google orqali amalga oshadi. Biz karta ma’lumotini emas, faqat obuna holatini olamiz.',

@@ -13,7 +13,7 @@ React website for vaqtim.com, built with Next.js 16 (App Router, static export),
 
 Short links `/privacy/`, `/terms/`, `/support/` and `/delete-account/` redirect to the Uzbek pages on Cloudflare Pages (`public/_redirects`).
 
-**`/app`** is the link to share: iPhone and iPad open the App Store, Android opens Google Play, and computers land on the home page's download section (`#download`). It is a Cloudflare Pages Function (`functions/app/index.ts`), so it only works on Cloudflare (or `npx wrangler pages dev out`), not with `npm run preview`.
+**`/app`** is the link to share: iPhone and iPad open the App Store app, Android opens the Google Play app, and computers land on the home page's download section (`#download`). If a store app can't open (some in-app browsers block it), the page falls back to the store's web page and shows an "Open in …" button. It is a Cloudflare Pages Function (`functions/app/index.ts`), so it only works on Cloudflare (or `npx wrangler pages dev out`), not with `npm run preview`.
 
 ## Where things are
 

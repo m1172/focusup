@@ -39,5 +39,11 @@ export type NativeProtectionBridge = {
   selectApps(platform: string): Promise<number>;
   applyPlan(json: string): Promise<void>;
   clearBrowserData(): Promise<boolean>;
+  /** Builds before the account switcher do not have these three. Cookies cross as a JSON string. */
+  getSiteCookies?: (domain: string) => Promise<string>;
+  /** Android: the web view's default user agent. */
+  getWebViewUserAgent?: () => Promise<string>;
+  setSiteCookies?: (domain: string, json: string) => Promise<boolean>;
+  clearSiteData?: (domain: string) => Promise<boolean>;
   reset(): Promise<void>;
 };

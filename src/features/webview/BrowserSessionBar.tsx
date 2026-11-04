@@ -4,11 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../../components/Typography';
 
-/** Keep the ticking clock local so the WebView does not render every second. */
-export function BrowserSessionBar({ active, visible, ads, suggested, filtered, onBlock, onLeave }: {
-  active: boolean; visible: boolean; ads: number; suggested: number; filtered: boolean; onBlock: () => void; onLeave: () => void;
-}) {
-  const { t } = useTranslation();
+/** Seconds on screen since mount, paused while the app is in the background. Keep it in a small component so the WebView does not render every second. */
+export function useSessionSeconds(active: boolean) {
   const [seconds, setSeconds] = useState(0);
   const elapsed = useRef(0);
   useEffect(() => {
@@ -27,8 +24,22 @@ export function BrowserSessionBar({ active, visible, ads, suggested, filtered, o
       subscription.remove();
     };
   }, [active]);
+  return seconds;
+}
+
+export const formatSessionTime = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600), minutes = Math.floor((seconds % 3600) / 60), rest = seconds % 60;
+  return (hours ? `${hours}:${String(minutes).padStart(2, '0')}` : `${minutes}`) + ':' + String(rest).padStart(2, '0');
+};
+
+/** Pro: the dark bar with ads and suggested posts found on the Instagram feed. */
+export function BrowserSessionBar({ active, visible, ads, suggested, filtered, onBlock, onLeave }: {
+  active: boolean; visible: boolean; ads: number; suggested: number; filtered: boolean; onBlock: () => void; onLeave: () => void;
+}) {
+  const { t } = useTranslation();
+  const seconds = useSessionSeconds(active);
   if (!visible) return null;
-  const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const time = formatSessionTime(seconds);
   return <View style={styles.bar}>
     <Pressable accessibilityRole="button" accessibilityLabel={t('browser.leave')} onPress={onLeave} style={styles.leave}>
       <Ionicons name="chevron-back" size={21} color="#A6A7AA" />

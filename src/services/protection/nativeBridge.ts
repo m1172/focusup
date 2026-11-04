@@ -25,4 +25,11 @@ export const protectionBridge = {
   async applyPlan(json: string) { if (!blocking) throw new Error('nativeUnavailable'); await blocking.applyPlan(json); },
   async clearBrowserData() { return await module?.clearBrowserData() ?? false; },
   async reset() { await module?.reset(); },
+  /** Whether this build can save and restore a site's sign-in (the account switcher). */
+  canSwitchAccounts() { return Boolean(module?.getSiteCookies && module.setSiteCookies && module.clearSiteData); },
+  async getSiteCookies(domain: string) { return await module?.getSiteCookies?.(domain) ?? '[]'; },
+  async setSiteCookies(domain: string, json: string) { return await module?.setSiteCookies?.(domain, json) ?? false; },
+  async clearSiteData(domain: string) { return await module?.clearSiteData?.(domain) ?? false; },
+  /** Android: the web view's own user agent, or '' on builds without it. */
+  async getWebViewUserAgent() { try { return await module?.getWebViewUserAgent?.() ?? ''; } catch { return ''; } },
 };

@@ -48,7 +48,7 @@ export function getEffectiveAppConfig(appId: SocialAppId, now = new Date()) {
   if (short && (!enabled || !canUseFeature(isPro, 'shortVideoControl'))) filters[short] = true;
   if (appId === 'instagram' || appId === 'youtube' || appId === 'tiktok') {
     Object.keys(filters).forEach((feature) => {
-      if (appId !== 'tiktok' && !isRemoteFeatureEnabled(appId, feature)) filters[feature] = false;
+      if (!isRemoteFeatureEnabled(appId, feature)) filters[feature] = false;
       const access = filterFeature[appId]?.[feature];
       if (access && !canUseFeature(isPro, access)) filters[feature] = false;
     });

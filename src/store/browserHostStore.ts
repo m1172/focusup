@@ -8,11 +8,14 @@ type BrowserHostState = {
   browsers: Partial<Record<SocialAppId, KeptBrowser>>;
   /** iOS hides the status bar per screen, so the visible browser publishes its chrome state for the route. */
   statusBarHidden: boolean;
+  /** Status bar text color for the page under it. */
+  statusBarStyle: 'light' | 'dark';
   keep: (appId: SocialAppId, initialUrl?: string) => void;
   setHidden: (appId: SocialAppId, hidden: boolean) => void;
   release: (appId: SocialAppId) => void;
   releaseAll: () => void;
   setStatusBarHidden: (hidden: boolean) => void;
+  setStatusBarStyle: (style: 'light' | 'dark') => void;
 };
 
 let generation = 0;
@@ -20,6 +23,7 @@ let generation = 0;
 export const useBrowserHostStore = create<BrowserHostState>((set) => ({
   browsers: {},
   statusBarHidden: true,
+  statusBarStyle: 'dark',
   keep: (appId, initialUrl) => set((state) => state.browsers[appId] ? state : { browsers: { ...state.browsers, [appId]: { initialUrl, generation: ++generation, hiddenSince: null } } }),
   setHidden: (appId, hidden) => set((state) => {
     const browser = state.browsers[appId];
@@ -34,6 +38,7 @@ export const useBrowserHostStore = create<BrowserHostState>((set) => ({
   }),
   releaseAll: () => set({ browsers: {} }),
   setStatusBarHidden: (statusBarHidden) => set({ statusBarHidden }),
+  setStatusBarStyle: (statusBarStyle) => set((state) => state.statusBarStyle === statusBarStyle ? state : { statusBarStyle }),
 }));
 
 /** Drop every kept WebView, e.g. before website data is cleared. */

@@ -71,6 +71,7 @@ export function getSocialBrowserRoute(platform: SocialAppId, url: string): Socia
     if (path === '/search' || path.startsWith('/explore/search/')) return 'search';
     if (/^\/(?:reels?)(?:\/|$)/.test(path)) return 'reels';
     if (/^\/(?:p|tv)\//.test(path)) return 'watch';
+    if (/^\/direct(?:\/inbox)?\/?$/.test(path)) return 'inbox';
     if (/^\/(?:direct|accounts|about|legal)(?:\/|$)/.test(path)) return 'other';
     return path.split('/').filter(Boolean).length === 1 ? 'profile' : 'other';
   } catch {

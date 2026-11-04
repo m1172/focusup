@@ -6,16 +6,22 @@ import android.content.Intent
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import android.webkit.CookieManager
+import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import org.json.JSONArray
 import org.json.JSONObject
 
 class FocusUpProtectionModule : Module() {
   private val context: Context get() = requireNotNull(appContext.reactContext)
+  private val siteDomains = setOf("instagram.com")
+  private fun siteCookies(domain: String): List<Pair<String, String>> =
+    (CookieManager.getInstance().getCookie("https://www.$domain") ?: "").split(";").map { it.trim() }.filter { it.contains('=') }
+      .map { it.substringBefore('=') to it.substringAfter('=') }
   private fun authorized(): Boolean {
     val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
     return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { it.resolveInfo.serviceInfo.packageName == context.packageName && it.resolveInfo.serviceInfo.name == FocusUpAccessibilityService::class.java.name }
@@ -50,6 +56,48 @@ class FocusUpProtectionModule : Module() {
         WebView(context).apply { clearCache(true); clearHistory(); destroy() }
         promise.resolve(true)
       }
+    }.runOnQueue(Queues.MAIN)
+    // The in-app browser's account switcher saves and restores a site's sign-in cookies. Only listed sites are touched.
+    // Android's CookieManager returns names and values only, so restored cookies get the site's domain, path "/" and Secure.
+    AsyncFunction("getSiteCookies") { domain: String ->
+      val array = JSONArray()
+      if (domain in siteDomains) siteCookies(domain).forEach { (name, value) ->
+        array.put(JSONObject().put("name", name).put("value", value).put("domain", ".$domain").put("path", "/").put("secure", true).put("httpOnly", false))
+      }
+      array.toString()
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("setSiteCookies") { domain: String, json: String ->
+      if (domain !in siteDomains || json.length >= 200000) return@AsyncFunction false
+      val manager = CookieManager.getInstance()
+      val items = JSONArray(json)
+      for (index in 0 until minOf(items.length(), 100)) {
+        val item = items.optJSONObject(index) ?: continue
+        val name = item.optString("name")
+        val value = item.optString("value")
+        val cookieDomain = item.optString("domain").trimStart('.')
+        if (name.isEmpty() || listOf(name, value).any { it.contains(';') || it.contains('\n') }) continue
+        if (cookieDomain != domain && !cookieDomain.endsWith(".$domain")) continue
+        val expires = item.optDouble("expires", Double.NaN)
+        val maxAge = if (expires.isNaN()) 31536000L else ((expires - System.currentTimeMillis()) / 1000).toLong()
+        if (maxAge <= 0) continue
+        manager.setCookie("https://www.$domain", "$name=$value; Domain=.$domain; Path=/; Secure; Max-Age=$maxAge")
+      }
+      manager.flush()
+      true
+    }.runOnQueue(Queues.MAIN)
+    // The web view's own user agent (System "http.agent" is a different, non-browser string).
+    AsyncFunction("getWebViewUserAgent") { WebSettings.getDefaultUserAgent(context) }
+    AsyncFunction("clearSiteData") { domain: String ->
+      if (domain !in siteDomains) return@AsyncFunction false
+      val manager = CookieManager.getInstance()
+      siteCookies(domain).forEach { (name, _) ->
+        manager.setCookie("https://www.$domain", "$name=; Domain=.$domain; Path=/; Max-Age=0")
+        manager.setCookie("https://www.$domain", "$name=; Path=/; Max-Age=0")
+      }
+      manager.flush()
+      WebStorage.getInstance().deleteOrigin("https://www.$domain")
+      WebStorage.getInstance().deleteOrigin("https://$domain")
+      true
     }.runOnQueue(Queues.MAIN)
     AsyncFunction("hasUsageAccess") { UsageAccess.granted(context) }
     AsyncFunction("openUsageAccessSettings") { UsageAccess.openSettings(context); Unit }

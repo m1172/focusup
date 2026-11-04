@@ -39,7 +39,7 @@ If `pod install` fails with `Encoding::CompatibilityError`, add `export LANG=en_
 | What | Why | How |
 | --- | --- | --- |
 | Xcode signed in to team `GH6PP8FUU8` | iOS signing and upload | Xcode › Settings › Accounts |
-| Family Controls (Distribution) approved | Only when `familyControls` is on: the archive/upload fails without it | [launch/app-store.md §1](launch/app-store.md) (requested 31 Oct 2026; v1.0 ships without it) |
+| Family Controls (Distribution) approved | Only when `familyControls` is on: the archive/upload fails without it | [launch/app-store.md §1](launch/app-store.md) (approved; on from iOS build 5) |
 | Android upload key | Play rejects debug-signed builds | [Android › One-time setup](#one-time-setup-1) below |
 | Google Play service account | Lets `upload:android` upload builds | Below |
 | Expo account login | EAS Submit and EAS Metadata run under it | `npx eas-cli@latest login` once (project `m1172/focusup`) |
@@ -82,10 +82,9 @@ The build appears in App Store Connect › TestFlight after Apple finishes proce
 
 The app ships four extensions (Family Controls monitor/shield/shield action and a Live Activity).
 Each needs a distribution profile, and Family Controls needs Apple's **distribution** entitlement
-approval, not only the development entitlement ([launch/app-store.md §1](launch/app-store.md)). Until Apple
-approves it, keep `["./plugins/withFocusUpProtection", { "familyControls": false }]` in `app.json` and
-`IOS_APP_BLOCKING = false` in `src/config/release.ts`: the build then leaves out the entitlement and the three
-Screen Time extensions (only the Live Activity is built) and signs without the approval.
+approval, not only the development entitlement. Apple approved it in November 2026, so builds from iOS build 5
+on include it (`{ "familyControls": true }` in `app.json`, `IOS_APP_BLOCKING = true` in `src/config/release.ts`).
+Xcode creates the distribution profiles with `-allowProvisioningUpdates`.
 
 ## Android (Google Play)
 
@@ -118,9 +117,10 @@ Screen Time extensions (only the Live Activity is built) and signs without the a
 5. After raising `android.versionCode` in `app.json`, regenerate `android/` (`npx expo prebuild --platform android`)
    before building, or Gradle keeps the old version code and Play rejects the upload.
 
-Android real-app locking (Accessibility service) is **off** for now: `ANDROID_APP_BLOCKING` in
-`src/config/release.ts` and `plugins/withAndroidAccessibility` `{ "enabled": false }` in `app.json`.
-Turning it on needs Play's Accessibility declaration and a video ([launch/google-play.md](launch/google-play.md)).
+Android real-app locking (Accessibility service) is **on**, the same as Screen Time on iOS: `ANDROID_APP_BLOCKING`
+in `src/config/release.ts`, `plugins/withAndroidAccessibility` `{ "enabled": true }` and `android.runtimeVersion`
+`1.0.0-accessibility` in `app.json`. Builds with the service need Play's Accessibility declaration and a short video
+([launch/google-play.md](launch/google-play.md#sensitive-permissions)) before Google reviews them.
 
 ### Build
 
@@ -131,6 +131,34 @@ npm run build:android
 Upload `android/app/build/outputs/bundle/release/app-release.aab` in Play Console
 (start with **Testing › Internal testing**). Play asks for the Accessibility service declaration
 and Usage access explanation: answers are in [launch/google-play.md](launch/google-play.md).
+
+## Fix the filters without a store release
+
+Most Instagram, YouTube and TikTok fixes don't need a new App Store or Google Play build.
+
+**1. Remote rules (minutes, no app change).** The app downloads [`website/public/blocker-config.json`](../website/public/blocker-config.json)
+(served at `https://vaqtim.pages.dev/blocker-config.json`, re-checked at most every 15 minutes). A rule can switch a
+filter off, add CSS selectors of things to hide, and add feed pages to block, for `instagram`, `youtube` and `tiktok`.
+The app rejects anything else ([remoteBlockerConfig.ts](../src/services/remote-config/remoteBlockerConfig.ts)). Edit the
+file, raise that platform's `version`, then `cd website && npm run deploy`. Example:
+
+```json
+{ "schemaVersion": 1, "platforms": { "tiktok": { "version": 2, "enabled": true, "features": {}, "selectors": { "forYouNavigation": ["[data-e2e=\"nav-home-new\"]"] } } } }
+```
+
+**2. Over-the-air updates (EAS Update, for code fixes).** Any change to JavaScript (the filter scripts, screens, text)
+reaches phones without store review:
+
+```sh
+npm run update:publish -- "Fix Instagram Search tab"
+```
+
+Phones download it in the background on launch and use it from the next launch. An update only reaches builds with the
+same runtime version: iOS uses `ios.runtimeVersion` (`1.0.0-screentime`), Android uses `android.runtimeVersion`
+(`1.0.0-accessibility`), and anything else uses `version` (`runtimeVersion.policy: appVersion`). Builds made before
+Screen Time (iOS builds 2–4) or the Accessibility service (Android versionCode 5 and earlier) never get these updates. **Native changes** (new native module, permissions,
+plugins, Screen Time or Accessibility switches) need a new store build *and* a new `version` (for example 1.0.1), so an
+update never lands on a build without the native code it needs. Test with a release build, not a development build.
 
 ## Try a release build on a phone first
 

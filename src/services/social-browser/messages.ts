@@ -1,7 +1,7 @@
 import type { SocialAppId } from '../../types/app';
 import { isCleanPlatform, type SocialBrowserRoute, type SocialWebViewEvent } from '../../types/social';
 
-const routes = new Set<SocialBrowserRoute>(['feed', 'search', 'watch', 'subscriptions', 'channel', 'playlist', 'reels', 'shorts', 'profile', 'other']);
+const routes = new Set<SocialBrowserRoute>(['feed', 'search', 'watch', 'subscriptions', 'channel', 'playlist', 'reels', 'shorts', 'profile', 'inbox', 'other']);
 const instagramFeatures = new Set(['reels', 'explore', 'suggestedPosts', 'recommendations', 'sponsoredPosts', 'homeFeed']);
 const youtubeFeatures = new Set(['shorts', 'homeRecommendations', 'recommendations', 'comments', 'sponsoredContent']);
 const tiktokFeatures = new Set(['forYou', 'following', 'explore']);
@@ -12,6 +12,31 @@ function record(value: unknown): value is Record<string, unknown> {
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
   return Object.keys(value).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+/** Instagram profile pictures come from Instagram's own image servers. */
+export function isInstagramAvatarUrl(value: string): boolean {
+  if (value.length > 2000) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && /(?:^|\.)(?:cdninstagram\.com|fbcdn\.net)$/.test(url.hostname);
+  } catch { return false; }
+}
+export const INSTAGRAM_USERNAME = /^[a-z0-9._]{1,30}$/i;
+
+function parseInstagramOnlyEvent(value: Record<string, unknown>): SocialWebViewEvent | null {
+  if (value.type === 'POSTS_SEEN' && hasOnlyKeys(value, ['type', 'platform', 'count']) && Number.isSafeInteger(value.count) && (value.count as number) > 0 && (value.count as number) <= 100) {
+    return { type: 'POSTS_SEEN', platform: 'instagram', count: value.count as number };
+  }
+  if (value.type === 'ACCOUNT' && hasOnlyKeys(value, ['type', 'platform', 'username', 'avatar']) && typeof value.username === 'string' && INSTAGRAM_USERNAME.test(value.username)
+    && typeof value.avatar === 'string' && (value.avatar === '' || isInstagramAvatarUrl(value.avatar))) {
+    return { type: 'ACCOUNT', platform: 'instagram', username: value.username, avatar: value.avatar };
+  }
+  if (value.type === 'NAV_BAR' && hasOnlyKeys(value, ['type', 'platform', 'visible']) && typeof value.visible === 'boolean') {
+    return { type: 'NAV_BAR', platform: 'instagram', visible: value.visible };
+  }
+  if (value.type === 'OPEN_ACCOUNTS' && hasOnlyKeys(value, ['type', 'platform'])) return { type: 'OPEN_ACCOUNTS', platform: 'instagram' };
+  return null;
 }
 
 export function parseSocialWebViewEvent(raw: string, expectedPlatform: SocialAppId): SocialWebViewEvent | null {
@@ -33,6 +58,10 @@ export function parseSocialWebViewEvent(raw: string, expectedPlatform: SocialApp
     if (value.type === 'CONTENT_DETECTED' && expectedPlatform === 'instagram' && hasOnlyKeys(value, ['type', 'platform', 'feature', 'count'])
       && (value.feature === 'sponsoredPosts' || value.feature === 'suggestedPosts') && Number.isSafeInteger(value.count) && (value.count as number) > 0 && (value.count as number) <= 1000) {
       return { type: 'CONTENT_DETECTED', platform: 'instagram', feature: value.feature, count: value.count as number };
+    }
+    if (expectedPlatform === 'instagram') {
+      const instagram = parseInstagramOnlyEvent(value);
+      if (instagram) return instagram;
     }
     if (value.type === 'FILTER_APPLIED' && hasOnlyKeys(value, ['type', 'platform', 'feature', 'count']) && typeof value.feature === 'string' && Number.isSafeInteger(value.count) && (value.count as number) >= 0) {
       const allowedFeatures = expectedPlatform === 'instagram' ? instagramFeatures : expectedPlatform === 'tiktok' ? tiktokFeatures : youtubeFeatures;

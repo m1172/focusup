@@ -54,3 +54,26 @@ describe('parseSocialWebViewEvent', () => {
     expect(parseSocialWebViewEvent(JSON.stringify({ type: 'READY', platform: 'tiktok', observerActive: true }), 'youtube')).toBeNull();
   });
 });
+
+describe('Instagram account and session events', () => {
+  const parse = (value: object, platform: 'instagram' | 'youtube' = 'instagram') => parseSocialWebViewEvent(JSON.stringify({ platform, ...value }), platform);
+  it('accepts a username and an Instagram-hosted profile picture', () => {
+    expect(parse({ type: 'ACCOUNT', username: 'me.person_1', avatar: 'https://scontent.cdninstagram.com/a.jpg' })).toEqual({ type: 'ACCOUNT', platform: 'instagram', username: 'me.person_1', avatar: 'https://scontent.cdninstagram.com/a.jpg' });
+    expect(parse({ type: 'ACCOUNT', username: 'me', avatar: '' })).toEqual({ type: 'ACCOUNT', platform: 'instagram', username: 'me', avatar: '' });
+  });
+  it('rejects odd usernames, other image hosts and extra fields', () => {
+    expect(parse({ type: 'ACCOUNT', username: '../me', avatar: '' })).toBeNull();
+    expect(parse({ type: 'ACCOUNT', username: 'me', avatar: 'https://evil.example/cdninstagram.com.jpg' })).toBeNull();
+    expect(parse({ type: 'ACCOUNT', username: 'me', avatar: 'http://scontent.cdninstagram.com/a.jpg' })).toBeNull();
+    expect(parse({ type: 'ACCOUNT', username: 'me', avatar: '', password: 'x' })).toBeNull();
+  });
+  it('accepts posts seen, the bottom bar state and the switcher request from Instagram only', () => {
+    expect(parse({ type: 'POSTS_SEEN', count: 3 })).toEqual({ type: 'POSTS_SEEN', platform: 'instagram', count: 3 });
+    expect(parse({ type: 'POSTS_SEEN', count: 0 })).toBeNull();
+    expect(parse({ type: 'POSTS_SEEN', count: 1000 })).toBeNull();
+    expect(parse({ type: 'NAV_BAR', visible: false })).toEqual({ type: 'NAV_BAR', platform: 'instagram', visible: false });
+    expect(parse({ type: 'OPEN_ACCOUNTS' })).toEqual({ type: 'OPEN_ACCOUNTS', platform: 'instagram' });
+    expect(parse({ type: 'OPEN_ACCOUNTS' }, 'youtube')).toBeNull();
+    expect(parse({ type: 'URL_CHANGED', route: 'inbox' })).toEqual({ type: 'URL_CHANGED', platform: 'instagram', route: 'inbox' });
+  });
+});

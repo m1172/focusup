@@ -6,6 +6,7 @@ import { ActionButton, Heading, Screen } from '../../components/ui';
 import { authRedirectUrl, oauthFlow } from '../../services/backend/authentication';
 import { accountSession } from '../../services/backend/accountSession';
 import { leaveAuth } from '../../features/auth/components';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import { useAppStore } from '../../store/appStore';
 import { captureProductEvent } from '../../services/analytics/productAnalytics';
 
@@ -22,8 +23,9 @@ export default function AuthCallbackScreen() {
     if (error) url.searchParams.set('error', error);
     void accountSession.initialize().then(() => oauthFlow().complete(url.toString())).then(() => {
       if (!mounted) return;
-      // Web OAuth reloads the app, so the onboarding step that started it is gone.
-      leaveAuth(!useAppStore.getState().onboardingCompleted);
+      // Web OAuth reloads the app, so the onboarding step that started it is gone. Someone who held the commit
+      // button came through onboarding; anyone else is checked for an earlier backup (a returning user).
+      void leaveAuth(!useAppStore.getState().onboardingCompleted && useOnboardingStore.getState().committedAt !== null);
     }).catch(() => { captureProductEvent('auth_failed', { provider: 'oauth', failure_code: 'CALLBACK_FAILED' }); if (mounted) setFailed(true); });
     return () => { mounted = false; };
   }, [code, error]);

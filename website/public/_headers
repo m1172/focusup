@@ -1,0 +1,4 @@
+# Filter rules for the app (src/services/remote-config). Phones re-check every 15 minutes at most.
+/blocker-config.json
+  Cache-Control: public, max-age=300
+  Access-Control-Allow-Origin: *

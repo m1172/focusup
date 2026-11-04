@@ -1,4 +1,4 @@
-import { PRO_ENABLED } from '../../config/release';
+import { PRO_ENABLED, WEBSITE_BLOCKING } from '../../config/release';
 import type { PurchasesPackage } from 'react-native-purchases';
 
 export const FEATURE_ACCESS = {
@@ -36,10 +36,12 @@ export type SubscriptionFeature = keyof typeof FEATURE_ACCESS;
 
 /** Visibility differs from entitlement access: a future Pro release can show locked controls. */
 export function isFeatureAvailable(feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
+  if (feature === 'blockWebsiteVersion' && !WEBSITE_BLOCKING) return false;
   return FEATURE_ACCESS[feature] === 'free' || proEnabled;
 }
 
 export function canUseFeature(isPro: boolean, feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
+  if (feature === 'blockWebsiteVersion' && !WEBSITE_BLOCKING) return false;
   return FEATURE_ACCESS[feature] === 'free' || (proEnabled && isPro);
 }
 

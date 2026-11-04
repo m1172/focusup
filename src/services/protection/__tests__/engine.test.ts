@@ -84,7 +84,8 @@ describe('local protection policy', () => {
     expect(websites.instagram).toContain('www.instagram.com');
     // Website blocking is Pro: Free customers' saved switches stay stored but inactive.
     expect(buildNativePlan({ ...input, baseline: [], websites, isPro: false }).websites).toEqual({});
-    expect(buildNativePlan({ ...input, baseline: [], websites, isPro: true }).websites).toBe(websites);
+    // WEBSITE_BLOCKING is off: iOS's web filter would also block Vaqtim's own browser, so even Pro sends no domains.
+    expect(buildNativePlan({ ...input, baseline: [], websites, isPro: true }).websites).toEqual({});
   });
 
   it('keeps device-wide Pro settings off for Free customers', () => {
