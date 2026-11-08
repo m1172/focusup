@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { BlockingSwitch, FocusSchedule, Locale, SocialAppId, SocialAppSettings, StrictSession, ThemeMode } from '../types/app';
 import type { DiagnosticsByPlatform, WebViewDiagnostics } from '../types/social';
+import { currentSupervisionRules } from './familyStore';
+import { familyBlockedApps, familyForcedFilters } from '../services/family/resolver';
 
 type AppState = {
   onboardingCompleted: boolean;
@@ -73,11 +75,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], enabled } } };
   }),
   setFilter: (appId, filter, enabled) => set((state) => {
+    // Vaqtim Family: a filter the parent requires cannot be switched off on the child's phone.
+    if (!enabled && familyForcedFilters(appId, currentSupervisionRules())[filter]) return state;
     if (PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], filters: { ...state.apps[appId].filters, [filter]: enabled } } } };
   }),
   setBlocking: (appId, key, enabled) => set((state) => {
-    // Strict sessions may switch blocking on but never off.
+    // Strict sessions and family rules may switch blocking on but never off.
+    if (!enabled && key === 'blockNativeApp' && familyBlockedApps(currentSupervisionRules()).includes(appId)) return state;
     if (!enabled && PRO_ENABLED && state.strictSession && state.strictSession.endsAt > Date.now() && state.strictSession.appIds.includes(appId)) return state;
     return { apps: { ...state.apps, [appId]: { ...state.apps[appId], [key]: enabled } } };
   }),

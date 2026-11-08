@@ -14,8 +14,14 @@ let mockCompleted = true;
 let mockHydrated = true;
 let mockConfigured = true;
 let mockProEnabled = false;
+let mockFamilyEnabled = false;
+let mockFamilyRole: 'none' | 'pending' | 'child' = 'none';
 
-jest.mock('../../../config/release', () => ({ get PRO_ENABLED() { return mockProEnabled; } }));
+jest.mock('../../../config/release', () => ({ get PRO_ENABLED() { return mockProEnabled; }, get FAMILY_ENABLED() { return mockFamilyEnabled; } }));
+jest.mock('../../../store/familyStore', () => ({ useFamilyStore: Object.assign((select: (value: object) => unknown) => select({ role: mockFamilyRole }), { subscribe: () => () => undefined }) }));
+jest.mock('../../../services/family/deviceSync', () => ({ startFamilySync: () => () => undefined }));
+jest.mock('../../../services/family/analyticsGate', () => ({ startFamilyAnalyticsGate: () => () => undefined }));
+jest.mock('../../../features/family/FamilyNotice', () => ({ FamilyNotice: () => null }));
 jest.mock('../../../store/accountStore', () => ({ useAccountStore: () => mockAccount }));
 jest.mock('../../../store/appStore', () => ({ useAppStore: (select: (value: object) => unknown) => select({ selectedLanguage: 'en', onboardingCompleted: mockCompleted }) }));
 jest.mock('../../../store/wellbeingStore', () => ({ useWellbeingStore: {} }));
@@ -60,7 +66,7 @@ const routes = () => renderToStaticMarkup(createElement(RootLayout)).match(/(?<=
 beforeEach(() => {
   Object.defineProperty(globalThis, '__DEV__', { value: false, configurable: true, writable: true });
   mockAccount = { ready: true, user, recoveryRequired: false };
-  mockCompleted = true; mockHydrated = true; mockConfigured = true; mockProEnabled = false;
+  mockCompleted = true; mockHydrated = true; mockConfigured = true; mockProEnabled = false; mockFamilyEnabled = false; mockFamilyRole = 'none';
 });
 
 afterEach(() => { Object.defineProperty(globalThis, '__DEV__', { value: originalDevelopmentMode, configurable: true, writable: true }); });
@@ -129,9 +135,11 @@ test('every root route is explicitly declared so an omitted route cannot become 
     if (entry.isDirectory()) return entry.name.startsWith('(') ? [prefix + entry.name] : collect(join(directory, entry.name), prefix + entry.name + '/');
     return entry.name.endsWith('.tsx') && entry.name !== '_layout.tsx' ? [prefix + entry.name.slice(0, -4)] : [];
   });
-  mockProEnabled = true;
+  mockProEnabled = true; mockFamilyEnabled = true;
   const declared = new Set(routes().map((route) => route.slice(0, -1)));
   mockAccount.user = null; mockCompleted = false;
+  routes().forEach((route) => declared.add(route.slice(0, -1)));
+  mockFamilyRole = 'child';
   routes().forEach((route) => declared.add(route.slice(0, -1)));
   expect([...declared].sort()).toEqual(collect(join(__dirname, '../../../app')).sort());
 });
@@ -142,4 +150,16 @@ test('development builds cannot bypass authentication', () => {
   mockAccount.user = null;
   expect(routes()).not.toContain('(tabs);');
   expect(routes()).not.toContain('browser/[appId];');
+});
+
+test('Vaqtim Family screens stay hidden while the release switch is off, and supervised phones get no account screens', () => {
+  expect(routes()).not.toContain('family/index;');
+  mockAccount.user = null; mockCompleted = false;
+  expect(routes()).not.toContain('family/connect;');
+  mockFamilyEnabled = true;
+  expect(routes()).toContain('family/connect;');
+  mockFamilyRole = 'child';
+  const child = routes();
+  expect(child).toContain('(tabs);'); expect(child).toContain('family/supervised;');
+  expect(child).not.toContain('account;'); expect(child).not.toContain('auth/sign-in;'); expect(child).not.toContain('family/index;');
 });

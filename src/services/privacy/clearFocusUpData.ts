@@ -17,6 +17,7 @@ import { useProfileStore } from '../../store/profileStore';
 import { resetRemoteBlockerConfig } from '../remote-config/remoteBlockerConfig';
 import { setAnalyticsConsent } from '../analytics/productAnalytics';
 import { releaseAllBrowsers } from '../../store/browserHostStore';
+import { isFamilyDevice } from '../../store/familyStore';
 
 let clearing = false;
 export function isClearingFocusUpData() { return clearing; }
@@ -24,6 +25,8 @@ export function isClearingFocusUpData() { return clearing; }
 /** Called only after in-app confirmation. Never clears unrelated storage. */
 export async function clearFocusUpData(): Promise<{ browserDataCleared: boolean }> {
   if (clearing) throw new Error('Clear already in progress');
+  // A supervised phone cannot wipe its family rules; the parent removes supervision instead.
+  if (isFamilyDevice()) throw new Error('supervised');
   clearing = true;
   try {
   // Stop replay before account/settings cleanup can expose another user's UI.

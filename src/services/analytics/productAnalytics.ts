@@ -21,6 +21,25 @@ let sentScreen: string | undefined;
 let consentRevision = 0;
 const listeners = new Set<() => void>();
 
+/**
+ * Vaqtim Family: no analytics or session replay on a child's phone, nor before this phone's role is known.
+ * The gate is set at launch (services/family/analyticsGate.ts); until then everything is allowed, as in tests.
+ */
+export type AnalyticsRole = 'personal' | 'supervised' | 'unknown';
+let roleGate: () => AnalyticsRole = () => 'personal';
+export function setAnalyticsRoleGate(gate: () => AnalyticsRole) { roleGate = gate; }
+function roleAllows() { try { return roleGate() === 'personal'; } catch { return false; } }
+
+/** Stops recording and sending at once and drops the SDK, e.g. when this phone starts pairing with a parent. */
+export async function shutDownProductAnalytics(): Promise<void> {
+  const current = client;
+  client = null; initialization = null; appliedIdentity = null; sentScreen = undefined;
+  if (!current) return;
+  await current.stopSessionRecording().catch(() => undefined);
+  await current.optOut().catch(() => undefined);
+  try { current.reset(); } catch { /* Nothing left to send. */ }
+}
+
 export function subscribeAnalyticsConsent(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
 export function getAnalyticsConsent() { return consentLoaded && consent; }
 function notify() { listeners.forEach((listener) => listener()); }
@@ -84,7 +103,7 @@ function context() { return { screen: currentScreen ?? null, previous_screen: pr
 
 /** True when the event was handed to PostHog; false without consent or a client. */
 export function captureProductEvent(event: ProductEvent, properties: Properties = {}): boolean {
-  if (!consentLoaded || !consent || !client) return false;
+  if (!consentLoaded || !consent || !client || !roleAllows()) return false;
   let sent = false;
   safely(() => { client?.capture(event, { ...context(), ...properties }); sent = true; });
   return sent;
@@ -110,6 +129,7 @@ export function setProductAnalyticsIdentity(userId: string | null, preferredLang
 }
 
 export async function initializeProductAnalytics(): Promise<void> {
+  if (!roleAllows()) return;
   if (initialization) return initialization;
   initialization = (async () => {
     const revision = consentRevision;
@@ -145,6 +165,8 @@ export async function initializeProductAnalytics(): Promise<void> {
       };
       client = new PostHog(key, options);
       await client.ready();
+      // The phone started pairing with a parent while the SDK was starting.
+      if (!roleAllows()) { await shutDownProductAnalytics(); return; }
       if (!consent) await client.optOut();
       else { await client.optIn(); applyIdentity(); sendScreen(); if (native && replayPaused) await client.stopSessionRecording(); }
     } catch {

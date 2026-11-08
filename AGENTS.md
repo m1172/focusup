@@ -53,6 +53,7 @@ These come straight from the project owner. Following them matters more than fin
 14. **No made-up claims.** No fake user counts, testimonials, expert quotes or statistics, in the app, the store listing or the website.
 15. **Page scripts are untrusted.** Anything a WebView page sends (`ReactNativeWebView.postMessage`) must pass the strict checks in `src/services/social-browser/messages.ts` before the app acts on it.
 16. **Only Instagram cookies are touched.** The account switcher reads and writes cookies for `instagram.com` only, through the native functions `getSiteCookies`, `setSiteCookies` and `clearSiteData`. Saved sign-ins live in SecureStore, split into pieces of 1800 characters or less.
+17. **Vaqtim Family rules only add restrictions.** On a supervised child's phone nothing the child does (settings, a restored personal backup, clearing data, signing in, breaks) may weaken the parent's rules, and the phone sends no analytics. Family rules never go into the personal settings backup. See `docs/family.md`.
 
 ---
 
@@ -66,6 +67,7 @@ Some features are switched on or off in code. Change a switch and its partner to
 | `IOS_APP_BLOCKING` | `src/config/release.ts` | `true` | `familyControls` in the `withFocusUpProtection` plugin options in `app.json`; give `ios.runtimeVersion` a new value |
 | `ANDROID_APP_BLOCKING` | `src/config/release.ts` | `true` | `enabled` in the `withAndroidAccessibility` plugin options in `app.json`; give `android.runtimeVersion` a new value; Google Play needs an Accessibility declaration and a video |
 | `WEBSITE_BLOCKING` | `src/config/release.ts` | `false` | iOS applies the web filter to every web view, including Vaqtim's own, which showed "Website Not Allowed" |
+| `FAMILY_ENABLED` | `src/config/release.ts` | `false` | Server secret `FAMILY_ENROLLMENT_ENABLED` (default `false`) and `FAMILY_COUNTRIES` (`UZ`); the launch checks in `docs/family.md` |
 
 iOS and Android follow the same Protect rule (rule 10): adding an app first asks for access to block the real app (Screen Time on iOS, the Accessibility service on Android). If either switch is turned off, that platform reports that it can't block apps, and its users can't add apps on the Protect tab.
 
@@ -172,6 +174,7 @@ Store builds are made **locally** (Xcode and Gradle), not with EAS Build. The fu
 | Device test checklist | `docs/device-qa-matrix.md` |
 | Telegram sign-in | `docs/launch/telegram-login.md` |
 | Website | `website/README.md` |
+| Vaqtim Family (parent and child phones) | `docs/family.md` |
 
 ---
 

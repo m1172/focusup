@@ -6,6 +6,8 @@ import { isRemoteFeatureEnabled } from '../../store/remoteBlockerConfigStore';
 import { canUseFeature, type SubscriptionFeature } from '../subscription/subscriptionService';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import { sleepRoutine } from '../protection/engine';
+import { currentSupervisionRules } from '../../store/familyStore';
+import { activeDowntime, familyForcedFilters, isBrowserApp } from '../family/resolver';
 
 const filterFeature: Partial<Record<SocialAppId, Record<string, SubscriptionFeature>>> = {
   instagram: { reels: 'instagramReels', explore: 'instagramExplore', recommendations: 'instagramRecommendations', suggestedPosts: 'instagramSuggestedPosts', homeFeed: 'instagramHomeFeed', sponsoredPosts: 'instagramCleanBrowsing' },
@@ -53,7 +55,12 @@ export function getEffectiveAppConfig(appId: SocialAppId, now = new Date()) {
       if (access && !canUseFeature(isPro, access)) filters[feature] = false;
     });
   }
-  return { enabled, blocking: enabled || Object.values(filters).some(Boolean), filters };
+  // Vaqtim Family: the parent's filters apply last and are free; a remotely paused blocker cannot lift them here
+  // (the browser closes instead, see familyBrowserAccess).
+  const rules = currentSupervisionRules();
+  if (rules) Object.assign(filters, familyForcedFilters(appId, rules));
+  const familyClean = Boolean(rules && isBrowserApp(appId) && rules.policy.browsers[appId]?.enabled && !activeDowntime(rules, appId, now));
+  return { enabled: enabled || familyClean, blocking: enabled || familyClean || Object.values(filters).some(Boolean), filters };
 }
 
 export function getActiveScheduleAppIds(now = new Date()): SocialAppId[] {

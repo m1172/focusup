@@ -28,6 +28,7 @@ import { createAppPromoScript } from '../../services/social-browser/appPromo';
 import { createPageIdleScript } from '../../services/social-browser/pageIdle';
 import { createInstagramPageScript } from '../../services/social-browser/instagramPage';
 import { protectionBridge } from '../../services/protection/nativeBridge';
+import { useFamilyStore } from '../../store/familyStore';
 import { msSinceLastTap, perfLogsEnabled } from '../../services/performance/tapTiming';
 
 const platformSites: Record<string, { url: string; hosts: string[]; name: string }> = {
@@ -160,9 +161,10 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     return () => clearTimeout(timeout);
   }, [loading, error, onPageReadyChange]);
 
+  const supervised = useFamilyStore((state) => state.role === 'child');
   const shouldStartNavigation = (url: string, isTopFrame = true) => {
     try {
-      const target = classifySocialBrowserNavigation(platform, url, isTopFrame);
+      const target = classifySocialBrowserNavigation(platform, url, isTopFrame, supervised);
       if (target === 'reject') return false;
       if (!isTopFrame) return target === 'internal';
       const parsed = new URL(url);
@@ -182,6 +184,8 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
         return false;
       }
       if (target === 'internal') return true;
+      // Unreachable while supervised (outside links are rejected above); kept as a second check.
+      if (supervised) return false;
       if (onExternalNavigation?.(url)) return false;
       void Linking.openURL(url).catch(() => undefined);
     } catch { /* Reject malformed URLs. */ }

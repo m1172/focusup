@@ -31,11 +31,17 @@ export type NativeProtectionPlan = {
   temporary: TemporaryAccess | null;
 };
 export type ProtectionReason = 'unprotected' | 'protected' | 'routine' | 'sleep' | 'strict' | 'temporary';
-export type NativeProtectionStatus = { supported: boolean; authorized: boolean; selectedCount: number; active: boolean; protectedPlatforms?: SocialAppId[]; /** iOS: apps picked in Apple's list, protected or not. */ selectedPlatforms?: SocialAppId[] };
+export type NativeProtectionStatus = { supported: boolean; authorized: boolean; selectedCount: number; active: boolean; protectedPlatforms?: SocialAppId[]; /** iOS: apps picked in Apple's list, protected or not. */ selectedPlatforms?: SocialAppId[];
+  /** iOS: which Screen Time authorization Vaqtim last received. Missing on builds before Vaqtim Family. */
+  member?: 'child' | 'individual' | null };
+/** iOS: the result of asking for Screen Time as a supervised child (a parent approves with their Apple ID). */
+export type ChildAuthorizationResult = 'approved' | 'denied' | 'notChildAccount' | 'restricted' | 'networkError' | 'unavailable';
 export type NativeProtectionBridge = {
   consumePendingLaunch?: () => Promise<string | null>;
   getStatus(): Promise<NativeProtectionStatus>;
   requestAuthorization(): Promise<boolean>;
+  /** iOS: Screen Time for a child in Family Sharing. Builds before Vaqtim Family do not have it. */
+  requestChildAuthorization?: () => Promise<string>;
   selectApps(platform: string): Promise<number>;
   applyPlan(json: string): Promise<void>;
   clearBrowserData(): Promise<boolean>;

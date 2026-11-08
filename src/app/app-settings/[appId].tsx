@@ -9,6 +9,7 @@ import { AlertBanner, BackButton, Note, ProBadge, Screen, Sheet, SheetActions, T
 import { AppIcon } from '../../components/AppIcon';
 import { appCatalog } from '../../features/apps/catalog';
 import { useAppStore } from '../../store/appStore';
+import { useFamilyStore } from '../../store/familyStore';
 import { useAppTheme } from '../../theme';
 import type { BlockingSwitch, SocialAppId } from '../../types/app';
 import { isPlatformLocked } from '../../services/strict-mode/strictModeController';
@@ -50,6 +51,8 @@ export default function AppSettingsScreen() {
   const saved = useAppStore((state) => state.apps[appId]);
   const setAppEnabled = useAppStore((state) => state.setAppEnabled);
   const setFilter = useAppStore((state) => state.setFilter);
+  // Vaqtim Family: on a supervised phone the parent's rules for this app cannot be weakened here.
+  const familyParent = useFamilyStore((state) => state.role === 'child' && state.supervision ? state.supervision.parentName : null);
   const setBlocking = useAppStore((state) => state.setBlocking);
   const nativeBlockOn = useAppStore((state) => shortVideoBlockedApps({ [appId]: state.apps[appId] }).includes(appId));
   const strict = useAppStore((state) => state.strictSession);
@@ -190,6 +193,7 @@ export default function AppSettingsScreen() {
       <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500' }}>{t(appId === 'instagram' ? 'ui.instagramQuestion' : appId === 'tiktok' ? 'ui.tiktokQuestion' : 'ui.youtubeQuestion')}</Text>
       <AlertBanner visible={Boolean(banner)} title={banner?.title ?? ''} message={banner?.message ?? ''} />
       {locked ? <Note tone="amber" icon="lock">{t('strictCannotChange')}</Note> : null}
+      {familyParent !== null ? <Note tone="mint" icon="lock">{t('family.child.lockedBy', { parent: familyParent || t('family.child.yourParent') })}</Note> : null}
 
       {savingsApp ? <View style={{ gap: 16, padding: 18, borderRadius: 28, backgroundColor: c.card, backgroundImage: perDay > 0 ? 'radial-gradient(80% 90% at 100% 0%, rgba(22,185,133,0.16), rgba(22,185,133,0) 70%)' : undefined, boxShadow: c.sh }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

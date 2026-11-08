@@ -45,10 +45,40 @@ public class FocusUpProtectionModule: Module {
       let protectedPlatforms = AuthorizationCenter.shared.authorizationStatus == .approved ? ProtectionShared.platforms().filter { platform in let selected = ProtectionShared.selection(platform); return !selected.applicationTokens.subtracting(allowed).isEmpty || !selected.categoryTokens.isEmpty || !selected.webDomainTokens.isEmpty } : []
       // Platforms the user has picked in Apple's list, whether or not the plan protects them right now.
       let selectedPlatforms = ["instagram", "youtube", "tiktok", "snapchat", "x", "facebook", "linkedin", "reddit"].filter { platform in let selected = ProtectionShared.selection(platform); return !selected.applicationTokens.isEmpty || !selected.categoryTokens.isEmpty || !selected.webDomainTokens.isEmpty }
-      return ["supported": supported, "authorized": AuthorizationCenter.shared.authorizationStatus == .approved, "selectedCount": count, "active": !protectedPlatforms.isEmpty, "protectedPlatforms": Array(protectedPlatforms), "selectedPlatforms": selectedPlatforms]
+      // Which authorization Vaqtim received: "child" (Family Sharing, approved by a parent) or "individual".
+      let approved = AuthorizationCenter.shared.authorizationStatus == .approved
+      let member: Any = approved ? (ProtectionShared.defaults?.string(forKey: "authorizationMember") ?? NSNull()) : NSNull()
+      return ["supported": supported, "authorized": approved, "selectedCount": count, "active": !protectedPlatforms.isEmpty, "protectedPlatforms": Array(protectedPlatforms), "selectedPlatforms": selectedPlatforms, "member": member]
     }
     AsyncFunction("requestAuthorization") { () async -> Bool in
-      do { try await AuthorizationCenter.shared.requestAuthorization(for: .individual); return AuthorizationCenter.shared.authorizationStatus == .approved } catch { return false }
+      do {
+        try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+        let approved = AuthorizationCenter.shared.authorizationStatus == .approved
+        if approved { ProtectionShared.defaults?.set("individual", forKey: "authorizationMember") }
+        return approved
+      } catch { return false }
+    }
+    // Vaqtim Family: Screen Time for a child in Family Sharing. A parent or guardian approves it with their
+    // Apple ID on this phone, and only they can later turn it off. Never falls back to the individual kind.
+    AsyncFunction("requestChildAuthorization") { () async -> String in
+      #if targetEnvironment(simulator)
+      return "unavailable"
+      #else
+      do {
+        try await AuthorizationCenter.shared.requestAuthorization(for: .child)
+        guard AuthorizationCenter.shared.authorizationStatus == .approved else { return "denied" }
+        ProtectionShared.defaults?.set("child", forKey: "authorizationMember")
+        return "approved"
+      } catch let error as FamilyControlsError {
+        switch error {
+        case .authorizationCanceled: return "denied"
+        case .invalidAccountType: return "notChildAccount"
+        case .restricted: return "restricted"
+        case .networkError: return "networkError"
+        default: return "unavailable"
+        }
+      } catch { return "unavailable" }
+      #endif
     }
     AsyncFunction("selectApps") { (platform: String, promise: Promise) in
       guard ["instagram", "youtube", "tiktok", "snapchat", "x", "facebook", "linkedin", "reddit", "__allowed"].contains(platform), let controller = self.appContext?.utilities?.currentViewController() else { promise.resolve(0); return }

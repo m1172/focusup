@@ -29,7 +29,8 @@ export type Account = { id: string; email: string | null; profile: AccountProfil
 export type AuthSession = { accessToken: string; refreshToken: string; expiresAt: number | null; user: { id: string; email: string | null } };
 export type OAuthProvider = 'apple' | 'google' | 'telegram';
 export type Credentials = { email: string; password: string; captchaToken?: string };
-export type AccountExport = { exportedAt: string; account: Pick<Account, 'id' | 'email'>; profile: AccountProfile; settings: CloudBackup };
+/** `family`: the parent's Vaqtim Family records (children, rules, phones, consents), or null. Missing from older servers. */
+export type AccountExport = { exportedAt: string; account: Pick<Account, 'id' | 'email'>; profile: AccountProfile; settings: CloudBackup; family?: unknown };
 /** One message of the user's support thread; `support` messages are the team's Telegram replies. */
 export type SupportMessage = { id: number; sender: 'user' | 'support'; body: string; createdAt: string };
 export type SupportThread = { available: boolean; messages: SupportMessage[] };

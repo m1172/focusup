@@ -1,6 +1,7 @@
 import { PRO_ENABLED } from '../../config/release';
 import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { ProtectedScreen } from '../protection/ProtectedScreen';
+import { FamilyBrowserBlocked, useFamilyBrowserAccess } from '../family/browserAccess';
 import { Text } from '../../components/Typography';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, Pressable, View } from 'react-native';
@@ -52,8 +53,17 @@ type Props = {
   onTerminated: (appId: SocialAppId) => void;
 };
 
-/** One social app's browser. The root browser layer keeps it mounted between opens. */
-export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: rawInitialUrl, active, requestedUrl, requestKey, onTerminated }: Props) {
+/**
+ * One social app's browser. The root browser layer keeps it mounted between opens. On a supervised phone the page is
+ * replaced (unmounted, so playback stops) whenever the family rules close this browser, e.g. at the start of bedtime.
+ */
+export const BrowserSession = memo(function BrowserSession(props: Props) {
+  const access = useFamilyBrowserAccess(props.appId);
+  if (access !== 'allowed') return <FamilyBrowserBlocked appId={props.appId} reason={access} />;
+  return <BrowserPage {...props} />;
+});
+
+const BrowserPage = memo(function BrowserPage({ appId, initialUrl: rawInitialUrl, active, requestedUrl, requestKey, onTerminated }: Props) {
   const app = appCatalog[appId];
   const { t } = useTranslation();
   const c = useAppTheme();

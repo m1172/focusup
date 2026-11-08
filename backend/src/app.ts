@@ -7,6 +7,7 @@ import { telegramLoginConfig, type Config } from './config.js';
 import { ApiError } from './errors.js';
 import { createGateway, type Gateway, type Identity } from './gateway.js';
 import { createTelegramLogin, TELEGRAM_CODE_PREFIX, type TelegramLogin } from './telegramLogin.js';
+import { createExpoRefreshHint, createFamilyApi, createFamilyRpc, type FamilyRefreshHint, type FamilyRpc } from './family.js';
 import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, recoverySchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, verifyCodeSchema, verifySchema } from './schemas.js';
 
 declare module 'fastify' {
@@ -18,7 +19,7 @@ function telegramLoginFrom(config: Config) {
   return settings ? createTelegramLogin(settings) : null;
 }
 
-export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config)) {
+export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config), familyRpc: FamilyRpc | null = createFamilyRpc(config), familyHint: FamilyRefreshHint = createExpoRefreshHint()) {
   const app = Fastify({
     logger: config.NODE_ENV === 'test' ? false : { level: config.LOG_LEVEL, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] },
     // Never include query strings in logs: email verification links can carry tokens.
@@ -59,6 +60,18 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
     return request.identity;
   };
   const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
+  // Vaqtim Family (family.ts): the same routes and checks as the Edge Function. Fastify limits by address instead of the shared counter.
+  const familyApi = createFamilyApi({ config, rpc: familyRpc, limit: async () => undefined, hint: familyHint });
+  for (const definition of familyApi.routes) {
+    app.route({
+      method: definition.method, url: definition.path, config: { rateLimit: { max: definition.limit, timeWindow: '1 minute' } },
+      handler: async (request, reply) => {
+        if (definition.auth === 'parent') await authenticate(request);
+        const result = await definition.run({ params: request.params as Record<string, string>, body: request.body, user: definition.auth === 'parent' ? identity(request) : null, authorization: request.headers.authorization ?? null });
+        return result.status === 204 ? reply.code(204).send() : reply.code(result.status ?? 200).send(result.data);
+      },
+    });
+  }
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async () => { await gateway.ready(); return { status: 'ready' }; });
 
@@ -124,8 +137,8 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
     privateApi.delete('/me/settings', async (request) => gateway.saveSettings(identity(request), deleteSettingsSchema.parse(request.body).expectedRevision, null));
     privateApi.get('/me/export', async (request) => {
       const user = identity(request);
-      const [profile, settings] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user)]);
-      return { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings };
+      const [profile, settings, family] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user), familyApi.exportFor(user)]);
+      return { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings, family };
     });
     privateApi.delete('/me', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
       await gateway.deleteAccount(identity(request));

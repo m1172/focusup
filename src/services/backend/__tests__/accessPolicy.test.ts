@@ -42,3 +42,14 @@ test('sign-out, deletion and invalid-token transitions revoke access immediately
   expect(canEnterApp(guest, true, true, true)).toBe(false);
   expect(entryDestination(guest, true, 'youtube')).toBe('/auth/sign-in');
 });
+
+test('a supervised child phone enters without an account or onboarding; a waiting phone returns to the pairing screen', () => {
+  expect(canEnterApp(guest, false, true, true, 'child')).toBe(true);
+  expect(canEnterApp(guest, false, true, false, 'child')).toBe(true);
+  expect(canEnterApp(guest, false, false, true, 'child')).toBe(false);
+  expect(canEnterApp(guest, false, true, true, 'pending')).toBe(false);
+  expect(canEnterApp(signedIn, true, true, true, 'pending')).toBe(false);
+  expect(entryDestination(guest, false, 'instagram', 'child')).toBe('/(tabs)');
+  expect(entryDestination(guest, false, 'home', 'pending')).toBe('/family/connect');
+  expect(entryDestination(signedIn, true, 'home', 'none')).toBe('/(tabs)');
+});
