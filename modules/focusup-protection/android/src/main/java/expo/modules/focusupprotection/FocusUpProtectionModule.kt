@@ -31,7 +31,7 @@ class FocusUpProtectionModule : Module() {
     AsyncFunction("getStatus") {
       val plan = ProtectionPolicy.plan(context)
       val count = plan.optJSONArray("baseline")?.length() ?: 0
-      val protectedPlatforms = if (authorized() && FocusUpAccessibilityService.running) ProtectionPolicy.packages.keys.filter { ProtectionPolicy.shouldBlock(context, it) } else emptyList()
+      val protectedPlatforms = if (authorized() && FocusUpAccessibilityService.running) ProtectionPolicy.packages.keys.filter { ProtectionPolicy.shouldBlock(context, it) || ProtectionPolicy.blocksFeed(context, it) } else emptyList()
       mapOf("supported" to true, "authorized" to authorized(), "selectedCount" to count, "active" to protectedPlatforms.isNotEmpty(), "protectedPlatforms" to protectedPlatforms)
     }
     AsyncFunction("requestAuthorization") {
@@ -102,6 +102,12 @@ class FocusUpProtectionModule : Module() {
     AsyncFunction("hasUsageAccess") { UsageAccess.granted(context) }
     AsyncFunction("openUsageAccessSettings") { UsageAccess.openSettings(context); Unit }
     AsyncFunction("getAppUsage") { days: Int -> UsageAccess.dailyAverages(context, days) }
+    // Battery saving and auto-start on Xiaomi, Samsung and others (see BackgroundAccess).
+    AsyncFunction("getBackgroundStatus") {
+      mapOf("batteryRestricted" to BackgroundAccess.batteryRestricted(context), "hasAutoStart" to BackgroundAccess.hasAutoStartSettings(), "maker" to BackgroundAccess.maker())
+    }
+    AsyncFunction("openBatterySettings") { BackgroundAccess.openBatterySettings(context) }
+    AsyncFunction("openAutoStartSettings") { BackgroundAccess.openAutoStartSettings(context) }
     AsyncFunction("reset") { ProtectionPolicy.preferences(context).edit().clear().commit(); Unit }
   }
 }

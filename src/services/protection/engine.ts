@@ -47,9 +47,20 @@ export function validateSleepPlan(value: unknown): value is SleepPlan {
   return total >= 15 && total < 1440 && sleep.weekdays.length > 0 && sleep.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) && sleep.apps.length > 0;
 }
 
-export function createTemporaryAccess(platform: SocialAppId, minutes: number, minimumMinutes: number, now = Date.now()): TemporaryAccess {
+export function createTemporaryAccess(platform: SocialAppId, minutes: number, minimumMinutes: number, now = Date.now(), kind: TemporaryAccess['kind'] = 'break'): TemporaryAccess {
   if (!ALL_PLATFORMS.includes(platform) || !Number.isInteger(minutes) || minutes < minimumMinutes || minutes > 120) throw new RangeError('Invalid temporary access duration');
-  return { id: `access-${now}`, platform, startedAt: now, endsAt: now + minutes * 60_000 };
+  return { id: `${kind === 'post' ? 'post' : 'access'}-${now}`, platform, startedAt: now, endsAt: now + minutes * 60_000, kind };
+}
+
+/**
+ * Post mode: posting, sending videos and other things Vaqtim's browser can't do happen in the real app. It opens the
+ * real app for a few minutes, a few times a day, for everyone (free). Strict routines still win.
+ */
+export const POST_MODE_MINUTES = 10;
+export const POSTS_PER_DAY = 3;
+
+export function postsLeft(posts: { day: string; count: number }, now = new Date()): number {
+  return Math.max(0, POSTS_PER_DAY - (posts.day === localDayKey(now) ? posts.count : 0));
 }
 
 /** Breaks a day while Hard Mode is on. */
@@ -77,6 +88,11 @@ function modeAccess(isPro: boolean) {
   return { extraApps, strict: extraApps && canUseFeature(isPro, 'strictMode'), schedules: canUseFeature(isPro, 'schedules'), sleep: canUseFeature(isPro, 'sleepMode'), temporary: canUseFeature(isPro, 'temporaryAccess') };
 }
 
+/** Breaks need Pro; Post mode is free. */
+function usableTemporary(input: PlanInput, access: ReturnType<typeof modeAccess>): TemporaryAccess | null {
+  return input.temporary && (access.temporary || input.temporary.kind === 'post') ? input.temporary : null;
+}
+
 /** Routines that apply; a strict routine counts as an ordinary one while Hard Mode is unavailable. */
 function usableRoutines(routines: FocusSchedule[], access: ReturnType<typeof modeAccess>): FocusSchedule[] {
   return access.schedules ? (routines ?? []).map((routine) => routine.strict && !access.strict ? { ...routine, strict: false } : routine) : [];
@@ -88,7 +104,8 @@ export function protectionReason(platform: SocialAppId, input: PlanInput, now = 
   const strict = access.strict && input.strict && input.strict.endsAt > now.getTime() && (input.strict.protectedPlatforms ?? input.strict.appIds).includes(platform);
   if (routines.some((routine) => routine.strict)) return 'strict';
   // A break lifts Hard Mode for its one app; strict routines above still win.
-  if (access.temporary && input.temporary?.platform === platform && input.temporary.endsAt > now.getTime()) return 'temporary';
+  const temporary = usableTemporary(input, access);
+  if (temporary?.platform === platform && temporary.endsAt > now.getTime()) return 'temporary';
   if (strict) return 'strict';
   if (access.sleep && input.sleep && activeRoutines([sleepRoutine(input.sleep)], now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'sleep';
   if (routines.length) return 'routine';
@@ -108,6 +125,6 @@ export function buildNativePlan(input: PlanInput): NativeProtectionPlan {
     dailyLimits: canUseFeature(input.isPro, 'dailyLimits') ? input.dailyLimits ?? {} : {},
     routines,
     strict: access.strict && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => baseline.includes(platform)) } : null,
-    temporary: access.temporary ? input.temporary : null,
+    temporary: usableTemporary(input, access),
   };
 }

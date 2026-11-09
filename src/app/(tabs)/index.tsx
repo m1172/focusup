@@ -1,3 +1,4 @@
+import { BlockingHealthCard } from '../../features/protection/BlockingHealthCard';
 import { PRO_ENABLED } from '../../config/release';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -170,6 +171,8 @@ export default function DashboardScreen() {
         <View pointerEvents="none" style={{ position: 'absolute', top: 10, right: 11, width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent, boxShadow: `0px 0px 0px 2px ${c.card}` }} />
       </View> : null}
     </View>
+
+    <BlockingHealthCard />
 
     <HeroCard>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>

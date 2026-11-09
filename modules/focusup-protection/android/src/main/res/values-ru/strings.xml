@@ -1,6 +1,6 @@
 <resources>
   <string name="focusup_protection_label">Защита Vaqtim</string>
-  <string name="focusup_accessibility_description">С вашего разрешения Vaqtim определяет только пакет открытого приложения, чтобы показать экран защиты для выбранных приложений. Сервис не читает сообщения, пароли, вводимый текст или содержимое экрана. Его можно отключить в любой момент в настройках специальных возможностей Android.</string>
+  <string name="focusup_accessibility_description">С вашего разрешения Vaqtim определяет, какое приложение открыто, чтобы показать экран защиты для выбранных приложений. В Instagram и YouTube он также находит экраны Reels и Shorts по идентификаторам элементов экрана и возвращает назад, когда они открываются, — остальная часть приложения работает. Сервис не читает сообщения, пароли, вводимый текст, изображения и другое содержимое экрана, и ничего не покидает телефон. Сервис можно отключить в любой момент в настройках специальных возможностей Android.</string>
   <string name="focusup_quick_description">Открывайте чистые Instagram, YouTube и TikTok в Vaqtim.</string>
   <string name="focusup_quick_instagram">Открыть Instagram в Vaqtim</string>
   <string name="focusup_quick_youtube">Открыть YouTube в Vaqtim</string>

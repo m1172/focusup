@@ -5,8 +5,10 @@ import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import type { SocialAppId } from '../../types/app';
 import { track } from '../analytics/localAnalytics';
-import { activeRoutines, blockedWebsites, breaksLeft, buildNativePlan, createTemporaryAccess, localDayKey, shortVideoBlockedApps } from './engine';
+import { activeRoutines, blockedWebsites, breaksLeft, buildNativePlan, createTemporaryAccess, localDayKey, POST_MODE_MINUTES, postsLeft, shortVideoBlockedApps } from './engine';
 import { protectionBridge } from './nativeBridge';
+import { ANDROID_FEED_SCREENS, feedOnlyApps } from './androidFeeds';
+import i18n from '../../i18n';
 import { scheduleWellbeingNotifications } from '../notifications/wellbeingNotifications';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
 import { canUseFeature } from '../subscription/subscriptionService';
@@ -21,7 +23,8 @@ let queue: Promise<void> = Promise.resolve();
 export function reconcileProtection(requireNative = false): Promise<boolean> {
   const operation = queue.then(async () => {
     const app = useAppStore.getState(), wellbeing = useWellbeingStore.getState();
-    if (PRO_ENABLED && wellbeing.temporary && wellbeing.temporary.endsAt <= Date.now()) {
+    // Breaks (Pro) and Post mode (free) both end here once their time is up.
+    if (wellbeing.temporary && wellbeing.temporary.endsAt <= Date.now()) {
       const ended = wellbeing.temporary;
       wellbeing.setTemporary(null);
       void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_completed', platform: ended.platform, durationMs: ended.endsAt - ended.startedAt, timestamp: ended.endsAt, eventId: ended.id + ':completed' });
@@ -32,6 +35,10 @@ export function reconcileProtection(requireNative = false): Promise<boolean> {
     plan.locale = app.selectedLanguage;
     plan.liveActivity = PRO_ENABLED && latest.liveActivity;
     plan.utcOffsetMinutes = new Date().getTimezoneOffset();
+    // Android works like the real app with Reels/Shorts taken out; schedules, sleep, limits and Hard Mode still block the whole app.
+    plan.feedsOnly = feedOnlyApps(plan.baseline, Platform.OS === 'android');
+    plan.feedScreens = Platform.OS === 'android' ? ANDROID_FEED_SCREENS : {};
+    plan.feedNotice = plan.feedsOnly.length ? i18n.t('androidHealth.feedNotice') : '';
     const json = JSON.stringify(plan);
     const status = await protectionBridge.getStatus();
     useProtectionStatusStore.getState().setStatus(status);
@@ -72,6 +79,27 @@ export async function startTemporaryAccess(platform: SocialAppId, minutes: numbe
   catch { useWellbeingStore.getState().setTemporary(previous); throw new Error('nativeUnavailable'); }
   if (hardMode) useWellbeingStore.getState().recordBreak(localDayKey());
   void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_started', platform, durationMs: minutes * 60_000, timestamp: access.startedAt });
+  if (previous) recordCompletion(previous);
+}
+/**
+ * Post mode (free): opens the real app for POST_MODE_MINUTES so the person can post, a few times a day.
+ * Not on supervised phones, not in Hard Mode, and not while a strict routine covers the app.
+ */
+export async function startPostMode(platform: SocialAppId): Promise<void> {
+  const app = useAppStore.getState(), wellbeing = useWellbeingStore.getState();
+  if (isFamilyDevice()) throw new Error('supervised');
+  if (postsLeft(wellbeing.posts) === 0) throw new Error('noPostsLeft');
+  const hardMode = Boolean(app.strictSession && app.strictSession.endsAt > Date.now() && (app.strictSession.protectedPlatforms ?? app.strictSession.appIds).includes(platform));
+  if (hardMode || activeRoutines(app.schedules).some((routine) => routine.strict && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) throw new Error('strictActive');
+  const status = await protectionBridge.getStatus();
+  if (!status.supported || !status.authorized) throw new Error('nativeUnavailable');
+  const access = createTemporaryAccess(platform, POST_MODE_MINUTES, Platform.OS === 'ios' ? 5 : 1, Date.now(), 'post');
+  const previous = wellbeing.temporary;
+  wellbeing.setTemporary(access);
+  try { lastPlan = ''; await reconcileProtection(true); }
+  catch { useWellbeingStore.getState().setTemporary(previous); throw new Error('nativeUnavailable'); }
+  useWellbeingStore.getState().recordPost(localDayKey());
+  void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_started', platform, durationMs: POST_MODE_MINUTES * 60_000, timestamp: access.startedAt });
   if (previous) recordCompletion(previous);
 }
 function recordCompletion(access: NonNullable<ReturnType<typeof useWellbeingStore.getState>['temporary']>) {
