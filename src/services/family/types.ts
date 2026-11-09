@@ -13,7 +13,12 @@ export type FamilyChild = {
   policy: FamilyPolicyRecord;
   device: { platform: 'ios' | 'android'; enrolledAt: string; lastSeenAt: string | null; appliedRevision: number | null; report: FamilyDeviceReport | null } | null;
   pairing: { expiresAt: string; claimed: boolean; platform: 'ios' | 'android' | null } | null;
+  /** Foreground time in the clean browsers for the last 7 days, as last reported by the phone. Missing days were never reported. */
+  usage?: FamilyUsageRow[];
 };
+export type FamilyUsageRow = { day: string; platform: 'instagram' | 'youtube' | 'tiktok'; foregroundMs: number; updatedAt: string };
+/** Totals per local day and app; never URLs, searches or accounts. */
+export type FamilyUsageReport = { sequence: number; days: { day: string; apps: Partial<Record<'instagram' | 'youtube' | 'tiktok', number>> }[] };
 export type FamilyOverview = {
   enrollmentOpen: boolean;
   countries: string[];
@@ -26,6 +31,7 @@ export type FamilyDeviceSyncRequest = {
   appliedRevision: number | null;
   report: FamilyDeviceReport | null;
   pushToken: string | null;
+  usage?: FamilyUsageReport | null;
 };
 export type FamilyDeviceSync =
   | { state: 'pending'; childNickname: string }

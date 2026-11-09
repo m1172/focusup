@@ -1,6 +1,6 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { endSession, resetSessionTrackerForTests, restoreInterruptedSession, startSession } from '../sessionTracker';
+import { endSession, getUnsavedActiveMs, resetSessionTrackerForTests, restoreInterruptedSession, startSession } from '../sessionTracker';
 import { track } from '../localAnalytics';
 import type { FocusUpAnalyticsEvent } from '../types';
 
@@ -28,6 +28,20 @@ describe('foreground-only Clean Mode session tracking', () => {
     resetSessionTrackerForTests();
     jest.restoreAllMocks();
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: savedState });
+  });
+
+  it('reports the open session for daily limits, clipped to the day and to its platform', async () => {
+    clock = new Date(2025, 0, 1, 23, 50).getTime();
+    await startSession('instagram');
+    clock += 20 * 60_000;
+    const midnight = new Date(2025, 0, 2).getTime();
+    expect(getUnsavedActiveMs('instagram', midnight, clock)).toBe(10 * 60_000);
+    expect(getUnsavedActiveMs('instagram', 0, clock)).toBe(20 * 60_000);
+    expect(getUnsavedActiveMs('youtube', 0, clock)).toBe(0);
+    callback?.('background');
+    await new Promise((resolve) => setImmediate(resolve));
+    // Saved as a pause event, so it now lives in the daily totals instead.
+    expect(getUnsavedActiveMs('instagram', 0, clock + 60_000)).toBe(0);
   });
 
   it('pauses on background, excludes background time, and resumes in the foreground', async () => {

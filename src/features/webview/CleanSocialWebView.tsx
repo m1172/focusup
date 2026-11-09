@@ -8,10 +8,10 @@ import { captureProductEvent } from '../../services/analytics/productAnalytics';
 import { useTranslation } from 'react-i18next';
 import type { SocialAppId } from '../../types/app';
 import type { SocialWebViewConfig, SocialWebViewEvent, TikTokBlockerConfig, YouTubeBlockerConfig } from '../../types/social';
-import { isBlockedInstagramNavigation, isInstagramAuthenticationUrl } from '../../services/blockers/instagram';
+import { instagramBlockedPage, instagramStartUrl, isInstagramAuthenticationUrl } from '../../services/blockers/instagram';
 import { generateInstagramBlockingScript } from '../../services/blockers/instagram/index';
 import { generateBlockingScript } from '../../services/blockers';
-import { createYouTubeBlockingScript, isBlockedYouTubeNavigation, YOUTUBE_BASE_URL } from '../../services/blockers/youtube';
+import { createYouTubeBlockingScript, isBlockedYouTubeNavigation, youtubeBlockedPage, YOUTUBE_BASE_URL } from '../../services/blockers/youtube';
 import { createTikTokBlockingScript, isBlockedTikTokNavigation, tiktokFeedFeature, TIKTOK_BASE_URL } from '../../services/blockers/tiktok';
 import { parseSocialWebViewEvent } from '../../services/social-browser/messages';
 import { classifySocialBrowserNavigation, isSameDocumentLocation, normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
@@ -102,12 +102,16 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   const [pageBackground, setPageBackground] = useState(c.background);
   const [isStory, setIsStory] = useState(false);
   const site = platformSites[platform];
+  // Messages-only mode opens Instagram on the inbox, and blocked pages return there.
+  const homeUrl = platform === 'instagram' && enabled ? instagramStartUrl(blockerConfig) : site?.url;
+  const instagramBlocked = (url: string) => platform === 'instagram' && enabled && !isInstagramAuthenticationUrl(url) ? instagramBlockedPage(url, blockerConfig) : null;
   const [initialRequest] = useState(() => {
-    const url = normalizeSocialBrowserLink(platform, initialUrl ?? '') ?? site?.url;
-    const reelsBlocked = platform === 'instagram' && enabled && isBlockedInstagramNavigation(url ?? '', { reels: blockerConfig.reels });
+    const url = normalizeSocialBrowserLink(platform, initialUrl ?? '') ?? homeUrl;
+    const instagramPage = instagramBlocked(url ?? '');
+    const reelsBlocked = Boolean(instagramPage);
     const shortsBlocked = platform === 'youtube' && enabled && isBlockedYouTubeNavigation(url ?? '', blockerConfig as Partial<YouTubeBlockerConfig>);
     const tiktokBlocked = platform === 'tiktok' && enabled && isBlockedTikTokNavigation(url ?? '', blockerConfig as Partial<TikTokBlockerConfig>) ? tiktokFeedFeature(url ?? '') : null;
-    return { url: reelsBlocked || shortsBlocked || tiktokBlocked ? site?.url : url, reelsBlocked, shortsBlocked, tiktokBlocked };
+    return { url: reelsBlocked || shortsBlocked || tiktokBlocked ? homeUrl : url, reelsBlocked, instagramPage, shortsBlocked, tiktokBlocked };
   });
   const source = useMemo(() => ({ uri: initialRequest.url }), [initialRequest.url]);
   const initialBlockReported = useRef(false);
@@ -123,7 +127,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
   useEffect(() => {
     if (initialBlockReported.current) return;
     initialBlockReported.current = true;
-    if (initialRequest.reelsBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'instagram', feature: 'reels' });
+    if (initialRequest.instagramPage) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'instagram', feature: initialRequest.instagramPage });
     if (initialRequest.shortsBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'youtube', feature: 'shorts' });
     if (initialRequest.tiktokBlocked) onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'tiktok', feature: initialRequest.tiktokBlocked });
   }, [initialRequest, onEvent]);
@@ -169,8 +173,9 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
       if (!isTopFrame) return target === 'internal';
       const parsed = new URL(url);
       const remoteBlocked = site && allowedHost(parsed.hostname, site.hosts) && remoteRule?.routes?.some((route) => parsed.pathname === route || parsed.pathname.startsWith(route.endsWith('/') ? route : route + '/'));
-      if (platform === 'youtube' && enabled && (isBlockedYouTubeNavigation(url, blockerConfig as Partial<YouTubeBlockerConfig>) || (blockerConfig.shorts && remoteBlocked))) {
-        onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'youtube', feature: 'shorts' });
+      const youtubePage = platform === 'youtube' && enabled ? youtubeBlockedPage(url, blockerConfig as Partial<YouTubeBlockerConfig>) ?? (blockerConfig.shorts && remoteBlocked ? 'shorts' : null) : null;
+      if (youtubePage) {
+        onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'youtube', feature: youtubePage });
         return false;
       }
       const tiktokFeature = platform === 'tiktok' && enabled && isBlockedTikTokNavigation(url, blockerConfig as Partial<TikTokBlockerConfig>) ? tiktokFeedFeature(url) : null;
@@ -179,8 +184,9 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
         return false;
       }
       const currentInstagramAuthPage = platform === 'instagram' && isInstagramAuthenticationUrl(currentDocumentUrl.current);
-      if (platform === 'instagram' && !currentInstagramAuthPage && enabled && isBlockedInstagramNavigation(url, { reels: blockerConfig.reels })) {
-        onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'instagram', feature: 'reels' });
+      const instagramPage = currentInstagramAuthPage ? null : instagramBlocked(url);
+      if (instagramPage) {
+        onEvent?.({ type: 'BLOCKED_NAVIGATION', platform: 'instagram', feature: instagramPage });
         return false;
       }
       if (target === 'internal') return true;
@@ -213,8 +219,8 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
       if (!hasLoadedSuccessfully.current || !site || !enabled || !url) return;
       const blocked = platform === 'youtube' ? isBlockedYouTubeNavigation(url, blockerConfig as Partial<YouTubeBlockerConfig>)
         : platform === 'tiktok' ? isBlockedTikTokNavigation(url, blockerConfig as Partial<TikTokBlockerConfig>)
-        : platform === 'instagram' && !isInstagramAuthenticationUrl(url) && isBlockedInstagramNavigation(url, { reels: blockerConfig.reels });
-      if (blocked) webRef.current?.injectJavaScript(`window.location.replace(${JSON.stringify(site.url)}); true;`);
+        : Boolean(instagramBlocked(url));
+      if (blocked) webRef.current?.injectJavaScript(`window.location.replace(${JSON.stringify(homeUrl ?? site.url)}); true;`);
     },
   }));
 

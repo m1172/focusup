@@ -11,9 +11,11 @@ export async function scheduleWellbeingNotifications(plan: NativeProtectionPlan)
   try {
     const pending = await Notifications.getAllScheduledNotificationsAsync();
     await Promise.all(pending.filter((item) => item.identifier.startsWith(PREFIX)).map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)));
-    if (!PRO_ENABLED || !useAppStore.getState().completionNotifications || !(await Notifications.getPermissionsAsync()).granted) return;
+    // Routine reminders are opted into per routine (free); the Pro settings switch can still mute them all.
+    const muted = PRO_ENABLED && !useAppStore.getState().completionNotifications;
+    if (muted || !(await Notifications.getPermissionsAsync()).granted) return;
     const requests: { id: string; at: Date; title: string; body: string }[] = [];
-    if (plan.temporary && plan.temporary.endsAt > Date.now()) requests.push({ id: 'access', at: new Date(plan.temporary.endsAt), title: i18n.t('wellbeing.accessEnded'), body: i18n.t('wellbeing.protectionRestored') });
+    if (PRO_ENABLED && plan.temporary && plan.temporary.endsAt > Date.now()) requests.push({ id: 'access', at: new Date(plan.temporary.endsAt), title: i18n.t('wellbeing.accessEnded'), body: i18n.t('wellbeing.protectionRestored') });
     for (const routine of plan.routines.filter((item) => item.notify)) {
       for (let offset = 0; offset < 7; offset++) {
         const date = new Date(); date.setDate(date.getDate() + offset);

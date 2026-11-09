@@ -9,6 +9,7 @@ import { BackendError } from './client';
 import { captureSettingsBackup } from './settingsBackup';
 import { isCloudSettings } from './settingsValidation';
 import { applyCloudOnboarding } from './onboardingBackup';
+import { readExtensions } from './settingsExtensions';
 
 export function assertRestoreAllowed() {
   const app = useAppStore.getState();
@@ -32,8 +33,10 @@ export async function restoreCloudSettings(value: unknown): Promise<void> {
   }
   // Onboarding answers are applied separately below, never as app settings.
   const apply = (snapshot: typeof value) => {
-    useAppStore.setState(snapshot.preferences);
-    useWellbeingStore.setState(snapshot.wellbeing);
+    const extended = readExtensions(snapshot);
+    useAppStore.setState({ ...snapshot.preferences, apps: extended.apps });
+    // A backup without extensions (an older build) leaves grayscale and daily limits as they are on this phone.
+    useWellbeingStore.setState({ ...snapshot.wellbeing, ...(extended.grayscale !== null ? { grayscale: extended.grayscale } : {}), ...(extended.dailyLimits !== null ? { dailyLimits: extended.dailyLimits } : {}) });
   };
   apply(next);
   try { await reconcileProtection(); }

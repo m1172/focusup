@@ -109,6 +109,7 @@ export default function SettingsScreen() {
     <View style={{ gap: 6 }}>
       <GroupLabel title={t('settingsPages.groupHelp')} />
       {group(<>
+        <SettingRow icon={<IconTile name="sparkles" tone="accent" />} title={t('features.title')} onPress={() => router.push('/capabilities')} />
         <SettingRow icon={<IconTile name="shield" tone="mint" />} title={t('ui.privacy')} onPress={() => router.push('/privacy')} last={!accountUser} />
         {accountUser ? <SettingRow icon={<IconTile name="comment" tone="blue" />} title={t('supportChat.rowTitle')} right={supportUnread ? <View accessible={false} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : undefined} chevron onPress={() => router.push('/support')} last /> : null}
       </>)}

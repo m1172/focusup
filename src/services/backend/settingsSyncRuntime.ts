@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveCompatible } from './settingsExtensions';
 import { AppState } from 'react-native';
 import { useAccountStore } from '../../store/accountStore';
 import { useAppStore } from '../../store/appStore';
@@ -18,7 +19,7 @@ export function startSettingsSync(): () => void {
   if (!isBackendConfigured()) return () => undefined;
   const sync = new SettingsSync({
     getSettings: () => accountApi().getSettings(),
-    saveSettings: (revision, payload) => accountApi().saveSettings(revision, payload),
+    saveSettings: (revision, payload) => saveCompatible((next, body) => accountApi().saveSettings(next, body), revision, payload),
     capture: captureSettingsBackup,
     restore: restoreCloudSettings,
     load: async (userId) => {

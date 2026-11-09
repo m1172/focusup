@@ -33,3 +33,11 @@ export const WEBSITE_BLOCKING: boolean = false;
  * docs/family.md are done.
  */
 export const FAMILY_ENABLED: boolean = false;
+
+/**
+ * Home Screen quick-launch widgets (iOS WidgetKit, Android App Widgets), added by `plugins/withQuickLaunchWidget.js`.
+ * They need a new store build, so this stays false until a build with the widget is on the stores and tested on
+ * real phones; while false the features page lists widgets as not available. Turning the plugin off in app.json
+ * and this switch go together, with new `ios.runtimeVersion` and `android.runtimeVersion` values.
+ */
+export const WIDGETS_ENABLED: boolean = false;

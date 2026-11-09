@@ -12,7 +12,8 @@ Vaqtim (repo and slug `focusup`) is a free iPhone and Android app that helps peo
 
 - **Clean social apps inside Vaqtim.** Instagram, YouTube and TikTok open in Vaqtim's own browser (a WebView) with the short-video feeds hidden: Reels, Shorts and TikTok's For You. Messages, profiles, search and single shared videos keep working.
 - **The real app gets blocked.** When you add an app on the Protect tab, Vaqtim blocks the real app on the phone: Screen Time (Family Controls) on iOS, an Accessibility service on Android. Opening the real app sends the user to Vaqtim instead.
-- **Extras:** Hard Mode (strict mode), breaks (temporary access), schedules, sleep mode, daily limits and statistics. Most extras are Pro and are hidden while Pro is off.
+- **Free extras:** Explore, recommendation and Home filters, Instagram Stories and messages-only mode, YouTube Explore/Trending, grayscale (inside Vaqtim), schedules, sleep mode and daily limits.
+- **Pro extras (hidden while Pro is off):** Hard Mode (strict mode), breaks (temporary access), blocking extra apps, advanced statistics and YouTube comment hiding.
 - **Languages:** Uzbek (default), Russian and English, everywhere: app, store listings and website.
 
 | Item | Value |
@@ -54,6 +55,9 @@ These come straight from the project owner. Following them matters more than fin
 15. **Page scripts are untrusted.** Anything a WebView page sends (`ReactNativeWebView.postMessage`) must pass the strict checks in `src/services/social-browser/messages.ts` before the app acts on it.
 16. **Only Instagram cookies are touched.** The account switcher reads and writes cookies for `instagram.com` only, through the native functions `getSiteCookies`, `setSiteCookies` and `clearSiteData`. Saved sign-ins live in SecureStore, split into pieces of 1800 characters or less.
 17. **Vaqtim Family rules only add restrictions.** On a supervised child's phone nothing the child does (settings, a restored personal backup, clearing data, signing in, breaks) may weaken the parent's rules, and the phone sends no analytics. Family rules never go into the personal settings backup. See `docs/family.md`.
+18. **Free means free everywhere.** A feature marked `'free'` in `FEATURE_ACCESS` must also work in the native plan (`buildNativePlan`), the browser (`getEffectiveAppConfig`), its screen's route guard (`src/app/_layout.tsx`) and its notifications. Never show Pro wording ("Pro settings", Pro badges) on a free control.
+19. **New backed-up settings go in `extensions`.** The backup format the live server and older builds know is fixed; grayscale, daily limits and filters added since (`EXTENSION_FILTERS`) live in `payload.extensions` (`src/services/backend/settingsExtensions.ts`, `backend/src/settingsCompat.ts`). Builds send `X-Vaqtim-Settings: 2`; older builds never see extensions, and their saves keep them. If the server rejects extensions (not deployed yet), the app saves without them.
+20. **The "Vaqtim features" page tells the truth.** `src/services/capabilities/features.ts` lists every feature as available, experimental or not available. Change it together with the feature, and keep `docs/product-capabilities.md` in step.
 
 ---
 
@@ -67,7 +71,8 @@ Some features are switched on or off in code. Change a switch and its partner to
 | `IOS_APP_BLOCKING` | `src/config/release.ts` | `true` | `familyControls` in the `withFocusUpProtection` plugin options in `app.json`; give `ios.runtimeVersion` a new value |
 | `ANDROID_APP_BLOCKING` | `src/config/release.ts` | `true` | `enabled` in the `withAndroidAccessibility` plugin options in `app.json`; give `android.runtimeVersion` a new value; Google Play needs an Accessibility declaration and a video |
 | `WEBSITE_BLOCKING` | `src/config/release.ts` | `false` | iOS applies the web filter to every web view, including Vaqtim's own, which showed "Website Not Allowed" |
-| `FAMILY_ENABLED` | `src/config/release.ts` | `false` | Server secret `FAMILY_ENROLLMENT_ENABLED` (default `false`) and `FAMILY_COUNTRIES` (`UZ`); the launch checks in `docs/family.md` |
+| `FAMILY_ENABLED` | `src/config/release.ts` | `false` | Server secret `FAMILY_ENROLLMENT_ENABLED` (default `false`) and `FAMILY_COUNTRIES` (`UZ`); `enabled` in the `withMonitoringTool` plugin options in `app.json` (Play's `isMonitoringTool`); the launch checks in `docs/family.md` |
+| `WIDGETS_ENABLED` | `src/config/release.ts` | `false` | `quickLaunchWidget` in the `withFocusUpProtection` options and `enabled` in the `withQuickLaunchWidget` options in `app.json`; new `ios.runtimeVersion` and `android.runtimeVersion` values |
 
 iOS and Android follow the same Protect rule (rule 10): adding an app first asks for access to block the real app (Screen Time on iOS, the Accessibility service on Android). If either switch is turned off, that platform reports that it can't block apps, and its users can't add apps on the Protect tab.
 
@@ -148,7 +153,7 @@ Store builds are made **locally** (Xcode and Gradle), not with EAS Build. The fu
   - `pod install` needs `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
   - Gradle can run out of memory. Use `-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"`.
 - After uploading an iOS build, it still has to be added to the TestFlight groups in App Store Connect.
-- **Server and app must agree on the settings format.** The live API is the Supabase Edge Function `focusup-api`, built from `backend/src/`. When you change `backend/src/schemas.ts` (or add a setting the app backs up), the server must be redeployed (`npx --yes supabase@2.121.0 functions deploy focusup-api --use-api --project-ref vrmfrhvzvjrktiosptdp`, after `npm run backend:check`), with the owner's OK (rule 5). Otherwise the server rejects every backup with `VALIDATION_ERROR`; this happened from 31 October to 3 November 2026.
+- **Server and app must agree on the settings format.** The live API is the Supabase Edge Function `focusup-api`, built from `backend/src/`. When you change `backend/src/schemas.ts` (or add a setting the app backs up), the server must be redeployed (`npx --yes supabase@2.121.0 functions deploy focusup-api --use-api --project-ref vrmfrhvzvjrktiosptdp`, after `npm run backend:check`), with the owner's OK (rule 5). Otherwise the server rejects every backup with `VALIDATION_ERROR`; this happened from 31 October to 3 November 2026. Since November 2026 the app falls back to saving without `extensions` when that happens (rule 19), but the old fields must never gain new keys.
 
 ### Testing limits
 - The iOS simulator has **no Screen Time**. It reports blocking as unavailable, so the Protect tab can't add apps there. Test Screen Time, Apple's app list and shields on a real iPhone.

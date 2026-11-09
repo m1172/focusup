@@ -5,12 +5,13 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, Vie
 import { Ionicons } from '@expo/vector-icons';
 import { Icon, type IconName } from '../components/Icon';
 import { useTranslation } from 'react-i18next';
-import { ActionButton, BackButton, Card, EmptyState, Heading, IconTile, Screen, Toggle, type TileTone } from '../components/ui';
+import { ActionButton, BackButton, Card, EmptyState, Heading, IconTile, Screen, SettingRow, Toggle, type TileTone } from '../components/ui';
 import { useAppStore } from '../store/appStore';
 import { useAppTheme } from '../theme';
 import type { FocusSchedule, SocialAppId } from '../types/app';
 import { useSubscription } from '../hooks/useSubscription';
 import { canUseFeature } from '../services/subscription/subscriptionService';
+import { isFilterAdjustable } from '../services/blockers/effective';
 import { AppIcon } from '../components/AppIcon';
 import { PlatformPicker } from '../components/PlatformPicker';
 import { appCatalog } from '../features/apps/catalog';
@@ -22,10 +23,17 @@ const days = ['sun','mon','tue','wed','thu','fri','sat'];
 const presets = ['work','sleep','study'];
 const validTime = (value: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
 
+/** Text keys for filter names that aren't their own translation key. */
+/** Not offered per routine: sponsored filters (experimental) and Stories/messages-only (app-wide modes). */
+const ROUTINE_HIDDEN_FILTERS = ['sponsoredPosts', 'sponsoredContent', 'stories', 'messagesOnly'];
+const ROUTINE_FILTER_LABELS: Record<string, string> = { homeFeed: 'wellbeing.feed', forYou: 'ui.forYou', following: 'ui.following' };
+
 export default function ScheduleScreen() {
   const { t } = useTranslation();
   const c = useAppTheme();
   const isPro = useSubscription().isPro;
+  // Hard Mode is Pro; without it a routine is always the standard level.
+  const strictAvailable = canUseFeature(isPro, 'strictMode');
   const schedules = useAppStore((state) => state.schedules);
   const saveSchedule = useAppStore((state) => state.saveSchedule);
   const remove = useAppStore((state) => state.deleteSchedule);
@@ -61,7 +69,7 @@ export default function ScheduleScreen() {
     if (!name.trim() || !validTime(start) || !validTime(end) || start === end || weekdays.length === 0 || appIds.length === 0) { Alert.alert(t('schedules'), t('validationSchedule')); return; }
     if (!editing && schedules.length >= 15) { Alert.alert(t('schedules'), t('wellbeing.routineLimit')); return; }
     if ((parseClock(end) - parseClock(start) + 1440) % 1440 < 15) { Alert.alert(t('schedules'), t('wellbeing.nativeMinimum')); return; }
-    saveSchedule({ allowedApps, strict: routineStrict, notify, filters: Object.fromEntries(appIds.map((id) => [id, routineFilters?.[id] ?? { ...useAppStore.getState().apps[id].filters }])), id: editing?.id ?? `schedule-${Date.now()}`, name: name.trim(), start, end, weekdays: [...weekdays].sort(), apps: appIds, enabled: editing?.enabled ?? true });
+    saveSchedule({ allowedApps, strict: routineStrict && strictAvailable, notify, filters: Object.fromEntries(appIds.map((id) => [id, routineFilters?.[id] ?? { ...useAppStore.getState().apps[id].filters }])), id: editing?.id ?? `schedule-${Date.now()}`, name: name.trim(), start, end, weekdays: [...weekdays].sort(), apps: appIds, enabled: editing?.enabled ?? true });
     setEditorOpen(false); setEditing(null);
   };
   const scheduleTile = (item: FocusSchedule): { icon: IconName; tone: TileTone } => {
@@ -140,15 +148,27 @@ export default function ScheduleScreen() {
         <Text style={{ color: c.muted, fontSize: 12, fontWeight: '700' }}>{t('apps')}</Text>
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAppPicker }} onPress={() => setShowAppPicker(!showAppPicker)}><Card style={{ flexDirection: 'row', alignItems: 'center', minHeight: 72, gap: 10 }}><View style={{ flexDirection: 'row', gap: 6, flex: 1 }}>{appIds.map((id) => <AppIcon key={id} appId={id} size={32} />)}</View><Ionicons name={showAppPicker ? 'chevron-up' : 'chevron-forward'} size={20} color={c.faint} /></Card></Pressable>
         {showAppPicker ? <Card><PlatformPicker value={appIds} onChange={setAppIds} /></Card> : null}
-        <Text style={{ color: c.muted, fontSize: 12, fontWeight: '700' }}>{t('design.routineLevel')}</Text>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: advanced }} onPress={() => setAdvanced(!advanced)}><Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 }}><Ionicons name="shield-checkmark-outline" size={22} color={c.primary} /><Text style={{ flex: 1, color: c.text, fontSize: 14 }}>{t(routineStrict ? 'strict' : 'design.standardProtection')}</Text><Ionicons name={advanced ? 'chevron-up' : 'chevron-forward'} size={20} color={c.faint} /></Card></Pressable>
-        {advanced ? <View style={{ gap: 14 }}>
-        <Heading title={t('wellbeing.allowedApps')} subtitle={t('wellbeing.allowedHint')} /><PlatformPicker value={allowedApps} onChange={setAllowedApps} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Text style={{ flex: 1, color: c.text }}>{t('wellbeing.routineStrict')}</Text><Toggle label={t('wellbeing.routineStrict')} value={routineStrict} onChange={setRoutineStrict} /></View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Text style={{ flex: 1, color: c.text }}>{t('wellbeing.routineNotify')}</Text><Toggle label={t('wellbeing.routineNotify')} value={notify} onChange={(enabled) => { if (!enabled) setNotify(false); else void requestWellbeingReminders().then(setNotify); }} /></View>
-        {appIds.filter((id) => appCatalog[id].supported).map((id) => <Card key={id}><Text style={{ color: c.text, fontWeight: '700' }}>{appCatalog[id].name}</Text>{appCatalog[id].filters.filter((key) => !['sponsoredPosts', 'sponsoredContent'].includes(key)).map((key) => <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Text style={{ flex: 1, color: c.text }}>{t(key === 'homeFeed' ? 'wellbeing.feed' : key)}</Text><Toggle label={key} value={routineFilters?.[id]?.[key] ?? useAppStore.getState().apps[id].filters[key] ?? false} onChange={(value) => setRoutineFilters((current) => ({ ...current, [id]: { ...(current?.[id] ?? useAppStore.getState().apps[id].filters), [key]: value } }))} /></View>)}</Card>)}
+        <Text style={{ color: c.muted, fontSize: 12, lineHeight: 18 }}>{t('features.scheduleHint')}</Text>
+        {/* Without Hard Mode there is no protection level to pick, so this is just "More options". */}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: advanced }} onPress={() => setAdvanced(!advanced)}><Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54 }}><Ionicons name={strictAvailable ? 'shield-checkmark-outline' : 'options-outline'} size={22} color={c.primary} /><Text style={{ flex: 1, color: c.text, fontSize: 15, fontWeight: '600' }}>{strictAvailable ? t(routineStrict ? 'strict' : 'design.standardProtection') : t('features.moreOptions')}</Text><Ionicons name={advanced ? 'chevron-up' : 'chevron-forward'} size={20} color={c.faint} /></Card></Pressable>
+        {advanced ? <View style={{ gap: 12 }}>
+        <Card style={{ gap: 0, paddingVertical: 4 }}>
+          {strictAvailable ? <SettingRow title={t('wellbeing.routineStrict')} right={<Toggle label={t('wellbeing.routineStrict')} value={routineStrict} onChange={setRoutineStrict} />} /> : null}
+          <SettingRow last title={t('wellbeing.routineNotify')} right={<Toggle label={t('wellbeing.routineNotify')} value={notify} onChange={(enabled) => { if (!enabled) setNotify(false); else void requestWellbeingReminders().then(setNotify); }} />} />
+        </Card>
+        {/* "Allowed apps" (exceptions inside a category) only matters with Hard Mode's category blocking. */}
+        {strictAvailable ? <><Text style={{ color: c.muted, fontSize: 12, fontWeight: '700' }}>{t('wellbeing.allowedApps')}</Text><Text style={{ color: c.text2, fontSize: 13, lineHeight: 18 }}>{t('wellbeing.allowedHint')}</Text><Card><PlatformPicker value={allowedApps} onChange={setAllowedApps} /></Card></> : null}
+        {appIds.filter((id) => appCatalog[id].supported).map((id) => {
+          const keys = appCatalog[id].filters.filter((key) => !ROUTINE_HIDDEN_FILTERS.includes(key) && isFilterAdjustable(id, key, isPro));
+          if (!keys.length) return null;
+          return <View key={id} style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AppIcon appId={id} size={20} /><Text style={{ color: c.muted, fontSize: 12, fontWeight: '700' }}>{`${appCatalog[id].name} · ${t('features.hideDuring')}`}</Text></View>
+            <Card style={{ gap: 0, paddingVertical: 4 }}>
+              {keys.map((key, index) => <SettingRow key={key} last={index === keys.length - 1} title={t(ROUTINE_FILTER_LABELS[key] ?? key)} right={<Toggle label={t(ROUTINE_FILTER_LABELS[key] ?? key)} value={routineFilters?.[id]?.[key] ?? useAppStore.getState().apps[id].filters[key] ?? false} onChange={(value) => setRoutineFilters((current) => ({ ...current, [id]: { ...(current?.[id] ?? useAppStore.getState().apps[id].filters), [key]: value } }))} />} />)}
+            </Card>
+          </View>;
+        })}
         </View> : null}
-        <Text style={{ color: c.muted, fontSize: 12, lineHeight: 18 }}>{t('wellbeing.nativeHint')}</Text>
         {editing && !editing.id.startsWith('starter-') ? <ActionButton variant="destructive" title={t('delete')} onPress={() => confirmDelete(editing)} /> : null}
       </Screen></KeyboardAvoidingView>
     </Modal>

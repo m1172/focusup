@@ -106,7 +106,8 @@ describe('local calendar dates and analytics aggregation', () => {
   });
   it('aggregates access windows independently of social-browser usage and deduplicates completion retries', async () => {
     await AsyncStorage.clear(); resetAnalyticsCacheForTests();
-    const timestamp = Date.now();
+    // Noon today, so the 5-minute window never crosses midnight.
+    const timestamp = new Date(new Date().setHours(12, 0, 0, 0)).getTime();
     const event = { type: 'PROTECTION_EVENT' as const, event: 'temporary_access_completed' as const, platform: 'instagram' as const, durationMs: 5 * 60_000, timestamp, eventId: 'test-window:completed' };
     await appendAnalyticsEvent(event); await appendAnalyticsEvent(event);
     const period = getDailyStatistics((await getAnalyticsStorage()).daily, new Date(timestamp));
@@ -140,8 +141,8 @@ describe('analytics event retention', () => {
   });
 
   it('prunes daily aggregates older than the retention window', async () => {
-    const now = Date.now();
-    const oldStart = now - 401 * 86_400_000;
+    // Count calendar days, not 24-hour blocks, so a daylight-saving change can't land the session on the cutoff day.
+    const oldStart = addLocalDays(new Date(), -401).getTime() + 12 * 3_600_000;
     await appendAnalyticsEvent({
       type: 'SESSION_ENDED', platform: 'instagram', timestamp: oldStart + 10_000, startedAt: oldStart,
       durationMs: 120_000, meaningful: true, countSession: true, segments: [{ start: oldStart, end: oldStart + 120_000 }],

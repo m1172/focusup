@@ -21,6 +21,14 @@ export type CloudSettings = {
    * before 3 November 2026.
    */
   onboarding?: CloudOnboarding;
+  /** Newer free settings (settingsExtensions.ts). Missing in backups from builds before November 2026. */
+  extensions?: CloudSettingsExtensions;
+};
+export type CloudSettingsExtensions = {
+  version: 1;
+  grayscale?: boolean;
+  dailyLimits?: Partial<Record<SocialAppId, number>>;
+  filters?: Partial<Record<SocialAppId, Partial<Record<'stories' | 'messagesOnly', boolean>>>>;
 };
 export type CloudOnboarding = { completed: boolean; usualMinutes: number; cut: number };
 export type CloudBackup = { revision: number; payload: CloudSettings | null; updatedAt: string | null };

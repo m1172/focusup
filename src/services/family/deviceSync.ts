@@ -12,19 +12,26 @@ import { isRemoteFeatureEnabled } from '../../store/remoteBlockerConfigStore';
 import { currentSupervisionRules, useFamilyStore, type FamilyNotice } from '../../store/familyStore';
 import { BROWSER_APPS, isBirthDate, isFamilyPolicy } from './policy';
 import { familyRequiredApps, MANDATORY_FILTERS } from './resolver';
-import type { FamilyDeviceReport, FamilyDeviceSync } from './types';
+import type { FamilyDeviceReport, FamilyDeviceSync, FamilyUsageReport } from './types';
+import { getLocalAnalytics } from '../analytics/localAnalytics';
+import { getUnsavedActiveMs } from '../analytics/sessionTracker';
+import { addLocalDays, getLocalDateKey } from '../../utils/date';
 
 /**
  * The supervised phone's side of Vaqtim Family. It checks in on launch, on returning to the
  * foreground, every 30 seconds while open, and when a "family-refresh" push arrives. The OS does
  * not guarantee background delivery, so saved rules keep working offline and changes wait until
- * the next check-in. Only permission and blocking state is reported, never browsing data.
+ * the next check-in. It reports permission and blocking state, and daily minutes in Vaqtim's clean
+ * browsers (at most once a minute). Never URLs, searches, accounts, messages or other apps.
  */
 
 const secret = secretStorage('focusup.family.device.v1');
 const endpoint = process.env.EXPO_PUBLIC_API_URL?.trim() ?? '';
 export const FAMILY_REFRESH_KIND = 'family-refresh';
 const SYNC_INTERVAL_MS = 30_000;
+/** Usage goes up at most once a minute while the app is open, and when it goes to the background. */
+export const USAGE_REPORT_MS = 60_000;
+const DAY_MS = 86_400_000;
 
 function deviceApi(deviceSecret: string | null) {
   return createBackendClient({ baseUrl: endpoint, allowInsecureHttp: __DEV__, getAuthorization: () => deviceSecret ? `Device ${deviceSecret}` : null });
@@ -66,6 +73,39 @@ function timezone(): string {
 }
 
 let lastApplyFailed = false;
+
+/** Today and the 6 days before it: foreground time per clean browser, including the session that is still open. */
+export async function buildFamilyUsage(now = new Date()): Promise<FamilyUsageReport['days']> {
+  const storage = await getLocalAnalytics();
+  const days: FamilyUsageReport['days'] = [];
+  for (let offset = 0; offset < 7; offset++) {
+    const start = addLocalDays(now, -offset);
+    const end = offset === 0 ? now : addLocalDays(now, -offset + 1);
+    const key = getLocalDateKey(start);
+    const apps: FamilyUsageReport['days'][number]['apps'] = {};
+    for (const app of BROWSER_APPS) {
+      const saved = storage.daily[key]?.platforms[app]?.durationMs ?? 0;
+      apps[app] = Math.min(DAY_MS, Math.max(0, Math.round(saved + getUnsavedActiveMs(app, start.getTime(), end.getTime()))));
+    }
+    days.push({ day: key, apps });
+  }
+  return days;
+}
+
+let lastUsageAt = 0;
+let usageDue = false;
+/** Send usage with the next check-in even if a minute hasn't passed (the app is going to the background). */
+export function reportUsageSoon() { usageDue = true; }
+
+async function usageForSync(): Promise<FamilyUsageReport | null> {
+  if (useFamilyStore.getState().role !== 'child') return null;
+  if (!usageDue && Date.now() - lastUsageAt < USAGE_REPORT_MS) return null;
+  try {
+    const days = await buildFamilyUsage();
+    lastUsageAt = Date.now(); usageDue = false;
+    return { sequence: useFamilyStore.getState().nextUsageSequence(), days };
+  } catch { return null; }
+}
 
 /** What the parent sees about this phone: permission, which required apps are really blocked, and the timezone. */
 export async function buildFamilyReport(): Promise<FamilyDeviceReport | null> {
@@ -141,7 +181,14 @@ async function syncOnce() {
   }
   let response: FamilyDeviceSync;
   try {
-    response = await deviceApi(deviceSecret).syncFamilyDevice({ appliedRevision: store.appliedRevision, report: await buildFamilyReport(), pushToken: store.role === 'child' ? await pushToken() : null });
+    const usage = await usageForSync();
+    try {
+      response = await deviceApi(deviceSecret).syncFamilyDevice({ appliedRevision: store.appliedRevision, report: await buildFamilyReport(), pushToken: store.role === 'child' ? await pushToken() : null, ...(usage ? { usage } : {}) });
+    } catch (error) {
+      // Send the usage again next time; totals with a new sequence number can't count twice.
+      if (usage) usageDue = true;
+      throw error;
+    }
   } catch {
     // Offline or a server problem: keep enforcing the saved rules and try again on the next check-in.
     return;
@@ -180,7 +227,10 @@ export function startFamilySync(): () => void {
   const startTimer = () => { if (!timer) timer = setInterval(tick, SYNC_INTERVAL_MS); };
   const stopTimer = () => { if (timer) clearInterval(timer); timer = undefined; };
   const appState = AppState.addEventListener('change', (state) => {
-    if (state === 'active') { tick(); startTimer(); } else stopTimer();
+    if (state === 'active') { tick(); startTimer(); return; }
+    stopTimer();
+    // The session just paused: send its final minutes now rather than on the next open.
+    if (useFamilyStore.getState().role === 'child') { reportUsageSoon(); tick(); }
   });
   const notification = Notifications.addNotificationReceivedListener((event) => { if (event.request.content.data?.kind === FAMILY_REFRESH_KIND) tick(); });
   const hydration = useFamilyStore.persist.onFinishHydration(tick);

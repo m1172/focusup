@@ -7,11 +7,14 @@ import { ALL_PLATFORMS } from '../protection/engine';
  */
 export type FamilyDowntime = { id: string; name: string; start: string; end: string; weekdays: number[]; apps: SocialAppId[] };
 export type FamilyBrowsers = {
-  instagram?: { enabled: boolean; followingFocus: boolean; hideSponsored: boolean };
-  youtube?: { enabled: boolean; subscriptionsFocus: boolean; hideSponsored: boolean; hideComments: boolean };
+  instagram?: { enabled: boolean; followingFocus: boolean; hideSponsored: boolean; hideStories?: boolean; messagesOnly?: boolean };
+  youtube?: { enabled: boolean; subscriptionsFocus: boolean; hideSponsored: boolean; hideComments: boolean; hideExplore?: boolean };
   tiktok?: { enabled: boolean; followingFocus: boolean };
 };
-export type FamilyPolicy = { schemaVersion: 1; protectedApps: SocialAppId[]; browsers: FamilyBrowsers; downtime: FamilyDowntime[] };
+/** Minutes a day in each clean browser, across all its accounts. */
+export type FamilyLimits = Partial<Record<keyof FamilyBrowsers, number>>;
+export const FAMILY_LIMIT_MINUTES = { min: 5, max: 720 } as const;
+export type FamilyPolicy = { schemaVersion: 1; protectedApps: SocialAppId[]; browsers: FamilyBrowsers; downtime: FamilyDowntime[]; limits?: FamilyLimits };
 export type BrowserApp = keyof FamilyBrowsers;
 export const BROWSER_APPS: BrowserApp[] = ['instagram', 'youtube', 'tiktok'];
 
@@ -23,14 +26,19 @@ const clock = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).every((key) => keys.includes(key)) && keys.every((key) => key in value);
 const apps = (value: unknown, max = 8): value is SocialAppId[] => Array.isArray(value) && value.length <= max && new Set(value).size === value.length && value.every((app) => ALL_PLATFORMS.includes(app as SocialAppId));
-const booleans = (value: unknown, keys: string[]) => object(value) && exactKeys(value, keys) && keys.every((key) => typeof value[key] === 'boolean');
+/** `keys` must be there; `optional` may be. Nothing else is allowed. */
+const booleans = (value: unknown, keys: string[], optional: string[] = []) => object(value)
+  && Object.keys(value).every((key) => keys.includes(key) || optional.includes(key)) && keys.every((key) => key in value)
+  && Object.values(value).every((item) => typeof item === 'boolean');
 
 export function isFamilyPolicy(value: unknown): value is FamilyPolicy {
-  if (!object(value) || !exactKeys(value, ['schemaVersion', 'protectedApps', 'browsers', 'downtime']) || value.schemaVersion !== 1 || !apps(value.protectedApps)) return false;
+  if (!object(value) || !Object.keys(value).every((key) => ['schemaVersion', 'protectedApps', 'browsers', 'downtime', 'limits'].includes(key)) || !['schemaVersion', 'protectedApps', 'browsers', 'downtime'].every((key) => key in value)) return false;
+  if (value.schemaVersion !== 1 || !apps(value.protectedApps)) return false;
+  if (value.limits !== undefined && !(object(value.limits) && Object.entries(value.limits).every(([app, minutes]) => (BROWSER_APPS as string[]).includes(app) && Number.isInteger(minutes) && (minutes as number) >= FAMILY_LIMIT_MINUTES.min && (minutes as number) <= FAMILY_LIMIT_MINUTES.max))) return false;
   const browsers = value.browsers;
   if (!object(browsers) || !Object.keys(browsers).every((key) => (BROWSER_APPS as string[]).includes(key))) return false;
-  if (browsers.instagram !== undefined && !booleans(browsers.instagram, ['enabled', 'followingFocus', 'hideSponsored'])) return false;
-  if (browsers.youtube !== undefined && !booleans(browsers.youtube, ['enabled', 'subscriptionsFocus', 'hideSponsored', 'hideComments'])) return false;
+  if (browsers.instagram !== undefined && !booleans(browsers.instagram, ['enabled', 'followingFocus', 'hideSponsored'], ['hideStories', 'messagesOnly'])) return false;
+  if (browsers.youtube !== undefined && !booleans(browsers.youtube, ['enabled', 'subscriptionsFocus', 'hideSponsored', 'hideComments'], ['hideExplore'])) return false;
   if (browsers.tiktok !== undefined && !booleans(browsers.tiktok, ['enabled', 'followingFocus'])) return false;
   if (!Array.isArray(value.downtime) || value.downtime.length > 8) return false;
   const ids = new Set<string>();
@@ -67,6 +75,10 @@ export function ageBand(birthDate: string, now = new Date()): AgeBand {
 
 /** Turns the parent's form back into a valid policy; drops browsers for children under 13. */
 export function normalizePolicy(policy: FamilyPolicy, birthDate: string, now = new Date()): FamilyPolicy {
-  const browsers = ageBand(birthDate, now) === 'child' ? {} : policy.browsers;
-  return { schemaVersion: 1, protectedApps: [...new Set(policy.protectedApps)], browsers, downtime: policy.downtime.slice(0, 8) };
+  const under13 = ageBand(birthDate, now) === 'child';
+  const browsers = under13 ? {} : policy.browsers;
+  // Limits only matter for browsers the child can open.
+  const limits = Object.fromEntries(Object.entries(policy.limits ?? {}).filter(([app, minutes]) => !under13 && browsers[app as BrowserApp]?.enabled && typeof minutes === 'number')
+    .map(([app, minutes]) => [app, Math.min(FAMILY_LIMIT_MINUTES.max, Math.max(FAMILY_LIMIT_MINUTES.min, Math.round(minutes as number)))])) as FamilyLimits;
+  return { schemaVersion: 1, protectedApps: [...new Set(policy.protectedApps)], browsers, downtime: policy.downtime.slice(0, 8), ...(Object.keys(limits).length ? { limits } : {}) };
 }

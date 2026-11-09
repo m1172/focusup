@@ -1,5 +1,6 @@
 import Fastify, { LogController, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.js';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
@@ -31,7 +32,7 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
   });
   app.decorateRequest('identity', null);
   await app.register(helmet);
-  await app.register(cors, { origin: config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean), methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  await app.register(cors, { origin: config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean), methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['authorization', 'content-type', 'accept', SETTINGS_VERSION_HEADER] });
   // In-memory limiter is appropriate for one MVP instance. Use a shared store when scaling.
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
   app.addHook('onRequest', async (_request, reply) => { reply.header('Cache-Control', 'no-store'); });
@@ -129,10 +130,12 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
       return { id: user.id, email: user.email, profile: await gateway.getProfile(user) };
     });
     privateApi.put('/me/profile', async (request) => gateway.saveProfile(identity(request), profileSchema.parse(request.body).displayName));
-    privateApi.get('/me/settings', async (request) => gateway.getSettings(identity(request)));
+    privateApi.get('/me/settings', async (request) => backupForClient(await gateway.getSettings(identity(request)), settingsClientVersion(request.headers[SETTINGS_VERSION_HEADER])));
     privateApi.put('/me/settings', async (request) => {
       const { expectedRevision, payload } = saveSettingsSchema.parse(request.body);
-      return gateway.saveSettings(identity(request), expectedRevision, payload);
+      const user = identity(request), version = settingsClientVersion(request.headers[SETTINGS_VERSION_HEADER]);
+      const saved = await gateway.saveSettings(user, expectedRevision, await payloadToSave(payload, expectedRevision, version, () => gateway.getSettings(user)));
+      return backupForClient(saved, version);
     });
     privateApi.delete('/me/settings', async (request) => gateway.saveSettings(identity(request), deleteSettingsSchema.parse(request.body).expectedRevision, null));
     privateApi.get('/me/export', async (request) => {

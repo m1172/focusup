@@ -81,16 +81,16 @@ test('family pairing, policies, replacement, removal and adult release work end 
   // Setup checks the country, the consent version and the parent's token.
   assert.equal((await api('/v1/family')).status, 401);
   assert.deepEqual((await api('/v1/family', 'GET', undefined, bearer)).json.children, []);
-  assert.equal((await api('/v1/family', 'POST', { country: 'KZ', consentVersion: '2026-11.1' }, bearer)).json.error.code, 'FAMILY_COUNTRY_UNAVAILABLE');
+  assert.equal((await api('/v1/family', 'POST', { country: 'KZ', consentVersion: '2026-11.2' }, bearer)).json.error.code, 'FAMILY_COUNTRY_UNAVAILABLE');
   assert.equal((await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2025-01' }, bearer)).json.error.code, 'FAMILY_CONSENT_OUTDATED');
-  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(10), consentVersion: '2026-11.1' }, bearer)).json.error.code, 'FAMILY_REQUIRED');
-  assert.equal((await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.1' }, bearer)).status, 201);
+  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(10), consentVersion: '2026-11.2' }, bearer)).json.error.code, 'FAMILY_REQUIRED');
+  assert.equal((await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, bearer)).status, 201);
 
   // Children: under 18 only; a real calendar date.
-  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Too old', birthDate: yearsAgo(18), consentVersion: '2026-11.1' }, bearer)).json.error.code, 'FAMILY_AGE_INVALID');
-  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Bad', birthDate: '2015-02-30', consentVersion: '2026-11.1' }, bearer)).status, 400);
-  const young = (await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(10), consentVersion: '2026-11.1' }, bearer)).json;
-  const teen = (await api('/v1/family/children', 'POST', { nickname: 'Malika', birthDate: yearsAgo(17, -30), consentVersion: '2026-11.1' }, bearer)).json;
+  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Too old', birthDate: yearsAgo(18), consentVersion: '2026-11.2' }, bearer)).json.error.code, 'FAMILY_AGE_INVALID');
+  assert.equal((await api('/v1/family/children', 'POST', { nickname: 'Bad', birthDate: '2015-02-30', consentVersion: '2026-11.2' }, bearer)).status, 400);
+  const young = (await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(10), consentVersion: '2026-11.2' }, bearer)).json;
+  const teen = (await api('/v1/family/children', 'POST', { nickname: 'Malika', birthDate: yearsAgo(17, -30), consentVersion: '2026-11.2' }, bearer)).json;
   assert.deepEqual(young.policy.policy.protectedApps, ['instagram', 'youtube', 'tiktok']);
   assert.equal(young.policy.revision, 1);
 
@@ -191,7 +191,7 @@ test('family pairing, policies, replacement, removal and adult release work end 
   assert.deepEqual((await api(`/v1/family/children/${young.id}`, 'DELETE', undefined, bearer)).json, { state: 'removed' });
 
   // Turning 18: the supervised person ends it themselves.
-  const adult = (await api('/v1/family/children', 'POST', { nickname: 'Sardor', birthDate: yearsAgo(17), consentVersion: '2026-11.1' }, bearer)).json;
+  const adult = (await api('/v1/family/children', 'POST', { nickname: 'Sardor', birthDate: yearsAgo(17), consentVersion: '2026-11.2' }, bearer)).json;
   const adultCode = (await api(`/v1/family/children/${adult.id}/pairing`, 'POST', undefined, bearer)).json;
   const adultPhone = (await api('/v1/family/device/claim', 'POST', { code: adultCode.code, platform: 'ios' })).json;
   await approve(adultPhone.confirmationCode, bearer, adult.id);
@@ -214,8 +214,8 @@ test('family pairing, policies, replacement, removal and adult release work end 
 test('family tables and functions are closed to app users; deleting the account removes the family', async (t) => {
   const { db, rpc } = await database(); t.after(() => db.close());
   const api = edgeClient(rpc);
-  await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.1' }, `Bearer ${fresh}`);
-  await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(9), consentVersion: '2026-11.1' }, `Bearer ${fresh}`);
+  await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, `Bearer ${fresh}`);
+  await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(9), consentVersion: '2026-11.2' }, `Bearer ${fresh}`);
   for (const role of ['authenticated', 'anon']) {
     await db.exec(`set role ${role}`);
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [PARENT]);
@@ -233,7 +233,7 @@ test('family enrollment stays closed until switched on, and Fastify enforces the
   const { db, rpc } = await database(); t.after(() => db.close());
   const closed = { ...config, FAMILY_ENROLLMENT_ENABLED: 'false' as const };
   const handler = createEdgeHandler(closed, async () => undefined, gateway, undefined, undefined, null, rpc, async () => undefined);
-  const setup = await handler(new Request(base + '/v1/family', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh}` }, body: JSON.stringify({ country: 'UZ', consentVersion: '2026-11.1' }) }));
+  const setup = await handler(new Request(base + '/v1/family', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh}` }, body: JSON.stringify({ country: 'UZ', consentVersion: '2026-11.2' }) }));
   assert.equal((await setup.json()).error.code, 'FAMILY_ENROLLMENT_CLOSED');
   const overview = await (await handler(new Request(base + '/v1/family', { headers: { Authorization: `Bearer ${fresh}` } }))).json();
   assert.equal(overview.enrollmentOpen, false);
@@ -244,8 +244,8 @@ test('family enrollment stays closed until switched on, and Fastify enforces the
 
   const app = await buildApp(config, gateway, null, rpc, async () => undefined); t.after(() => app.close());
   const inject = (url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', payload?: object, authorization?: string) => app.inject({ url, method, ...(payload ? { payload } : {}), headers: authorization ? { authorization } : {} });
-  assert.equal((await inject('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.1' }, `Bearer ${fresh}`)).statusCode, 201);
-  const child = (await inject('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(11), consentVersion: '2026-11.1' }, `Bearer ${fresh}`)).json();
+  assert.equal((await inject('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, `Bearer ${fresh}`)).statusCode, 201);
+  const child = (await inject('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(11), consentVersion: '2026-11.2' }, `Bearer ${fresh}`)).json();
   const blocked = await inject(`/v1/family/children/${child.id}/policy`, 'PUT', { expectedRevision: 1, policy: policy({ browsers: { tiktok: { enabled: true, followingFocus: true } } }) }, `Bearer ${fresh}`);
   assert.equal(blocked.json().error.code, 'FAMILY_UNDER_13_BROWSING');
   assert.equal((await inject('/v1/family/device/sync', 'POST', { appliedRevision: null, report: null, pushToken: null })).json().error.code, 'DEVICE_AUTH_REQUIRED');
@@ -263,4 +263,54 @@ test('family helpers: codes, sign-in time and path matching', () => {
   assert.equal(authenticatedAt('not.a.token'), null);
   assert.deepEqual(matchFamilyPath('/v1/family/children/:childId/policy', '/v1/family/children/abc-123/policy'), { childId: 'abc-123' });
   assert.equal(matchFamilyPath('/v1/family/children/:childId', '/v1/family/children/a/b'), null);
+});
+
+test('usage reports: totals per day and app, retries and late reports change nothing, 7 days kept', async (t) => {
+  const { db, rpc } = await database(); t.after(() => db.close());
+  const api = edgeClient(rpc);
+  const bearer = `Bearer ${fresh}`;
+  await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, bearer);
+  const teen = (await api('/v1/family/children', 'POST', { nickname: 'Malika', birthDate: yearsAgo(15), consentVersion: '2026-11.2' }, bearer)).json;
+  const withLimits = policy({ browsers: { instagram: { enabled: true, followingFocus: true, hideSponsored: false, hideStories: true, messagesOnly: true } }, limits: { instagram: 45 } });
+  assert.equal((await api(`/v1/family/children/${teen.id}/policy`, 'PUT', { expectedRevision: 1, policy: withLimits }, bearer)).json.revision, 2);
+  assert.equal((await api(`/v1/family/children/${teen.id}/policy`, 'PUT', { expectedRevision: 2, policy: policy({ limits: { instagram: 1 } }) }, bearer)).status, 400);
+  assert.equal((await api(`/v1/family/children/${teen.id}/policy`, 'PUT', { expectedRevision: 2, policy: policy({ limits: { snapchat: 30 } }) }, bearer)).status, 400);
+  const pairing = (await api(`/v1/family/children/${teen.id}/pairing`, 'POST', undefined, bearer)).json;
+  const claimed = (await api('/v1/family/device/claim', 'POST', { code: pairing.code, platform: 'android' })).json;
+  await api(`/v1/family/children/${teen.id}/pairing/approve`, 'POST', { confirmationCode: claimed.confirmationCode }, bearer);
+  const phone = `Device ${claimed.deviceSecret}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+  const sync = (usage: unknown) => api('/v1/family/device/sync', 'POST', { appliedRevision: 2, report: null, pushToken: null, usage }, phone);
+  const usageOf = async () => (await api('/v1/family', 'GET', undefined, bearer)).json.children[0].usage as { day: string; platform: string; foregroundMs: number }[];
+
+  assert.equal((await sync({ sequence: 1, days: [{ day: today, apps: { instagram: 600_000 } }, { day: daysAgo(1), apps: { youtube: 1_200_000 } }] })).json.state, 'active');
+  assert.equal((await api('/v1/family/device/sync', 'POST', { appliedRevision: 2, report: null, pushToken: null }, phone)).json.state, 'active');
+  // The same report again, and an older one that arrived late, change nothing.
+  await sync({ sequence: 1, days: [{ day: today, apps: { instagram: 600_000 } }] });
+  await sync({ sequence: 2, days: [{ day: today, apps: { instagram: 900_000 } }] });
+  await sync({ sequence: 1, days: [{ day: today, apps: { instagram: 100_000 } }] });
+  const usage = await usageOf();
+  assert.deepEqual(usage.map(({ day, platform, foregroundMs }) => ({ day, platform, foregroundMs })), [
+    { day: daysAgo(1), platform: 'youtube', foregroundMs: 1_200_000 },
+    { day: today, platform: 'instagram', foregroundMs: 900_000 },
+  ]);
+  // Only browsing time crosses: no other apps, URLs or a malformed shape.
+  assert.equal((await sync({ sequence: 3, days: [{ day: today, apps: { whatsapp: 1 } }] })).status, 400);
+  assert.equal((await sync({ sequence: 3, days: [{ day: today, apps: { instagram: 1 }, url: 'https://instagram.com/x' }] })).status, 400);
+  assert.equal((await sync({ sequence: 3, days: [{ day: today, apps: { instagram: 86_400_001 } }] })).status, 400);
+
+  // Older than 7 days: not stored, and removed if already there.
+  await sync({ sequence: 4, days: [{ day: daysAgo(20), apps: { tiktok: 60_000 } }] });
+  await db.query("insert into public.family_usage (child_id, day, platform, foreground_ms) values ($1, current_date - 9, 'tiktok', 1)", [teen.id]);
+  await sync({ sequence: 5, days: [] });
+  assert.equal((await db.query<{ count: number }>('select count(*)::int as count from public.family_usage where day < current_date - 7')).rows[0]?.count, 0);
+  assert.equal((await usageOf()).some((row) => row.platform === 'tiktok'), false);
+
+  // Usage is in the parent's export and goes with the child.
+  const exported = await rpc('family_export', { p_parent: PARENT }) as { children: { usage: unknown[] }[] };
+  assert.equal(exported.children[0]?.usage.length, 2);
+  await api(`/v1/family/children/${teen.id}`, 'DELETE', undefined, bearer);
+  await api('/v1/family/device/release', 'POST', undefined, phone);
+  assert.equal((await db.query<{ count: number }>('select count(*)::int as count from public.family_usage')).rows[0]?.count, 0);
 });

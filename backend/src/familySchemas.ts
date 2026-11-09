@@ -15,10 +15,15 @@ const downtime = z.strictObject({
 
 /** Clean browsers a teen may use. Reels, Shorts and For You stay blocked whatever these say. */
 const browsers = z.strictObject({
-  instagram: z.strictObject({ enabled: z.boolean(), followingFocus: z.boolean(), hideSponsored: z.boolean() }).optional(),
-  youtube: z.strictObject({ enabled: z.boolean(), subscriptionsFocus: z.boolean(), hideSponsored: z.boolean(), hideComments: z.boolean() }).optional(),
+  // hideStories, messagesOnly and hideExplore were added later; older phones never receive them unset.
+  instagram: z.strictObject({ enabled: z.boolean(), followingFocus: z.boolean(), hideSponsored: z.boolean(), hideStories: z.boolean().optional(), messagesOnly: z.boolean().optional() }).optional(),
+  youtube: z.strictObject({ enabled: z.boolean(), subscriptionsFocus: z.boolean(), hideSponsored: z.boolean(), hideComments: z.boolean(), hideExplore: z.boolean().optional() }).optional(),
   tiktok: z.strictObject({ enabled: z.boolean(), followingFocus: z.boolean() }).optional(),
 });
+const browserApp = z.enum(['instagram', 'youtube', 'tiktok']);
+/** Minutes a day in each clean browser, across all its accounts. */
+export const FAMILY_LIMIT_MINUTES = { min: 5, max: 720 } as const;
+const limits = z.partialRecord(browserApp, z.number().int().min(FAMILY_LIMIT_MINUTES.min).max(FAMILY_LIMIT_MINUTES.max));
 
 export const familyPolicySchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -26,6 +31,7 @@ export const familyPolicySchema = z.strictObject({
   protectedApps: uniqueApps(8),
   browsers,
   downtime: z.array(downtime).max(8).refine((values) => new Set(values.map((value) => value.id)).size === values.length, 'Duplicate downtime IDs'),
+  limits: limits.optional(),
 });
 export type FamilyPolicy = z.infer<typeof familyPolicySchema>;
 
@@ -59,8 +65,21 @@ const report = z.strictObject({
   timezone: z.string().regex(/^[A-Za-z0-9_+\-/]{1,64}$/),
   utcOffsetMinutes: z.number().int().min(-900).max(900),
 });
+/**
+ * Foreground time in Vaqtim's clean browsers, per local day and app, for at most the last 8 days.
+ * Totals, not additions: sending the same report twice changes nothing, and the sequence number
+ * lets the server ignore an older report that arrives late. Never URLs, searches or accounts.
+ */
+const DAY_MS = 86_400_000;
+const usage = z.strictObject({
+  sequence: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  days: z.array(z.strictObject({ day: isoDate, apps: z.partialRecord(browserApp, z.number().int().min(0).max(DAY_MS)) })).max(8)
+    .refine((values) => new Set(values.map((value) => value.day)).size === values.length, 'Duplicate days'),
+});
 export const deviceSyncSchema = z.strictObject({
   appliedRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
   report: report.nullable(),
   pushToken: z.string().regex(/^(?:Exponent|Expo)PushToken\[[A-Za-z0-9_-]{1,200}\]$/).nullable(),
+  // Optional so phones from before usage reporting keep syncing.
+  usage: usage.nullable().optional(),
 });

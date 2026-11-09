@@ -14,6 +14,15 @@ const schedule = z.strictObject({
 });
 /** Whether the account finished onboarding, and the daily scrolling time it gave. Optional: builds before 3 November 2026 do not send it. */
 const onboarding = z.strictObject({ completed: z.boolean(), usualMinutes: z.number().int().min(0).max(1440), cut: z.number().min(0).max(1) });
+/** Filters added after the first backup format; they live in `extensions` so older servers and builds never see them. */
+export const extensionFilterNames = ['stories', 'messagesOnly'] as const;
+/** Version 2 settings (see settingsCompat.ts): free features that older builds don't back up. */
+const extensions = z.strictObject({
+  version: z.literal(1),
+  grayscale: z.boolean().optional(),
+  dailyLimits: z.partialRecord(appId, z.number().int().min(1).max(1440)).optional(),
+  filters: z.partialRecord(appId, z.partialRecord(z.enum(extensionFilterNames), z.boolean())).optional(),
+});
 export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
   preferences: z.strictObject({
@@ -32,6 +41,7 @@ export const settingsSchema = z.strictObject({
     }),
   }),
   onboarding: onboarding.optional(),
+  extensions: extensions.optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export const revisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER - 1);

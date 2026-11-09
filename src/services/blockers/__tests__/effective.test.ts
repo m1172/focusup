@@ -1,4 +1,4 @@
-import { getEffectiveAppConfig } from '../effective';
+import { getEffectiveAppConfig, isFilterAdjustable } from '../effective';
 import { useAppStore } from '../../../store/appStore';
 import { useSubscriptionStore } from '../../../store/subscriptionStore';
 import { useRemoteBlockerConfigStore } from '../../../store/remoteBlockerConfigStore';
@@ -14,15 +14,32 @@ describe('Instagram Clean Mode entitlement', () => {
     setPro(false);
     const apps = useAppStore.getState().apps;
     useAppStore.setState({
-      apps: { ...apps, instagram: { enabled: true, filters: { reels: true, explore: true, sponsoredPosts: true } }, youtube: { enabled: true, filters: { shorts: true } } },
+      apps: { ...apps, instagram: { enabled: true, filters: { reels: true, explore: true, sponsoredPosts: true } }, youtube: { enabled: true, filters: { shorts: true, comments: true } } },
       schedules: [], strictSession: null,
     });
     useRemoteBlockerConfigStore.setState({ config: { schemaVersion: 1, platforms: {} } });
   });
 
-  it('keeps Reels protection free while disabling saved Pro filters', () => {
-    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
-    expect(getEffectiveAppConfig('youtube')).toEqual({ enabled: true, blocking: true, filters: { shorts: true } });
+  it('keeps Reels protection and the free filters while disabling saved Pro filters', () => {
+    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: true, sponsoredPosts: true } });
+    expect(getEffectiveAppConfig('youtube')).toEqual({ enabled: true, blocking: true, filters: { shorts: true, comments: false } });
+  });
+
+  it('keeps short-video feeds blocked when remote rules pause a platform or feature', () => {
+    useRemoteBlockerConfigStore.setState({ config: { schemaVersion: 1, platforms: { instagram: { enabled: false, features: {} }, youtube: { enabled: true, features: { shorts: false } } } } as never });
+    expect(getEffectiveAppConfig('instagram').filters.reels).toBe(true);
+    expect(getEffectiveAppConfig('instagram').filters.explore).toBe(false);
+    expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(true);
+  });
+
+  it('offers only filters the user can really change', () => {
+    // Free: the short-video feed is always blocked and Pro filters do nothing, so neither is offered.
+    expect(isFilterAdjustable('instagram', 'reels', false)).toBe(false);
+    expect(isFilterAdjustable('youtube', 'comments', false)).toBe(false);
+    expect(isFilterAdjustable('instagram', 'explore', false)).toBe(true);
+    expect(isFilterAdjustable('youtube', 'explore', false)).toBe(true);
+    expect(isFilterAdjustable('youtube', 'comments', true)).toBe(true);
+    expect(isFilterAdjustable('instagram', 'reels', true)).toBe(true);
   });
 
   it('restores saved Instagram preferences for an active Pro subscription', () => {
@@ -36,7 +53,8 @@ describe('Instagram Clean Mode entitlement', () => {
     setPro(true);
     expect(getEffectiveAppConfig('instagram').enabled).toBe(true);
     setPro(false);
-    expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: true, blocking: true, filters: { reels: true, explore: false, sponsoredPosts: false } });
+    expect(getEffectiveAppConfig('youtube').filters.comments).toBe(false);
+    expect(useAppStore.getState().apps.youtube.filters.comments).toBe(true);
     expect(useAppStore.getState().apps.instagram).toEqual({ enabled: true, filters: { reels: true, explore: true, sponsoredPosts: true } });
   });
 

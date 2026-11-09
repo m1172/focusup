@@ -46,18 +46,25 @@ describe('local protection policy', () => {
     expect(protectionReason('instagram', state, new Date(2026, 9, 13, 7))).toBe('unprotected');
     expect(protectionReason('youtube', { ...state, temporary: { ...temporary, platform: 'youtube' } }, monday)).toBe('temporary');
   });
-  it('does not create native Pro protections for a Free customer', () => {
+  it('gives a Free customer schedules and sleep, but not extra apps, Hard Mode or breaks', () => {
     const plan = buildNativePlan({ ...input, baseline: ['instagram'], isPro: false });
-    expect(plan.baseline).toEqual([]); expect(plan.routines).toEqual([]); expect(plan.strict).toBeNull();
+    expect(plan.baseline).toEqual([]); expect(plan.strict).toBeNull(); expect(plan.temporary).toBeNull();
+    expect(plan.routines.map((routine) => routine.id)).toEqual(input.routines.filter((routine) => routine.enabled).map((routine) => routine.id).concat(input.sleep.enabled ? ['sleep'] : []));
+    expect(plan.routines.every((routine) => !routine.strict)).toBe(true);
+  });
+  it('treats a strict routine as an ordinary one while Hard Mode is unavailable', () => {
+    const strictRoutine = { id: 'night', name: 'Night', start: '00:00', end: '23:59', weekdays: [1], apps: ['instagram' as const], enabled: true, strict: true };
+    expect(protectionReason('instagram', { ...input, baseline: [], routines: [strictRoutine], isPro: false }, monday)).toBe('routine');
+    expect(buildNativePlan({ ...input, baseline: [], routines: [strictRoutine], isPro: false }).routines[0].strict).toBe(false);
   });
   it('blocks the original app for everyone while its Reels or Shorts filter is on', () => {
     const apps = { instagram: { enabled: true, filters: { reels: true } }, youtube: { enabled: true, filters: { shorts: false } } };
     expect(shortVideoBlockedApps(apps)).toEqual(['instagram']);
     expect(shortVideoBlockedApps({ ...apps, instagram: { enabled: false, filters: { reels: true } } })).toEqual([]);
     const plan = buildNativePlan({ ...input, baseline: ['tiktok'], filterBlocked: shortVideoBlockedApps(apps), isPro: false });
-    expect(plan.baseline).toEqual(['instagram']); expect(plan.routines).toEqual([]); expect(plan.temporary).toBeNull();
-    expect(protectionReason('instagram', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('protected');
-    expect(protectionReason('youtube', { ...input, baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('unprotected');
+    expect(plan.baseline).toEqual(['instagram']); expect(plan.temporary).toBeNull();
+    expect(protectionReason('instagram', { ...input, routines: [], baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('protected');
+    expect(protectionReason('youtube', { ...input, routines: [], baseline: [], filterBlocked: ['instagram'], isPro: false }, monday)).toBe('unprotected');
   });
 
   it('blocks the original TikTok app for everyone while its For You filter is on', () => {

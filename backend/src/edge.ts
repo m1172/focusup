@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.ts';
 import { telegramLoginConfig, type Config } from './config.ts';
 import { ApiError } from './errors.ts';
 import { createGateway, type Gateway, type Identity } from './gateway.ts';
@@ -114,9 +115,11 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   route('PATCH', '/v1/auth/password', async (body, user) => { await gateway.changePassword(user, passwordSchema.parse(body).password); return { status: 204 }; }, privateBody);
   route('GET', '/v1/me', async (_body, user) => ({ data: { id: user.id, email: user.email, profile: await gateway.getProfile(user) } }), privateRoute);
   route('PUT', '/v1/me/profile', async (body, user) => ({ data: await gateway.saveProfile(user, profileSchema.parse(body).displayName) }), privateBody);
-  route('GET', '/v1/me/settings', async (_body, user) => ({ data: await gateway.getSettings(user) }), privateRoute);
-  route('PUT', '/v1/me/settings', async (body, user) => {
-    const value = saveSettingsSchema.parse(body); return { data: await gateway.saveSettings(user, value.expectedRevision, value.payload) };
+  route('GET', '/v1/me/settings', async (_body, user, request) => ({ data: backupForClient(await gateway.getSettings(user), settingsClientVersion(request.headers.get(SETTINGS_VERSION_HEADER))) }), privateRoute);
+  route('PUT', '/v1/me/settings', async (body, user, request) => {
+    const value = saveSettingsSchema.parse(body), version = settingsClientVersion(request.headers.get(SETTINGS_VERSION_HEADER));
+    const payload = await payloadToSave(value.payload, value.expectedRevision, version, () => gateway.getSettings(user));
+    return { data: backupForClient(await gateway.saveSettings(user, value.expectedRevision, payload), version) };
   }, privateBody);
   route('DELETE', '/v1/me/settings', async (body, user) => ({ data: await gateway.saveSettings(user, deleteSettingsSchema.parse(body).expectedRevision, null) }), privateBody);
   route('GET', '/v1/me/export', async (_body, user) => {
@@ -195,7 +198,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
       if (origin && !origins.includes(origin)) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'This origin is not allowed.');
       if (request.method === 'OPTIONS') {
         headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        headers.set('Access-Control-Allow-Headers', 'authorization, content-type, apikey, x-client-info');
+        headers.set('Access-Control-Allow-Headers', `authorization, content-type, apikey, x-client-info, ${SETTINGS_VERSION_HEADER}`);
         return respond(undefined, 204);
       }
       // Hosted and local gateways may include /functions/v1 in the incoming URL.

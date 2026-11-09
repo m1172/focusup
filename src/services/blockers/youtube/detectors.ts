@@ -21,3 +21,13 @@ export function isYouTubeShortsUrl(url: string): boolean {
     return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(parsed.hostname) && youtubeShortsPathPattern.test(parsed.pathname);
   } catch { return false; }
 }
+
+/** Explore, Trending and the topic pages YouTube recommends from. Search, subscriptions and videos are not matched. */
+export const youtubeExplorePathPattern = /^\/(?:feed\/(?:explore|trending|news_destination|sports_destination|gaming_destination|storefront)|gaming|destination)(?:\/|$)/i;
+
+export function isYouTubeExploreUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, 'https://m.youtube.com');
+    return ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(parsed.hostname) && youtubeExplorePathPattern.test(parsed.pathname);
+  } catch { return false; }
+}

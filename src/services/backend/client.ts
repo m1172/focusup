@@ -36,7 +36,8 @@ export function createBackendClient(options: Options) {
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const response = await fetcher(new URL(path.replace(/^\//, ''), base).toString(), {
-        method, headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(authorization ? { Authorization: authorization } : {}) },
+        // 'X-Vaqtim-Settings: 2' tells the server this build understands backup extensions (backend/src/settingsCompat.ts).
+        method, headers: { Accept: 'application/json', 'X-Vaqtim-Settings': '2', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(authorization ? { Authorization: authorization } : {}) },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: controller.signal,
       });
       if (response.status === 204) return undefined as T;

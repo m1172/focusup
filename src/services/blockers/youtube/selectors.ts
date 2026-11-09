@@ -24,6 +24,7 @@ export const youtubeSelectors = {
     'ytd-compact-video-renderer',
   ],
   comments: ['ytd-comments', 'ytm-comments-entry-point-header-renderer'],
+  exploreNavigation: ['a[href^="/feed/explore"]', 'a[href^="/feed/trending"]', 'a[href^="/gaming"]', 'a[href^="/feed/news_destination"]', 'a[href^="/feed/sports_destination"]', 'a[href^="/feed/storefront"]', 'a[href^="/destination"]'],
   sponsoredContent: [], // TODO: Enable after a stable, locale-safe semantic marker is verified.
 } as const;
 

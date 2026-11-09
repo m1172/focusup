@@ -1,6 +1,6 @@
 import { PRO_ENABLED } from '../../../config/release';
 import { canUseFeature, FEATURE_ACCESS, isFeatureAvailable, type SubscriptionFeature } from '../../subscription/subscriptionService';
-import { buildNativePlan, protectionReason, shortVideoBlockedApps } from '../../protection/engine';
+import { buildNativePlan, shortVideoBlockedApps } from '../../protection/engine';
 import { defaultSleepPlan, useWellbeingStore } from '../../../store/wellbeingStore';
 import { useAppStore } from '../../../store/appStore';
 import { useSubscriptionStore } from '../../../store/subscriptionStore';
@@ -56,32 +56,36 @@ test('the release hides every Pro feature for both free and cached Pro users', (
   }
 });
 
-test('saved premium filters and strict intervals stay stored but inactive', () => {
+test('saved premium filters and strict intervals stay stored but inactive; free filters apply', () => {
   useAppStore.setState({ strictSession: { endsAt: Date.now() + 60_000, appIds: ['instagram'], filters: { instagram: { explore: true } } } });
   useAppStore.getState().setFilter('instagram', 'reels', true);
   useAppStore.getState().setFilter('instagram', 'explore', true);
+  useAppStore.getState().setFilter('youtube', 'comments', true);
   useAppStore.getState().setAppEnabled('instagram', true);
+  useAppStore.getState().setAppEnabled('youtube', true);
   const before = JSON.stringify(captureSettingsBackup());
   expect(isPlatformLocked('instagram')).toBe(false);
-  expect(getEffectiveAppConfig('instagram').filters).toMatchObject({ reels: true, explore: false });
+  expect(getEffectiveAppConfig('instagram').filters).toMatchObject({ reels: true, explore: true });
+  expect(getEffectiveAppConfig('youtube').filters.comments).toBe(false);
   expect(JSON.stringify(captureSettingsBackup())).toBe(before);
   expect(useAppStore.getState().strictSession).not.toBeNull();
 });
 
-test('native plans ignore saved baseline, sleep, routines, strict and temporary access', async () => {
+test('native plans keep free sleep and routines but ignore saved extra apps, strict and temporary access', async () => {
   const temporary = { id: 'old', platform: 'instagram' as const, startedAt: Date.now(), endsAt: Date.now() + 60_000 };
   const strict = { endsAt: Date.now() + 60_000, appIds: ['instagram' as const], filters: {} };
   useWellbeingStore.setState({ nativeApps: ['instagram'], sleep: { ...defaultSleepPlan, enabled: true }, temporary, liveActivity: true });
   const apps = useAppStore.getState().apps;
   useAppStore.setState({ strictSession: strict, completionNotifications: true, apps: { ...apps, instagram: { ...apps.instagram, enabled: true }, youtube: { ...apps.youtube, enabled: true } } });
   const input = { baseline: ['instagram' as const], routines: useAppStore.getState().schedules, sleep: useWellbeingStore.getState().sleep, strict, temporary, isPro: true };
-  expect(buildNativePlan(input)).toMatchObject({ baseline: [], routines: [], strict: null, temporary: null });
-  expect(protectionReason('instagram', input)).toBe('unprotected');
+  expect(buildNativePlan(input)).toMatchObject({ baseline: [], strict: null, temporary: null });
+  expect(buildNativePlan(input).routines.map((routine) => routine.id)).toContain('focusup-sleep');
+  expect(buildNativePlan(input).routines.every((routine) => !routine.strict)).toBe(true);
   await reconcileStrictModeState();
   await reconcileProtection();
   expect(protectionBridge.applyPlan).toHaveBeenCalledWith(expect.any(String));
   // Only the free Reels/Shorts filters block original apps; saved Pro protections stay inactive.
-  expect(JSON.parse(jest.mocked(protectionBridge.applyPlan).mock.calls[0][0])).toMatchObject({ baseline: ['instagram', 'youtube'], routines: [], strict: null, temporary: null, liveActivity: false });
+  expect(JSON.parse(jest.mocked(protectionBridge.applyPlan).mock.calls[0][0])).toMatchObject({ baseline: ['instagram', 'youtube'], strict: null, temporary: null, liveActivity: false });
   expect(useWellbeingStore.getState()).toMatchObject({ nativeApps: ['instagram'], temporary, liveActivity: true });
   expect(useAppStore.getState().strictSession).toBe(strict);
 });
@@ -99,15 +103,19 @@ test('backup restore preserves hidden preferences without activating them or ret
   jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(true);
   jest.spyOn(useWellbeingStore.persist, 'hasHydrated').mockReturnValue(true);
   const backup = captureSettingsBackup();
-  backup.preferences.apps.instagram.filters.explore = true;
+  backup.preferences.apps.youtube.filters.comments = true;
+  backup.preferences.apps.youtube.enabled = true;
   backup.preferences.completionNotifications = true;
   backup.wellbeing.sleep.enabled = true;
   backup.wellbeing.sleep.notify = true;
   useAppStore.setState({ strictSession: { endsAt: Date.now() + 60_000, appIds: ['instagram'], filters: {} } });
   await restoreCloudSettings(backup);
   expect(captureSettingsBackup()).toEqual(backup);
-  expect(getEffectiveAppConfig('instagram').filters.explore).toBeFalsy();
-  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  expect(getEffectiveAppConfig('youtube').filters.comments).toBeFalsy();
+  // Sleep Mode is free, so its opted-in reminders come back; no Hard Mode reminder is scheduled.
+  const scheduled = jest.mocked(Notifications.scheduleNotificationAsync).mock.calls.map(([request]) => request.identifier);
+  expect(scheduled.length).toBeGreaterThan(0);
+  expect(scheduled.every((id) => id?.startsWith('focusup-wellbeing:focusup-sleep:'))).toBe(true);
   jest.restoreAllMocks();
 });
 

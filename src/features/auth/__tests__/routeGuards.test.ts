@@ -21,6 +21,7 @@ jest.mock('../../../config/release', () => ({ get PRO_ENABLED() { return mockPro
 jest.mock('../../../store/familyStore', () => ({ useFamilyStore: Object.assign((select: (value: object) => unknown) => select({ role: mockFamilyRole }), { subscribe: () => () => undefined }) }));
 jest.mock('../../../services/family/deviceSync', () => ({ startFamilySync: () => () => undefined }));
 jest.mock('../../../services/family/analyticsGate', () => ({ startFamilyAnalyticsGate: () => () => undefined }));
+jest.mock('../../../services/family/monitoringNotice', () => ({ startSupervisionNotice: () => () => undefined }));
 jest.mock('../../../features/family/FamilyNotice', () => ({ FamilyNotice: () => null }));
 jest.mock('../../../store/accountStore', () => ({ useAccountStore: () => mockAccount }));
 jest.mock('../../../store/appStore', () => ({ useAppStore: (select: (value: object) => unknown) => select({ selectedLanguage: 'en', onboardingCompleted: mockCompleted }) }));
@@ -103,7 +104,8 @@ test('restored accounts get free screens while premium deep links remain unavail
   expect(tree).toContain('(tabs);'); expect(tree).toContain('browser/[appId];');
   // Blocked original apps hand off to this page in the free release.
   expect(tree).toContain('native-app/[appId];');
-  for (const route of ['pro', 'protection', 'sleep', 'schedule', 'strict-mode', 'temporary-access', 'daily-limits']) expect(tree).not.toContain(`${route};`);
+  for (const route of ['sleep', 'schedule', 'daily-limits']) expect(tree).toContain(`${route};`);
+  for (const route of ['pro', 'protection', 'strict-mode', 'temporary-access']) expect(tree).not.toContain(`${route};`);
 });
 
 test('recovery sessions expose account reset, but no app screens', () => {

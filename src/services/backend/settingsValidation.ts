@@ -19,8 +19,15 @@ export function isCloudOnboarding(value: unknown): value is CloudOnboarding {
   return object(value) && keys(value, ['completed', 'usualMinutes', 'cut']) && Object.keys(value).length === 3 && typeof value.completed === 'boolean'
     && integer(value.usualMinutes, 0, 1440) && typeof value.cut === 'number' && value.cut >= 0 && value.cut <= 1;
 }
+/** Extensions part of a backup; the same limits as the server (backend/src/schemas.ts). */
+export function isCloudSettingsExtensions(value: unknown): boolean {
+  if (!object(value) || !keys(value, ['version', 'grayscale', 'dailyLimits', 'filters']) || value.version !== 1) return false;
+  if (value.grayscale !== undefined && typeof value.grayscale !== 'boolean') return false;
+  if (value.dailyLimits !== undefined && !(object(value.dailyLimits) && keys(value.dailyLimits, platforms) && Object.values(value.dailyLimits).every((minutes) => integer(minutes, 1, 1440)))) return false;
+  return value.filters === undefined || (object(value.filters) && keys(value.filters, platforms) && Object.values(value.filters).every((item) => object(item) && keys(item, ['stories', 'messagesOnly']) && Object.values(item).every((flag) => typeof flag === 'boolean')));
+}
 export function isCloudSettings(value: unknown): value is CloudSettings {
-  if (!object(value) || !keys(value, ['schemaVersion', 'preferences', 'wellbeing', 'onboarding']) || (value.onboarding !== undefined && !isCloudOnboarding(value.onboarding)) || value.schemaVersion !== 1 || !object(value.preferences) || !object(value.wellbeing)) return false;
+  if (!object(value) || !keys(value, ['schemaVersion', 'preferences', 'wellbeing', 'onboarding', 'extensions']) || (value.extensions !== undefined && !isCloudSettingsExtensions(value.extensions)) || (value.onboarding !== undefined && !isCloudOnboarding(value.onboarding)) || value.schemaVersion !== 1 || !object(value.preferences) || !object(value.wellbeing)) return false;
   const p = value.preferences, w = value.wellbeing;
   if (!keys(p, ['selectedLanguage', 'themeMode', 'apps', 'schedules', 'dailyGoalMinutes', 'goalNotifications', 'completionNotifications']) || !keys(w, ['launchDestination', 'sleep'])) return false;
   if (!['uz', 'ru', 'en'].includes(p.selectedLanguage as string) || !['system', 'light', 'dark'].includes(p.themeMode as string) || !integer(p.dailyGoalMinutes, 1, 1440) || typeof p.goalNotifications !== 'boolean' || typeof p.completionNotifications !== 'boolean') return false;

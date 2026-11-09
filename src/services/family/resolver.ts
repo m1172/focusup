@@ -22,15 +22,25 @@ export function familyForcedFilters(appId: SocialAppId, rules: SupervisionRules 
   if (appId === 'instagram' && browsers.instagram) {
     if (browsers.instagram.followingFocus) Object.assign(forced, { explore: true, recommendations: true, suggestedPosts: true });
     if (browsers.instagram.hideSponsored) forced.sponsoredPosts = true;
+    if (browsers.instagram.hideStories) forced.stories = true;
+    if (browsers.instagram.messagesOnly) forced.messagesOnly = true;
   }
   if (appId === 'youtube' && browsers.youtube) {
     if (browsers.youtube.subscriptionsFocus) Object.assign(forced, { homeRecommendations: true, recommendations: true });
     if (browsers.youtube.hideSponsored) forced.sponsoredContent = true;
     if (browsers.youtube.hideComments) forced.comments = true;
+    if (browsers.youtube.hideExplore) forced.explore = true;
   }
   // TikTok's Following tab stays; the parent can hide Explore as well.
   if (appId === 'tiktok' && browsers.tiktok?.followingFocus) forced.explore = true;
   return forced;
+}
+
+/** The parent's daily limit for this clean browser in minutes, or null. Breaks never lift it. */
+export function familyDailyLimit(appId: SocialAppId, rules: SupervisionRules | null): number | null {
+  if (!rules || !isBrowserApp(appId)) return null;
+  const minutes = rules.policy.limits?.[appId];
+  return typeof minutes === 'number' && minutes > 0 ? minutes : null;
 }
 
 /** Original apps the family blocks all day: the listed ones, plus every app whose clean browser is on. */

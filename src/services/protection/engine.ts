@@ -71,21 +71,43 @@ export function activeRoutines(routines: FocusSchedule[], now = new Date()): Foc
 
 type PlanInput = { baseline: SocialAppId[]; filterBlocked?: SocialAppId[]; websites?: Partial<Record<SocialAppId, string[]>>; adultFilter?: boolean; uninstallProtection?: boolean; dailyLimits?: Partial<Record<SocialAppId, number>>; routines: FocusSchedule[]; sleep: SleepPlan; strict: StrictSession | null; temporary: TemporaryAccess | null; isPro: boolean };
 
+/** Which timed modes apply. Schedules, sleep and daily limits are free; Hard Mode, breaks and extra apps stay Pro. */
+function modeAccess(isPro: boolean) {
+  const extraApps = canUseFeature(isPro, 'nativeProtection');
+  return { extraApps, strict: extraApps && canUseFeature(isPro, 'strictMode'), schedules: canUseFeature(isPro, 'schedules'), sleep: canUseFeature(isPro, 'sleepMode'), temporary: canUseFeature(isPro, 'temporaryAccess') };
+}
+
+/** Routines that apply; a strict routine counts as an ordinary one while Hard Mode is unavailable. */
+function usableRoutines(routines: FocusSchedule[], access: ReturnType<typeof modeAccess>): FocusSchedule[] {
+  return access.schedules ? (routines ?? []).map((routine) => routine.strict && !access.strict ? { ...routine, strict: false } : routine) : [];
+}
+
 export function protectionReason(platform: SocialAppId, input: PlanInput, now = new Date()): ProtectionReason {
-  if (!canUseFeature(input.isPro, 'nativeProtection')) return input.filterBlocked?.includes(platform) ? 'protected' : 'unprotected';
-  const strict = input.isPro && input.strict && input.strict.endsAt > now.getTime() && (input.strict.protectedPlatforms ?? input.strict.appIds).includes(platform);
-  if (input.isPro && activeRoutines(input.routines, now).some((routine) => routine.strict && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'strict';
+  const access = modeAccess(input.isPro);
+  const routines = activeRoutines(usableRoutines(input.routines, access), now).filter((routine) => routine.enabled !== false && routine.apps.includes(platform) && !routine.allowedApps?.includes(platform));
+  const strict = access.strict && input.strict && input.strict.endsAt > now.getTime() && (input.strict.protectedPlatforms ?? input.strict.appIds).includes(platform);
+  if (routines.some((routine) => routine.strict)) return 'strict';
   // A break lifts Hard Mode for its one app; strict routines above still win.
-  if (input.temporary?.platform === platform && input.temporary.endsAt > now.getTime()) return 'temporary';
+  if (access.temporary && input.temporary?.platform === platform && input.temporary.endsAt > now.getTime()) return 'temporary';
   if (strict) return 'strict';
-  if (input.isPro && activeRoutines([sleepRoutine(input.sleep)], now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'sleep';
-  if (input.isPro && activeRoutines(input.routines, now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'routine';
-  return input.filterBlocked?.includes(platform) || input.isPro && input.baseline.includes(platform) ? 'protected' : 'unprotected';
+  if (access.sleep && input.sleep && activeRoutines([sleepRoutine(input.sleep)], now).some((routine) => routine.apps.includes(platform) && !routine.allowedApps?.includes(platform))) return 'sleep';
+  if (routines.length) return 'routine';
+  return input.filterBlocked?.includes(platform) || access.extraApps && input.baseline.includes(platform) ? 'protected' : 'unprotected';
 }
 
 export function buildNativePlan(input: PlanInput): NativeProtectionPlan {
-  const allowed = canUseFeature(input.isPro, 'nativeProtection');
-  // Short-video blocking protects its original app for everyone; Pro adds other apps, routines and timed modes.
-  const baseline = [...new Set([...(input.filterBlocked ?? []), ...(allowed ? input.baseline : [])])];
-  return { schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline, websites: canUseFeature(input.isPro, 'blockWebsiteVersion') ? input.websites ?? {} : {}, adultFilter: canUseFeature(input.isPro, 'adultContentFilter') && Boolean(input.adultFilter), uninstallProtection: canUseFeature(input.isPro, 'uninstallProtection') && Boolean(input.uninstallProtection), dailyLimits: canUseFeature(input.isPro, 'dailyLimits') ? input.dailyLimits ?? {} : {}, routines: allowed ? [...input.routines, sleepRoutine(input.sleep)].filter((item) => item.enabled) : [], strict: allowed && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => baseline.includes(platform)) } : null, temporary: allowed ? input.temporary : null };
+  const access = modeAccess(input.isPro);
+  // Short-video blocking protects its original app for everyone; Pro adds other apps and Hard Mode.
+  const baseline = [...new Set([...(input.filterBlocked ?? []), ...(access.extraApps ? input.baseline : [])])];
+  const routines = [...usableRoutines(input.routines, access), ...(access.sleep && input.sleep ? [sleepRoutine(input.sleep)] : [])].filter((item) => item.enabled);
+  return {
+    schemaVersion: 1, locale: 'en', liveActivity: false, utcOffsetMinutes: 0, baseline,
+    websites: canUseFeature(input.isPro, 'blockWebsiteVersion') ? input.websites ?? {} : {},
+    adultFilter: canUseFeature(input.isPro, 'adultContentFilter') && Boolean(input.adultFilter),
+    uninstallProtection: canUseFeature(input.isPro, 'uninstallProtection') && Boolean(input.uninstallProtection),
+    dailyLimits: canUseFeature(input.isPro, 'dailyLimits') ? input.dailyLimits ?? {} : {},
+    routines,
+    strict: access.strict && input.strict ? { startedAt: input.strict.startedAt ?? input.strict.endsAt - 30 * 60_000, endsAt: input.strict.endsAt, platforms: (input.strict.protectedPlatforms ?? input.strict.appIds).filter((platform) => baseline.includes(platform)) } : null,
+    temporary: access.temporary ? input.temporary : null,
+  };
 }

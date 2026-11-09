@@ -56,10 +56,23 @@
       [
         "./plugins/withFocusUpProtection",
         {
-          "familyControls": true
+          "familyControls": true,
+          "quickLaunchWidget": false
+        }
+      ],
+      [
+        "./plugins/withQuickLaunchWidget",
+        {
+          "enabled": false
         }
       ],
       "./plugins/withAndroidReleaseSigning",
+      [
+        "./plugins/withMonitoringTool",
+        {
+          "enabled": false
+        }
+      ],
       [
         "./plugins/withAndroidAccessibility",
         {

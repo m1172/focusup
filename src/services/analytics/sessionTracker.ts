@@ -246,6 +246,15 @@ export function getActiveSessionForTests() { return current; }
 export function getActiveSessionSnapshot() {
   return current ? { platform: current.platform, startedAt: current.startedAt, accumulatedActiveMs: current.totalDurationMs, isForeground: current.activeSince !== null } : null;
 }
+/**
+ * Foreground time of the open session that is not saved to the daily totals yet, clipped to [from, to).
+ * Daily limits add this to the saved totals so a long session counts before it ends.
+ */
+export function getUnsavedActiveMs(platform: SocialPlatform, from: number, to: number): number {
+  if (!current || current.platform !== platform || current.endingEvent) return 0;
+  const segments = [...current.unflushedSegments, ...(current.activeSince !== null ? [{ start: current.activeSince, end: Math.max(to, current.activeSince) }] : [])];
+  return segments.reduce((sum, segment) => sum + Math.max(0, Math.min(segment.end, to) - Math.max(segment.start, from)), 0);
+}
 export function resetSessionTracker() {
   appStateSubscription?.remove();
   appStateSubscription = null;

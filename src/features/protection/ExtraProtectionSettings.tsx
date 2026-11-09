@@ -19,7 +19,7 @@ const rows: { key: Key; feature: SubscriptionFeature; icon: IconName; iosOnly: b
   { key: 'grayscale', feature: 'grayscale', icon: 'contrast', iosOnly: false, native: false },
 ];
 
-/** Device-wide extras (Pro): Apple's adult-website filter, uninstall protection and grayscale in the clean browser. */
+/** Device extras: Apple's adult-website filter and uninstall protection (Pro), and grayscale in the clean browser (free). */
 /** `only` picks some of the rows, `title` replaces the group label. */
 export function ExtraProtectionSettings({ only, title }: { only?: Key[]; title?: string } = {}) {
   const { t } = useTranslation();

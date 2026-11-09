@@ -78,6 +78,10 @@ export default function SupervisedScreen() {
         <Text style={{ color: c.text2, fontSize: 13, fontWeight: '700' }}>{t('family.child.browsersTitle')}</Text>
         <Text style={{ color: c.text, fontSize: 15, fontWeight: '600' }}>{band === 'child' ? t('family.child.under13') : browsers.length ? appNames(browsers) : t('family.child.noBrowsers')}</Text>
       </View>
+      {band !== 'child' && browsers.some((app) => rules.policy.limits?.[app]) ? <View style={{ gap: 4 }}>
+        <Text style={{ color: c.text2, fontSize: 13, fontWeight: '700' }}>{t('family.child.limitsTitle')}</Text>
+        <Text style={{ color: c.text, fontSize: 15, fontWeight: '600' }}>{browsers.filter((app) => rules.policy.limits?.[app]).map((app) => `${appCatalog[app].name} · ${t('family.rules.minutes', { count: rules.policy.limits![app]! })}`).join(', ')}</Text>
+      </View> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Icon name="moon" size={20} color={c.accent} strokeWidth={2.2} />
         <Text style={{ flex: 1, color: c.text, fontSize: 15, fontWeight: '600' }}>{boundary ? t(boundary.kind === 'start' ? 'family.child.downtimeStarts' : 'family.child.downtimeEnds', { time: `${formatClock(boundary.at)}${boundary.at.toDateString() === new Date().toDateString() ? '' : ` · ${(t('family.weekdays', { returnObjects: true }) as string[])[boundary.at.getDay()]}`}` }) : t('family.child.noDowntime')}</Text>

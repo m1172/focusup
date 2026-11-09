@@ -1,35 +1,41 @@
 import { PRO_ENABLED, WEBSITE_BLOCKING } from '../../config/release';
 import type { PurchasesPackage } from 'react-native-purchases';
 
+/** 'free' features work for everyone while Pro is off; 'pro' ones stay hidden. */
 export const FEATURE_ACCESS = {
   instagramCleanBrowsing: 'pro',
   instagramReels: 'free',
-  instagramExplore: 'pro',
-  instagramSuggestedPosts: 'pro',
-  instagramRecommendations: 'pro',
-  instagramHomeFeed: 'pro',
+  instagramExplore: 'free',
+  instagramSuggestedPosts: 'free',
+  instagramRecommendations: 'free',
+  instagramHomeFeed: 'free',
   youtubeShorts: 'free',
-  youtubeHomeRecommendations: 'pro',
-  youtubeRelatedRecommendations: 'pro',
+  youtubeHomeRecommendations: 'free',
+  youtubeRelatedRecommendations: 'free',
   youtubeComments: 'pro',
   tiktokForYou: 'free',
+  instagramStories: 'free',
+  // Hiding posts marked Sponsored. Experimental; separate from the Pro focused search.
+  instagramSponsored: 'free',
+  focusedMessages: 'free',
+  youtubeExplore: 'free',
   // Turning the Reels/Shorts/For You block off. Free users keep it on all the time.
   shortVideoControl: 'pro',
   blockNativeShortVideoApp: 'free',
   blockWebsiteVersion: 'pro',
   adultContentFilter: 'pro',
   uninstallProtection: 'pro',
-  grayscale: 'pro',
-  dailyLimits: 'pro',
-  tiktokFollowing: 'pro',
-  tiktokExplore: 'pro',
+  grayscale: 'free',
+  dailyLimits: 'free',
+  tiktokFollowing: 'free',
+  tiktokExplore: 'free',
   strictMode: 'pro',
-  schedules: 'pro',
+  schedules: 'free',
   advancedStatistics: 'pro',
   advancedInsights: 'pro',
   nativeProtection: 'pro',
   temporaryAccess: 'pro',
-  sleepMode: 'pro',
+  sleepMode: 'free',
 } as const;
 
 export type SubscriptionFeature = keyof typeof FEATURE_ACCESS;

@@ -34,6 +34,15 @@ describe('Instagram semantic content detection', () => {
     expect(posts[2].getAttribute('data-focusup-hidden')).toBe('sponsoredPosts');
   });
 
+  it('recognises the Uzbek label and a trailing separator, but not the word inside a caption', () => {
+    document.body.innerHTML = '<article><header><span>Reklama</span></header></article><article><header><span>Sponsored ·</span></header></article><article><header><span>Reklama haqida post</span></header></article>';
+    inject({ ...allOff, sponsoredPosts: true });
+    const posts = document.querySelectorAll('article');
+    expect(posts[0].getAttribute('data-focusup-hidden')).toBe('sponsoredPosts');
+    expect(posts[1].getAttribute('data-focusup-hidden')).toBe('sponsoredPosts');
+    expect(posts[2].hasAttribute('data-focusup-hidden')).toBe(false);
+  });
+
   it('counts detected content with filters off and does not recount it on reinjection', () => {
     document.body.innerHTML = '<article><header><span>Sponsored</span></header><a href="/p/ad-1/">Post</a></article><article><h2>Suggested for you</h2><a href="/p/suggested-1/">Post</a></article>';
     inject(allOff, false);

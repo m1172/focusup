@@ -32,7 +32,8 @@ export type FamilyRoute = {
   run: (request: FamilyRequest) => Promise<FamilyResult>;
 };
 
-export const FAMILY_CONSENT_VERSION = '2026-11.1';
+// 2026-11.2: the parent also sees daily minutes in Vaqtim's clean browsers.
+export const FAMILY_CONSENT_VERSION = '2026-11.2';
 const PAIRING_SECONDS = 600;
 /** Pairing approval, phone replacement and removal need a sign-in from the last 10 minutes. */
 export const FRESH_AUTH_SECONDS = 600;
@@ -236,7 +237,7 @@ export function createFamilyApi({ config, rpc, limit, hint = async () => undefin
   route('POST', '/v1/family/device/sync', 'device', 30, async (request) => {
     const secret = deviceSecret(request.authorization);
     const body = deviceSyncSchema.parse(request.body);
-    return { data: await call('family_device_sync', { p_secret_hash: await sha256(secret), p_applied_revision: body.appliedRevision, p_report: body.report, p_push_token: body.pushToken }) };
+    return { data: await call('family_device_sync', { p_secret_hash: await sha256(secret), p_applied_revision: body.appliedRevision, p_report: body.report, p_push_token: body.pushToken, p_usage: body.usage ?? null }) };
   }, true);
   route('POST', '/v1/family/device/release', 'device', 10, async (request) => ({ data: await call('family_release_ack', { p_secret_hash: await sha256(deviceSecret(request.authorization)) }) }));
   route('POST', '/v1/family/device/end-supervision', 'device', 5, async (request) => ({ data: await call('family_end_supervision', { p_secret_hash: await sha256(deviceSecret(request.authorization)) }) }));

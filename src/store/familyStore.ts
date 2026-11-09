@@ -23,6 +23,9 @@ type FamilyState = {
   notice: FamilyNotice | null;
   /** Someone chose the personal path (Start or Sign in) on this phone, so analytics may run. */
   personalChosen: boolean;
+  /** The last usage report's sequence number; each report gets a higher one. */
+  usageSequence: number;
+  nextUsageSequence: () => number;
   setPending: (pending: PendingPairing) => void;
   setSupervision: (supervision: Supervision) => void;
   setApplied: (revision: number) => void;
@@ -52,6 +55,9 @@ export const useFamilyStore = create<FamilyState>()(persist((set) => ({
   ...empty,
   notice: null,
   personalChosen: false,
+  usageSequence: 0,
+  // Time-based, so a phone whose saved state was lost still sends numbers the server hasn't seen.
+  nextUsageSequence: () => { const next = Math.max(useFamilyStore.getState().usageSequence + 1, Date.now()); set({ usageSequence: next }); return next; },
   setPending: (pending) => set({ role: 'pending', pending, supervision: null, appliedRevision: null }),
   setSupervision: (supervision) => set((state) => ({ role: 'child', pending: null, supervision, appliedRevision: state.role === 'child' ? state.appliedRevision : null })),
   setApplied: (appliedRevision) => set({ appliedRevision }),
@@ -64,20 +70,21 @@ export const useFamilyStore = create<FamilyState>()(persist((set) => ({
   name: 'focusup-family-v1',
   version: 1,
   storage: createJSONStorage(() => AsyncStorage),
-  partialize: ({ role, pending, supervision, appliedRevision, lastSyncAt, notice, personalChosen }) => ({ role, pending, supervision, appliedRevision, lastSyncAt, notice, personalChosen }),
+  partialize: ({ role, pending, supervision, appliedRevision, lastSyncAt, notice, personalChosen, usageSequence }) => ({ role, pending, supervision, appliedRevision, lastSyncAt, notice, personalChosen, usageSequence }),
   // A damaged record never drops supervision silently: a supervised phone with unreadable rules stays supervised
   // with the strictest starter rules until the next sync replaces them.
   merge: (persisted, current) => {
     const raw = (persisted && typeof persisted === 'object' ? persisted : {}) as Partial<FamilyState>;
     const notice = raw.notice === 'released' || raw.notice === 'revoked' || raw.notice === 'ended' ? raw.notice : null;
     const personalChosen = raw.personalChosen === true;
+    const usageSequence = Number.isSafeInteger(raw.usageSequence) && (raw.usageSequence as number) > 0 ? raw.usageSequence as number : 0;
     if (raw.role === 'child') {
       const supervision = validSupervision(raw.supervision) ? raw.supervision : { childNickname: '', parentName: '', birthDate: '2015-01-01', revision: 1, policy: { schemaVersion: 1 as const, protectedApps: ['instagram', 'youtube', 'tiktok'], browsers: {}, downtime: [] } } satisfies Supervision;
       const appliedRevision = Number.isSafeInteger(raw.appliedRevision) ? raw.appliedRevision as number : null;
-      return { ...current, role: 'child', pending: null, supervision, appliedRevision, lastSyncAt: Number.isFinite(raw.lastSyncAt) ? raw.lastSyncAt as number : null, notice, personalChosen };
+      return { ...current, role: 'child', pending: null, supervision, appliedRevision, lastSyncAt: Number.isFinite(raw.lastSyncAt) ? raw.lastSyncAt as number : null, notice, personalChosen, usageSequence };
     }
-    if (raw.role === 'pending' && validPending(raw.pending)) return { ...current, role: 'pending', pending: raw.pending, notice, personalChosen };
-    return { ...current, ...empty, role: raw.role === 'pending' ? 'pending' : 'none', notice, personalChosen };
+    if (raw.role === 'pending' && validPending(raw.pending)) return { ...current, role: 'pending', pending: raw.pending, notice, personalChosen, usageSequence };
+    return { ...current, ...empty, role: raw.role === 'pending' ? 'pending' : 'none', notice, personalChosen, usageSequence };
   },
 }));
 
