@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.m1172.focusup",
-      "buildNumber": "6",
+      "buildNumber": "8",
       "runtimeVersion": "1.0.0-screentime",
       "appleTeamId": "GH6PP8FUU8",
       "infoPlist": {
@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.m1172.focusup",
-      "versionCode": 6,
+      "versionCode": 8,
       "runtimeVersion": "1.0.0-accessibility",
       "adaptiveIcon": {
         "backgroundColor": "#5B4FE9",
