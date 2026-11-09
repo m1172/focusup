@@ -22,12 +22,15 @@ type WellbeingState = {
   dailyLimits: Partial<Record<SocialAppId, number>>;
   /** Breaks taken today in Hard Mode, by local date. */
   breaks: { day: string; count: number };
+  /** Post mode used today, by local date (free, a few a day). */
+  posts: { day: string; count: number };
   setLiveActivity: (enabled: boolean) => void;
   setAdultFilter: (enabled: boolean) => void;
   setUninstallProtection: (enabled: boolean) => void;
   setGrayscale: (enabled: boolean) => void;
   setDailyLimit: (appId: SocialAppId, minutes: number | null) => void;
   recordBreak: (day: string) => void;
+  recordPost: (day: string) => void;
   setLaunchDestination: (value: WellbeingState['launchDestination']) => void;
   setNativeApps: (apps: SocialAppId[]) => void;
   setSleep: (sleep: SleepPlan) => void;
@@ -41,7 +44,7 @@ export function validDailyLimits(value: unknown): Partial<Record<SocialAppId, nu
 
 export const useWellbeingStore = create<WellbeingState>()(persist((set) => ({
   launchDestination: 'home', nativeApps: [], sleep: defaultSleepPlan, temporary: null, liveActivity: false,
-  adultFilter: false, uninstallProtection: false, grayscale: false, dailyLimits: {}, breaks: { day: '', count: 0 },
+  adultFilter: false, uninstallProtection: false, grayscale: false, dailyLimits: {}, breaks: { day: '', count: 0 }, posts: { day: '', count: 0 },
   setLiveActivity: (liveActivity) => set({ liveActivity }),
   setAdultFilter: (adultFilter) => set({ adultFilter }),
   setUninstallProtection: (uninstallProtection) => set({ uninstallProtection }),
@@ -52,6 +55,7 @@ export const useWellbeingStore = create<WellbeingState>()(persist((set) => ({
     return { dailyLimits };
   }),
   recordBreak: (day) => set((state) => ({ breaks: { day, count: state.breaks.day === day ? state.breaks.count + 1 : 1 } })),
+  recordPost: (day) => set((state) => ({ posts: { day, count: state.posts.day === day ? state.posts.count + 1 : 1 } })),
   setLaunchDestination: (launchDestination) => set({ launchDestination }),
   setNativeApps: (nativeApps) => set({ nativeApps: [...new Set(nativeApps)] }),
   setSleep: (sleep) => set({ sleep }),
@@ -59,9 +63,11 @@ export const useWellbeingStore = create<WellbeingState>()(persist((set) => ({
 }), { name: 'focusup-wellbeing-v1', version: 1, storage: createJSONStorage(() => AsyncStorage), merge: (persisted, current) => {
   const raw = persisted && typeof persisted === 'object' ? persisted as Partial<WellbeingState> : {};
   const temporary = raw.temporary;
-  const validTemporary = temporary && ALL_PLATFORMS.includes(temporary.platform) && typeof temporary.id === 'string' && temporary.id.length < 100 && Number.isFinite(temporary.startedAt) && Number.isFinite(temporary.endsAt) && temporary.endsAt > temporary.startedAt && temporary.endsAt - temporary.startedAt <= 120 * 60_000;
+  const validTemporary = temporary && ALL_PLATFORMS.includes(temporary.platform) && typeof temporary.id === 'string' && temporary.id.length < 100 && Number.isFinite(temporary.startedAt) && Number.isFinite(temporary.endsAt) && temporary.endsAt > temporary.startedAt && temporary.endsAt - temporary.startedAt <= 120 * 60_000
+    && (temporary.kind === undefined || temporary.kind === 'break' || temporary.kind === 'post');
   return { ...current, launchDestination: raw.launchDestination === 'instagram' || raw.launchDestination === 'youtube' || raw.launchDestination === 'tiktok' ? raw.launchDestination : 'home', nativeApps: Array.isArray(raw.nativeApps) ? [...new Set(raw.nativeApps.filter((app) => ALL_PLATFORMS.includes(app)))] : [], sleep: validateSleepPlan(raw.sleep) ? raw.sleep : defaultSleepPlan, temporary: validTemporary ? temporary : null, liveActivity: raw.liveActivity === true,
     adultFilter: raw.adultFilter === true, uninstallProtection: raw.uninstallProtection === true, grayscale: raw.grayscale === true,
     dailyLimits: validDailyLimits(raw.dailyLimits),
-    breaks: raw.breaks && typeof raw.breaks.day === 'string' && Number.isSafeInteger(raw.breaks.count) && raw.breaks.count >= 0 ? raw.breaks : { day: '', count: 0 } };
+    breaks: raw.breaks && typeof raw.breaks.day === 'string' && Number.isSafeInteger(raw.breaks.count) && raw.breaks.count >= 0 ? raw.breaks : { day: '', count: 0 },
+    posts: raw.posts && typeof raw.posts.day === 'string' && Number.isSafeInteger(raw.posts.count) && raw.posts.count >= 0 ? raw.posts : { day: '', count: 0 } };
 } }));

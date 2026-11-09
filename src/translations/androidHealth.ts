@@ -1,0 +1,36 @@
+/** Android: warnings when blocking stopped (Accessibility off) or may stop (battery saving). */
+export const androidHealthTranslations = {
+  uz: {
+    offTitle: 'Bloklash to‘xtadi',
+    offBody: 'Android Vaqtim’ning Maxsus imkoniyatlar xizmatini o‘chirib qo‘ydi (yangilanish yoki qayta yoqishdan keyin shunday bo‘ladi). Hozir bloklanmayapti: {{apps}}.',
+    turnOn: 'Qayta yoqish',
+    batteryTitle: 'Bloklash to‘xtab qolmasin',
+    batteryBody: '{{maker}} telefonlari quvvatni tejash uchun Vaqtim’ni yopishi mumkin, shunda bloklash to‘xtaydi. Ikkita sozlama buni tuzatadi.',
+    batteryBodyGeneric: 'Telefon quvvatni tejash uchun Vaqtim’ni yopishi mumkin, shunda bloklash to‘xtaydi. Ikkita sozlama buni tuzatadi.',
+    battery: '1. Quvvat: cheklovsiz',
+    autoStart: '2. Avtoishga tushirishni yoqish',
+    feedNotice: 'Vaqtim Reels va Shorts’ni yopdi. Ilovaning qolgan qismi ishlaydi.',
+  },
+  ru: {
+    offTitle: 'Блокировка остановилась',
+    offBody: 'Android выключил службу специальных возможностей Vaqtim (так бывает после обновления или перезагрузки). Сейчас не блокируются: {{apps}}.',
+    turnOn: 'Включить снова',
+    batteryTitle: 'Чтобы блокировка не останавливалась',
+    batteryBody: 'Телефоны {{maker}} могут закрывать Vaqtim ради экономии батареи, и блокировка останавливается. Это исправят две настройки.',
+    batteryBodyGeneric: 'Телефон может закрывать Vaqtim ради экономии батареи, и блокировка останавливается. Это исправят две настройки.',
+    battery: '1. Батарея: без ограничений',
+    autoStart: '2. Включить автозапуск',
+    feedNotice: 'Vaqtim закрыл Reels и Shorts. Остальное в приложении работает.',
+  },
+  en: {
+    offTitle: 'Blocking stopped',
+    offBody: 'Android turned off Vaqtim’s Accessibility service (this happens after some updates and restarts). Not blocked right now: {{apps}}.',
+    turnOn: 'Turn it back on',
+    batteryTitle: 'Keep blocking on',
+    batteryBody: '{{maker}} phones can close Vaqtim to save battery, and blocking stops with it. Two settings fix this.',
+    batteryBodyGeneric: 'Your phone can close Vaqtim to save battery, and blocking stops with it. Two settings fix this.',
+    battery: '1. Battery: no restrictions',
+    autoStart: '2. Turn on auto-start',
+    feedNotice: 'Vaqtim closed Reels and Shorts. The rest of the app still works.',
+  },
+} as const;

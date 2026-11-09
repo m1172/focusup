@@ -49,11 +49,11 @@ object ProtectionPolicy {
       if (routine.optBoolean("strict") && routineActive(routine, platform, now)) return true
     }
     // A break lifts Hard Mode for its one app; strict routines above still win.
-    val temporary = plan.optJSONObject("temporary")
-    if (temporary != null && temporary.optString("platform") == platform && temporary.optDouble("endsAt") > now) return false
+    if (temporaryActive(plan, platform, now)) return false
     val strict = plan.optJSONObject("strict")
     if (strict != null && strict.optDouble("endsAt") > now && strings(strict.optJSONArray("platforms")).contains(platform)) return true
-    if (strings(plan.optJSONArray("baseline")).contains(platform)) return true
+    // Feeds-only apps stay usable; only their short-video screen is left (see blocksFeed).
+    if (strings(plan.optJSONArray("baseline")).contains(platform) && !strings(plan.optJSONArray("feedsOnly")).contains(platform)) return true
     if (limitReached(context, platform, now)) return true
     for (index in 0 until routines.length()) {
       val routine = routines.optJSONObject(index) ?: continue
@@ -61,4 +61,27 @@ object ProtectionPolicy {
     }
     return false
   }
+
+  private fun temporaryActive(plan: JSONObject, platform: String, now: Long): Boolean {
+    val temporary = plan.optJSONObject("temporary") ?: return false
+    return temporary.optString("platform") == platform && temporary.optDouble("endsAt") > now
+  }
+
+  /**
+   * True when the real app is open as usual but its short-video screen (Reels, Shorts) must be left.
+   * Only for apps in `feedsOnly`; whole-app blocking (schedules, sleep, limits, Hard Mode) is checked first.
+   */
+  fun blocksFeed(context: Context, platform: String, now: Long = System.currentTimeMillis()): Boolean {
+    val plan = plan(context)
+    if (!strings(plan.optJSONArray("feedsOnly")).contains(platform) || !strings(plan.optJSONArray("baseline")).contains(platform)) return false
+    return !temporaryActive(plan, platform, now) && !shouldBlock(context, platform, now)
+  }
+
+  /** View IDs of the app's short-video screen; IDs of other apps are ignored. */
+  fun feedScreens(context: Context, platform: String): List<String> {
+    val prefix = (packages[platform] ?: return emptyList()) + ":id/"
+    return strings(plan(context).optJSONObject("feedScreens")?.optJSONArray(platform)).filter { it.startsWith(prefix) && it.length < 200 }
+  }
+
+  fun feedNotice(context: Context): String = plan(context).optString("feedNotice").take(120)
 }

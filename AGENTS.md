@@ -11,8 +11,8 @@ If something here no longer matches the code, trust the code, fix this file in t
 Vaqtim (repo and slug `focusup`) is a free iPhone and Android app that helps people stop endless scrolling.
 
 - **Clean social apps inside Vaqtim.** Instagram, YouTube and TikTok open in Vaqtim's own browser (a WebView) with the short-video feeds hidden: Reels, Shorts and TikTok's For You. Messages, profiles, search and single shared videos keep working.
-- **The real app gets blocked.** When you add an app on the Protect tab, Vaqtim blocks the real app on the phone: Screen Time (Family Controls) on iOS, an Accessibility service on Android. Opening the real app sends the user to Vaqtim instead.
-- **Free extras:** Explore, recommendation and Home filters, Instagram Stories and messages-only mode, YouTube Explore/Trending, grayscale (inside Vaqtim), schedules, sleep mode and daily limits.
+- **The real app gets blocked.** When you add an app on the Protect tab, Vaqtim blocks the real app on the phone: Screen Time (Family Controls) on iOS, an Accessibility service on Android. On iOS, opening the real app sends the user to Vaqtim instead. On Android, Instagram and YouTube stay usable and only their Reels and Shorts screens are closed (view IDs in `src/services/protection/androidFeeds.ts`); TikTok is blocked whole. Schedules, sleep, limits and Hard Mode block the whole app on both.
+- **Free extras:** Explore, recommendation and Home filters, Instagram Stories and messages-only mode, YouTube Explore/Trending, grayscale (inside Vaqtim), schedules, sleep mode, daily limits and Post mode (the real app opens for 10 minutes to post, 3 times a day).
 - **Pro extras (hidden while Pro is off):** Hard Mode (strict mode), breaks (temporary access), blocking extra apps, advanced statistics and YouTube comment hiding.
 - **Languages:** Uzbek (default), Russian and English, everywhere: app, store listings and website.
 

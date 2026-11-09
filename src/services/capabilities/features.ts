@@ -36,6 +36,7 @@ export function vaqtimFeatures(options: { widget: boolean }): { group: FeatureGr
       { key: 'schedules', status: 'available' },
       { key: 'sleep', status: 'available' },
       { key: 'dailyLimits', status: 'available' },
+      { key: 'postMode', status: 'available' },
       { key: 'grayscale', status: 'available' },
       { key: 'layout', status: 'available' },
       { key: 'darkMode', status: 'available' },

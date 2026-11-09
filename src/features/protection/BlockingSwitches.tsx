@@ -10,6 +10,7 @@ import { canUseFeature, isFeatureAvailable } from '../../services/subscription/s
 import { useAppTheme } from '../../theme';
 import { useAppStore } from '../../store/appStore';
 import { shortVideoBlockedApps, WEBSITE_DOMAINS } from '../../services/protection/engine';
+import { ANDROID_FEED_SCREENS } from '../../services/protection/androidFeeds';
 import type { BlockingSwitch, SocialAppId } from '../../types/app';
 import { enableAfterNativeBlock, ensureNativeAuthorization } from './nativeAppSetup';
 
@@ -58,7 +59,7 @@ export function BlockingSwitches({ appId, name, feature, locked, onLockedPress, 
   };
 
   const allRows: { key: BlockingSwitch; icon: IconName; title: string; hint: string; value: boolean; disabled: boolean; onEnable: () => void }[] = [
-    { key: 'blockNativeApp', icon: 'shieldCheck', title: t('browser.blockRealApp', { name }), hint: t('browser.blockRealAppHint'), value: nativeOn, disabled: false, onEnable: turnOnNative },
+    { key: 'blockNativeApp', icon: 'shieldCheck', title: t('browser.blockRealApp', { name }), hint: t(Platform.OS === 'android' && ANDROID_FEED_SCREENS[appId] ? 'browser.blockRealAppHintFeeds' : 'browser.blockRealAppHint'), value: nativeOn, disabled: false, onEnable: turnOnNative },
     { key: 'blockWebsite', icon: 'globe', title: t('browser.blockWebsite'), hint: websiteSupported ? t('browser.blockWebsiteHint', { domain }) : t('browser.websiteIosOnly'), value: websiteOn && !websiteLocked, disabled: !websiteSupported, onEnable: turnOnWebsite },
   ];
   // Website blocking is Pro: hidden in the free release, shown with a Pro badge once Pro exists.
