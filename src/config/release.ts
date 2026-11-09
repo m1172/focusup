@@ -24,3 +24,20 @@ export const IOS_APP_BLOCKING: boolean = true;
  * false the switch is hidden and the app sends iOS an empty website list (which also clears an old block).
  */
 export const WEBSITE_BLOCKING: boolean = false;
+
+/**
+ * Vaqtim Family (parent and child phones). While false the Settings row and the "Connect to my parent" button are
+ * hidden, so nobody can start using it. A phone that is already supervised keeps syncing either way, so its rules,
+ * removal and release still work. The server has its own switch, `FAMILY_ENROLLMENT_ENABLED` (backend/src/config.ts),
+ * and both must be on before families can enroll. Keep both off until the Uzbekistan launch checks in
+ * docs/family.md are done.
+ */
+export const FAMILY_ENABLED: boolean = false;
+
+/**
+ * Home Screen quick-launch widgets (iOS WidgetKit, Android App Widgets), added by `plugins/withQuickLaunchWidget.js`.
+ * They need a new store build, so this stays false until a build with the widget is on the stores and tested on
+ * real phones; while false the features page lists widgets as not available. Turning the plugin off in app.json
+ * and this switch go together, with new `ios.runtimeVersion` and `android.runtimeVersion` values.
+ */
+export const WIDGETS_ENABLED: boolean = false;

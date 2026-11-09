@@ -8,12 +8,23 @@ const allExtensions = [
   { name: 'FocusUpShield', point: 'com.apple.ManagedSettingsUI.shield-configuration-service', files: ['ProtectionShared.swift', 'FocusUpShield.swift'] },
   { name: 'FocusUpShieldAction', point: 'com.apple.ManagedSettings.shield-action-service', files: ['FocusUpShieldAction.swift'] },
   { name: 'FocusUpLiveActivity', point: 'com.apple.widgetkit-extension', files: ['FocusUpActivityAttributes.swift', 'FocusUpLiveActivity.swift'] },
+  // Home Screen quick launch. Its own extension, so it never changes the Live Activity.
+  { name: 'FocusUpQuickLaunch', point: 'com.apple.widgetkit-extension', files: ['FocusUpQuickLaunch.swift'], strings: true },
 ];
+// Extensions that need neither Screen Time nor its entitlement.
+const plainExtension = (name) => name === 'FocusUpLiveActivity' || name === 'FocusUpQuickLaunch';
+// Widget picker text for the quick-launch widget, in each app language.
+const quickLaunchStrings = {
+  en: 'Open clean Instagram, YouTube and TikTok in Vaqtim.',
+  ru: 'Открывайте чистые Instagram, YouTube и TikTok в Vaqtim.',
+  uz: 'Vaqtim’da toza Instagram, YouTube va TikTok’ni oching.',
+};
 // Screen Time (Family Controls) needs Apple's distribution approval before TestFlight/App Store builds can be signed.
 // With { "familyControls": false } the entitlement and the three Screen Time extensions are left out; the Live
 // Activity stays. Keep `IOS_APP_BLOCKING` in src/config/release.ts in sync.
-function withFocusUpProtection(config, { familyControls = true } = {}) {
-  const extensions = allExtensions.filter((ext) => familyControls || ext.name === 'FocusUpLiveActivity');
+// { "quickLaunchWidget": true } adds the Home Screen widget; keep WIDGETS_ENABLED in src/config/release.ts in sync.
+function withFocusUpProtection(config, { familyControls = true, quickLaunchWidget = false } = {}) {
+  const extensions = allExtensions.filter((ext) => ext.name === 'FocusUpQuickLaunch' ? quickLaunchWidget : familyControls || ext.name === 'FocusUpLiveActivity');
   const bundle = config.ios?.bundleIdentifier;
   if (!bundle) throw new Error('FocusUp protection requires ios.bundleIdentifier');
   const group = `group.${bundle}.protection`;
@@ -34,9 +45,13 @@ function withFocusUpProtection(config, { familyControls = true } = {}) {
       if (ext.files.includes('ProtectionShared.swift') || ext.name === 'FocusUpShieldAction') fs.copyFileSync(path.join(source, 'ios/PrivacyInfo.xcprivacy'), path.join(directory, 'PrivacyInfo.xcprivacy'));
       else fs.writeFileSync(path.join(directory, 'PrivacyInfo.xcprivacy'), plist.default.build({ NSPrivacyTracking: false, NSPrivacyCollectedDataTypes: [], NSPrivacyAccessedAPITypes: [] }));
       const extension = { NSExtensionPointIdentifier: ext.point };
-      if (ext.name !== 'FocusUpLiveActivity') extension.NSExtensionPrincipalClass = `$(PRODUCT_MODULE_NAME).${ext.name}`;
+      if (!plainExtension(ext.name)) extension.NSExtensionPrincipalClass = `$(PRODUCT_MODULE_NAME).${ext.name}`;
       fs.writeFileSync(path.join(directory, 'Info.plist'), plist.default.build({ CFBundleDisplayName: 'Vaqtim', CFBundleExecutable: '$(EXECUTABLE_NAME)', CFBundleIdentifier: '$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleName: '$(PRODUCT_NAME)', CFBundlePackageType: 'XPC!', CFBundleShortVersionString: config.version ?? '1.0.0', CFBundleVersion: '$(CURRENT_PROJECT_VERSION)', FocusUpAppGroup: group, NSExtension: extension, ...(ext.name === 'FocusUpLiveActivity' ? { NSSupportsLiveActivities: true } : {}) }));
-      fs.writeFileSync(path.join(directory, `${ext.name}.entitlements`), plist.default.build({ 'com.apple.security.application-groups': [group], ...(ext.name === 'FocusUpLiveActivity' ? {} : { 'com.apple.developer.family-controls': true }) }));
+      fs.writeFileSync(path.join(directory, `${ext.name}.entitlements`), plist.default.build({ 'com.apple.security.application-groups': [group], ...(plainExtension(ext.name) ? {} : { 'com.apple.developer.family-controls': true }) }));
+      if (ext.strings) for (const [language, text] of Object.entries(quickLaunchStrings)) {
+        fs.mkdirSync(path.join(directory, `${language}.lproj`), { recursive: true });
+        fs.writeFileSync(path.join(directory, `${language}.lproj`, 'Localizable.strings'), `"quickLaunchDescription" = ${JSON.stringify(text)};\n`);
+      }
     }
     return mod;
   }]);
@@ -53,7 +68,8 @@ function withFocusUpProtection(config, { familyControls = true } = {}) {
         project.addBuildPhase(filePaths, 'PBXSourcesBuildPhase', 'Sources', target.uuid);
         project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
       }
-      if (!target.pbxNativeTarget.buildPhases.some((phase) => phase.comment === 'Resources')) project.addBuildPhase([`${ext.name}/PrivacyInfo.xcprivacy`], 'PBXResourcesBuildPhase', 'Resources', target.uuid);
+      const resources = [`${ext.name}/PrivacyInfo.xcprivacy`, ...(ext.strings ? Object.keys(quickLaunchStrings).map((language) => `${ext.name}/${language}.lproj/Localizable.strings`) : [])];
+      if (!target.pbxNativeTarget.buildPhases.some((phase) => phase.comment === 'Resources')) project.addBuildPhase(resources, 'PBXResourcesBuildPhase', 'Resources', target.uuid);
       // Build phases create file references, but do not put them in the project tree.
       // CocoaPods resolves privacy manifests through their parent group.
       const groups = project.hash.project.objects.PBXGroup;
@@ -74,7 +90,7 @@ function withFocusUpProtection(config, { familyControls = true } = {}) {
     return mod;
   });
   config.extra ??= {}; config.extra.eas ??= {}; config.extra.eas.build ??= {}; config.extra.eas.build.experimental ??= {}; config.extra.eas.build.experimental.ios ??= {};
-  config.extra.eas.build.experimental.ios.appExtensions = [...(config.extra.eas.build.experimental.ios.appExtensions ?? []).filter((item) => !extensions.some((ext) => ext.name === item.targetName)), ...extensions.map((ext) => ({ targetName: ext.name, bundleIdentifier: `${bundle}.${ext.name}`, entitlements: { 'com.apple.security.application-groups': [group], ...(ext.name === 'FocusUpLiveActivity' ? {} : { 'com.apple.developer.family-controls': true }) } }))];
+  config.extra.eas.build.experimental.ios.appExtensions = [...(config.extra.eas.build.experimental.ios.appExtensions ?? []).filter((item) => !extensions.some((ext) => ext.name === item.targetName)), ...extensions.map((ext) => ({ targetName: ext.name, bundleIdentifier: `${bundle}.${ext.name}`, entitlements: { 'com.apple.security.application-groups': [group], ...(plainExtension(ext.name) ? {} : { 'com.apple.developer.family-controls': true }) } }))];
   return config;
 }
 module.exports = createRunOncePlugin(withFocusUpProtection, 'focusup-protection', '1.0.0');

@@ -19,7 +19,7 @@ beforeEach(() => {
   useAppStore.setState(useAppStore.getInitialState());
   useOnboardingStore.setState(useOnboardingStore.getInitialState());
   useWellbeingStore.setState(useWellbeingStore.getInitialState());
-  jest.mocked(reconcileProtection).mockReset().mockResolvedValue(undefined);
+  jest.mocked(reconcileProtection).mockReset().mockResolvedValue(true);
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false } as Awaited<ReturnType<typeof Notifications.getPermissionsAsync>>);
 });
 afterEach(() => { jest.restoreAllMocks(); });

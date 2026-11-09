@@ -1,4 +1,9 @@
-import { PRO_ENABLED } from '../config/release';
+import { FAMILY_ENABLED, PRO_ENABLED } from '../config/release';
+import { useFamilyStore } from '../store/familyStore';
+import { startFamilySync } from '../services/family/deviceSync';
+import { startSupervisionNotice } from '../services/family/monitoringNotice';
+import { startFamilyAnalyticsGate } from '../services/family/analyticsGate';
+import { FamilyNotice } from '../features/family/FamilyNotice';
 import { useAccountStore } from '../store/accountStore';
 import { useLaunchReadiness } from '../hooks/useLaunchReadiness';
 import { canEnterApp } from '../services/backend/accessPolicy';
@@ -56,7 +61,8 @@ export default function RootLayout() {
   const hydrated = useLaunchReadiness();
   const account = useAccountStore();
   const completed = useAppStore((state) => state.onboardingCompleted);
-  const appAllowed = canEnterApp(account, completed, hydrated, isBackendConfigured());
+  const familyRole = useFamilyStore((state) => state.role);
+  const appAllowed = canEnterApp(account, completed, hydrated, isBackendConfigured(), familyRole);
 
   const language = useAppStore((state) => state.selectedLanguage);
   const themeMode = useAppStore((state) => state.themeMode);
@@ -79,6 +85,8 @@ export default function RootLayout() {
     ...FontAwesome6.font,
   });
   useEffect(() => {
+    // Before anything can start analytics: a supervised phone (Vaqtim Family) never sends any.
+    const stopAnalyticsGate = startFamilyAnalyticsGate();
     void loadBrowserUserAgent();
     void initializeLocalAnalytics().then(() => restoreInterruptedSession());
     const stopSettingsSync = startSettingsSync();
@@ -102,11 +110,15 @@ export default function RootLayout() {
       }
     });
     const wellbeingChanges = useWellbeingStore.subscribe(reconcileNative);
+    const familyChanges = useFamilyStore.subscribe((state, previous) => { if (state.supervision !== previous.supervision || state.role !== previous.role) reconcileNative(); });
+    const stopFamilySync = startFamilySync();
+    const stopSupervisionNotice = startSupervisionNotice();
     const entitlementChanges = useSubscriptionStore.subscribe(reconcileNative);
     reconcileNative();
     const stopHydrationListener = useAppStore.persist.onFinishHydration(() => { void reconcileStrictModeState(); });
     if (useAppStore.persist.hasHydrated()) void reconcileStrictModeState();
-    const reconcileTimer = PRO_ENABLED ? setInterval(() => { if (!isClearingFocusUpData()) { void reconcileStrictModeState(); reconcileNative(); } }, 15_000) : undefined;
+    // Schedules and sleep start and end on their own, so the plan is rechecked while the app is open.
+    const reconcileTimer = setInterval(() => { if (!isClearingFocusUpData()) { void reconcileStrictModeState(); reconcileNative(); } }, 15_000);
     const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { void reconcileStrictModeState(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); void takeUsageSnapshot(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
     // Signed-in devices that already allow notifications register for support replies without a prompt.
     const supportPush = useAccountStore.subscribe((state, previous) => { if (state.user && state.user.id !== previous.user?.id) void syncSupportPush(); });
@@ -114,16 +126,16 @@ export default function RootLayout() {
     const pushTokenListener = Notifications.addPushTokenListener(() => { void syncSupportPush(); });
     // Support-reply taps ('support-reply') are opened by SupportReplyOpener, which also covers a cold start.
     const notificationListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      if (!PRO_ENABLED || !useAccountStore.getState().user || useAccountStore.getState().recoveryRequired) return;
+      if (!useAccountStore.getState().user || useAccountStore.getState().recoveryRequired) return;
       const data = response.notification.request.content.data;
-      if (data?.kind === 'strict-mode-end' || data?.kind === 'wellbeing') captureProductEvent('notification_opened', { kind: data.kind, source: 'notification' });
-      if (data?.kind === 'strict-mode-end') router.push('/strict-mode');
+      if ((PRO_ENABLED && data?.kind === 'strict-mode-end') || data?.kind === 'wellbeing') captureProductEvent('notification_opened', { kind: data.kind, source: 'notification' });
+      if (PRO_ENABLED && data?.kind === 'strict-mode-end') router.push('/strict-mode');
       if (data?.kind === 'wellbeing') router.push('/(tabs)/focus');
     });
-    return () => { stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
+    return () => { stopAnalyticsGate(); familyChanges(); stopFamilySync(); stopSupervisionNotice(); stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
   }, []);
   if ((!fontsLoaded && !fontError) || !hydrated || !account.ready) return <View style={{ flex: 1, backgroundColor: c.background, justifyContent: 'center' }}><ActivityIndicator accessibilityLabel={i18n.t('cloudAuth.loading')} /></View>;
-  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><NativeHandoff enabled={appAllowed} /><OnboardingPaywall enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
+  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><FamilyNotice /><NativeHandoff enabled={appAllowed} /><OnboardingPaywall enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
       <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/your-time" /><Stack.Screen name="onboarding/age" /><Stack.Screen name="onboarding/why" /><Stack.Screen name="onboarding/life-weeks" /><Stack.Screen name="onboarding/reveal" /><Stack.Screen name="onboarding/instead" /><Stack.Screen name="onboarding/reclaim" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/goals" /><Stack.Screen name="onboarding/commit" /><Stack.Screen name="onboarding/referral" /><Stack.Screen name="onboarding/account" />
@@ -132,6 +144,10 @@ export default function RootLayout() {
       <Stack.Screen name="auth/sign-in" /><Stack.Screen name="auth/sign-up" />
     </Stack.Protected>
     <Stack.Screen name="auth/callback" />
+    {/* Vaqtim Family, child's phone: entering the parent's code needs no account. */}
+    <Stack.Protected guard={familyRole === 'pending' || (FAMILY_ENABLED && familyRole === 'none' && !account.user)} redirectTo="/start">
+      <Stack.Screen name="family/connect" />
+    </Stack.Protected>
     <Stack.Screen name="privacy" /><Stack.Screen name="capabilities" />
     <Stack.Protected guard={Boolean(account.user) && isBackendConfigured()} redirectTo="/start">
       <Stack.Screen name="account" /><Stack.Screen name="support" />
@@ -144,9 +160,18 @@ export default function RootLayout() {
       <Stack.Screen name="permissions" /><Stack.Screen name="language" /><Stack.Screen name="theme" />
       {/* Opened from a blocked original app: the iOS shield button or the Android shield. */}
       <Stack.Screen name="native-app/[appId]" />
+      {/* Free: schedules, sleep and daily limits only add blocking, so every user who can enter the app gets them. */}
+      <Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="daily-limits" />
+      <Stack.Protected guard={familyRole === 'child'} redirectTo="/(tabs)">
+        <Stack.Screen name="family/supervised" />
+      </Stack.Protected>
+      {/* Vaqtim Family, parent's phone. */}
+      <Stack.Protected guard={FAMILY_ENABLED && Boolean(account.user) && familyRole === 'none'} redirectTo="/(tabs)">
+        <Stack.Screen name="family/index" /><Stack.Screen name="family/add-child" /><Stack.Screen name="family/child/[childId]" /><Stack.Screen name="family/pair/[childId]" />
+      </Stack.Protected>
       <Stack.Protected guard={PRO_ENABLED} redirectTo="/(tabs)">
         <Stack.Screen name="temporary-access" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: false }} />
-        <Stack.Screen name="strict-mode" /><Stack.Screen name="schedule" /><Stack.Screen name="sleep" /><Stack.Screen name="protection" /><Stack.Screen name="pro" /><Stack.Screen name="daily-limits" />
+        <Stack.Screen name="strict-mode" /><Stack.Screen name="protection" /><Stack.Screen name="pro" />
       </Stack.Protected>
     </Stack.Protected>
   </Stack>{appAllowed ? <BrowserLayer /> : null}</View></SafeAreaProvider>;

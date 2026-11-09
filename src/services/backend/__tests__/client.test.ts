@@ -63,7 +63,7 @@ test('rejects credentials, query strings and encoded path separators in API URLs
 test('backup capture excludes active enforcement, personal onboarding answers and analytics', () => {
   useOnboardingStore.setState({ source: 'estimate', shortFormMinutes: 75, cut: 0.5, age: 24, reasons: ['habit'], goals: ['family'], referralCode: 'FRIEND' });
   const snapshot = captureSettingsBackup();
-  expect(Object.keys(snapshot)).toEqual(['schemaVersion', 'preferences', 'wellbeing', 'onboarding']);
+  expect(Object.keys(snapshot)).toEqual(['schemaVersion', 'preferences', 'wellbeing', 'onboarding', 'extensions']);
   // Only whether onboarding was finished and the daily time it gave; age, reasons, goals and invite code stay on the phone.
   expect(snapshot.onboarding).toEqual({ completed: useAppStore.getState().onboardingCompleted, usualMinutes: 75, cut: 0.5 });
   expect(snapshot.preferences).not.toHaveProperty('strictSession');

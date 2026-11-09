@@ -4,7 +4,7 @@ import { instagramNavigationListener } from './navigation';
 import { instagramSelectors } from './selectors';
 import { socialBrowserRouteScript } from '../../social-browser/routeScript';
 import type { RemotePlatformRule } from '../../../store/remoteBlockerConfigStore';
-import { instagramAuthenticationRoutePattern, instagramReelsFeedRoutePattern } from './url';
+import { instagramAuthenticationRoutePattern, instagramExploreGridRoutePattern, instagramHomeRoutePattern, instagramReelsFeedRoutePattern, instagramStoriesRoutePattern } from './url';
 import { instagramSponsoredPostScript } from './content';
 import { instagramNavigationLayoutScript } from './navigationLayout';
 import { instagramSearchScript } from './search';
@@ -22,11 +22,18 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
       } catch (_) { return false; }
     };
     var isSponsoredPost = ${instagramSponsoredPostScript};
-    var isReelsUrl = function(url) {
+    // Same rules as instagramBlockedPage() in url.ts.
+    var blockedPage = function(url, config) {
       try {
         var parsed = new URL(url, location.origin);
-        return ['instagram.com', 'www.instagram.com'].indexOf(parsed.hostname) !== -1 && new RegExp(${JSON.stringify(instagramReelsFeedRoutePattern)}, 'i').test(parsed.pathname);
-      } catch (_) { return false; }
+        if (['instagram.com', 'www.instagram.com'].indexOf(parsed.hostname) === -1) return '';
+        var path = parsed.pathname;
+        if ((config.reels || config.messagesOnly) && new RegExp(${JSON.stringify(instagramReelsFeedRoutePattern)}, 'i').test(path)) return 'reels';
+        if ((config.stories || config.messagesOnly) && new RegExp(${JSON.stringify(instagramStoriesRoutePattern)}, 'i').test(path)) return 'stories';
+        if (config.messagesOnly && new RegExp(${JSON.stringify(instagramHomeRoutePattern)}).test(path)) return 'homeFeed';
+        if (config.messagesOnly && new RegExp(${JSON.stringify(instagramExploreGridRoutePattern)}, 'i').test(path)) return 'explore';
+        return '';
+      } catch (_) { return ''; }
     };
     var currentHost = window.location.hostname.toLowerCase();
     if (currentHost !== 'instagram.com' && !currentHost.endsWith('.instagram.com')) return true;
@@ -97,6 +104,22 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
     }
     ${instagramNavigationLayoutScript}
     ${instagramSearchScript}
+    // A Story bubble, or on Home the whole tray that holds them. Avatars inside posts stay.
+    function storyTarget(candidate) {
+      var item = candidate.closest('a[href], button, [role="button"], [role="menuitem"]') || candidate;
+      if (item.closest('article, [role="article"], nav, [role="navigation"], footer, [role="dialog"]')) return null;
+      var href = (item.getAttribute('href') || '').toLowerCase();
+      var label = textOf(item);
+      if (href.indexOf('/stories/') === -1 && !/(?:^|\W)(?:story|stories)(?:\W|$)|истори|hikoya/.test(label)) return null;
+      if (location.pathname !== '/') return item;
+      var best = item, node = item;
+      for (var i = 0; i < 8 && node.parentElement && node.parentElement !== document.body; i++) {
+        node = node.parentElement;
+        if (node.querySelector('article, [role="article"], nav, [role="navigation"], footer')) break;
+        if (node.querySelectorAll('a[href*="/stories/"], [aria-label*="story" i], [aria-label*="истори" i]').length >= 2) best = node;
+      }
+      return best;
+    }
     function isSuggestedPost(article) {
       return hasHeadingEvidence(article, ['suggested for you', 'recommended for you', 'suggested post', 'публикации для вас', 'рекомендации для вас', 'вам может понравиться', 'siz uchun tavsiya']);
     }
@@ -123,7 +146,7 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
         SELECTORS[feature].forEach(function(selector) {
           matchesWithin(rootNode, selector).forEach(function(candidate) {
             var key = feature + ':' + CONFIG.enabled + ':' + Object.keys(CONFIG).filter(function(name) { return name !== 'enabled' && CONFIG[name]; }).join(',') + ':' + signatureOf(candidate) + (feature === 'sponsoredPosts' ? ':' + isSponsoredPost(candidate) : '');
-            if (root.processed.get(candidate) === key && feature !== 'reels' && feature !== 'explore') return;
+            if (root.processed.get(candidate) === key && feature !== 'reels' && feature !== 'explore' && feature !== 'stories') return;
             root.processed.set(candidate, key);
             var target = matcher(candidate);
             if (target) { if (mark(target, feature)) count++; }
@@ -181,6 +204,7 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
         }
         return slot;
       });
+      applyFeature('stories', rootNode, function(candidate) { return storyTarget(candidate); });
       applyFeature('suggestedPosts', rootNode, function(post) { return isSuggestedPost(post) ? post : null; });
       applyFeature('recommendations', rootNode, function(section) { return isRecommendationSection(section) ? section : null; });
       var isHomeFeed = location.pathname === '/';
@@ -189,7 +213,12 @@ export function generateInstagramBlockingScript(input: Partial<Record<string, bo
       if (isHomeFeed) applyFeature('sponsoredPosts', rootNode, function(post) { return isSponsoredPost(post) ? post : null; });
     }
     root.apply = applyFocusUpFilters;
-    root.shouldBlock = function(url, currentConfig) { return Boolean(currentConfig && currentConfig.enabled && currentConfig.reels && !isAuthenticationRoute(url) && !isAuthenticationRoute(location.href) && isReelsUrl(url)); };
+    // Returns the blocked page's name, or '' when the page may open.
+    root.shouldBlock = function(url, currentConfig) {
+      if (!currentConfig || !currentConfig.enabled || isAuthenticationRoute(url) || isAuthenticationRoute(location.href)) return '';
+      return blockedPage(url, currentConfig);
+    };
+    root.safeHome = function() { return CONFIG.messagesOnly ? '/direct/inbox/' : '/'; };
     root.update = function(next) {
       CONFIG = Object.assign({}, next || {});
       root.config = CONFIG;

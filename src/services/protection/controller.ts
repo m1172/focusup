@@ -10,12 +10,15 @@ import { protectionBridge } from './nativeBridge';
 import { scheduleWellbeingNotifications } from '../notifications/wellbeingNotifications';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
 import { canUseFeature } from '../subscription/subscriptionService';
+import { currentSupervisionRules, isFamilyDevice } from '../../store/familyStore';
+import { applyFamilyToPlan } from '../family/resolver';
 
 let lastPlan = '';
 let lastNotificationPlan = '';
 let lastNotificationDay = '';
 let queue: Promise<void> = Promise.resolve();
-export function reconcileProtection(requireNative = false): Promise<void> {
+/** Resolves to whether the phone's native blocking holds the current plan (false when it cannot block apps). */
+export function reconcileProtection(requireNative = false): Promise<boolean> {
   const operation = queue.then(async () => {
     const app = useAppStore.getState(), wellbeing = useWellbeingStore.getState();
     if (PRO_ENABLED && wellbeing.temporary && wellbeing.temporary.endsAt <= Date.now()) {
@@ -24,7 +27,8 @@ export function reconcileProtection(requireNative = false): Promise<void> {
       void track({ type: 'PROTECTION_EVENT', event: 'temporary_access_completed', platform: ended.platform, durationMs: ended.endsAt - ended.startedAt, timestamp: ended.endsAt, eventId: ended.id + ':completed' });
     }
     const latest = useWellbeingStore.getState();
-    const plan = buildNativePlan({ baseline: latest.nativeApps, filterBlocked: shortVideoBlockedApps(app.apps), websites: blockedWebsites(app.apps), adultFilter: latest.adultFilter, uninstallProtection: latest.uninstallProtection, dailyLimits: latest.dailyLimits, routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro });
+    // Family rules (Vaqtim Family) are added on top of the personal plan; they never weaken it.
+    const plan = applyFamilyToPlan(buildNativePlan({ baseline: latest.nativeApps, filterBlocked: shortVideoBlockedApps(app.apps), websites: blockedWebsites(app.apps), adultFilter: latest.adultFilter, uninstallProtection: latest.uninstallProtection, dailyLimits: latest.dailyLimits, routines: app.schedules, sleep: latest.sleep, strict: app.strictSession, temporary: latest.temporary, isPro: useSubscriptionStore.getState().isPro }), currentSupervisionRules());
     plan.locale = app.selectedLanguage;
     plan.liveActivity = PRO_ENABLED && latest.liveActivity;
     plan.utcOffsetMinutes = new Date().getTimezoneOffset();
@@ -36,18 +40,22 @@ export function reconcileProtection(requireNative = false): Promise<void> {
     if (json !== lastPlan) {
       if (status.supported && status.authorized) { await protectionBridge.applyPlan(json); lastPlan = json; }
     }
+    const holdsPlan = lastPlan === json;
     const today = new Date().toDateString();
     const reminderKey = json + ':' + app.completionNotifications;
     if (lastNotificationPlan !== reminderKey || lastNotificationDay !== today) {
       await scheduleWellbeingNotifications(plan); lastNotificationPlan = reminderKey; lastNotificationDay = today;
     }
+    return holdsPlan;
   });
-  queue = operation.catch(() => undefined);
+  queue = operation.then(() => undefined, () => undefined);
   return operation;
 }
 export async function startTemporaryAccess(platform: SocialAppId, minutes: number): Promise<void> {
   const app = useAppStore.getState();
   if (!canUseFeature(useSubscriptionStore.getState().isPro, 'temporaryAccess')) throw new Error('proRequired');
+  // Supervised phones have no breaks in this version.
+  if (isFamilyDevice()) throw new Error('supervised');
   // Hard Mode allows a few short breaks a day; strict routines allow none.
   const hardMode = Boolean(app.strictSession && app.strictSession.endsAt > Date.now() && (app.strictSession.protectedPlatforms ?? app.strictSession.appIds).includes(platform));
   if (hardMode && (breaksLeft(useWellbeingStore.getState().breaks) === 0 || minutes > 15)) throw new Error('noBreaksLeft');

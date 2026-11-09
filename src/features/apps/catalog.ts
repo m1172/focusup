@@ -1,8 +1,8 @@
 import type { SocialAppId } from '../../types/app';
 
 export const appCatalog: Record<SocialAppId, { name: string; descriptionKey: string; color: string; glyph: string; filters: string[]; supported: boolean }> = {
-  instagram: { name: 'Instagram', descriptionKey: 'instagramDesc', color: '#D94E94', glyph: '◎', filters: ['reels', 'explore', 'recommendations', 'suggestedPosts', 'homeFeed', 'sponsoredPosts'], supported: true },
-  youtube: { name: 'YouTube', descriptionKey: 'youtubeDesc', color: '#F04444', glyph: '▶', filters: ['shorts', 'homeRecommendations', 'recommendations', 'comments', 'sponsoredContent'], supported: true },
+  instagram: { name: 'Instagram', descriptionKey: 'instagramDesc', color: '#D94E94', glyph: '◎', filters: ['reels', 'explore', 'recommendations', 'suggestedPosts', 'homeFeed', 'sponsoredPosts', 'stories', 'messagesOnly'], supported: true },
+  youtube: { name: 'YouTube', descriptionKey: 'youtubeDesc', color: '#F04444', glyph: '▶', filters: ['shorts', 'homeRecommendations', 'recommendations', 'explore', 'comments', 'sponsoredContent'], supported: true },
   tiktok: { name: 'TikTok', descriptionKey: 'tiktokDesc', color: '#111827', glyph: '♪', filters: ['forYou', 'following', 'explore'], supported: true },
   x: { name: 'X', descriptionKey: 'xDesc', color: '#4D5665', glyph: '𝕏', filters: ['recommendations'], supported: false },
   reddit: { name: 'Reddit', descriptionKey: 'redditDesc', color: '#F26735', glyph: '●', filters: ['recommendations'], supported: false },

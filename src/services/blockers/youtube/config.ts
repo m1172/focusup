@@ -8,6 +8,7 @@ export const defaultYouTubeBlockerConfig: YouTubeBlockerConfig = {
   recommendations: true,
   comments: false,
   sponsoredContent: false,
+  explore: false,
 };
 
 /** Sponsored modules have no sufficiently reliable semantic signal yet. */
@@ -20,5 +21,6 @@ export function normalizeYouTubeBlockerConfig(input: Partial<Record<string, bool
     recommendations: input.recommendations ?? defaultYouTubeBlockerConfig.recommendations,
     comments: input.comments ?? defaultYouTubeBlockerConfig.comments,
     sponsoredContent: input.sponsoredContent ?? defaultYouTubeBlockerConfig.sponsoredContent,
+    explore: input.explore ?? defaultYouTubeBlockerConfig.explore,
   };
 }

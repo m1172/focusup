@@ -6,6 +6,7 @@ export const instagramSelectors = {
   recommendations: ['section', '[role="region"]', '[role="group"]'],
   sponsoredPosts: ['article', '[role="article"]'],
   homeFeed: ['article', '[role="article"]'],
+  stories: ['a[href*="/stories/"]', '[role="menu"] [role="button"][aria-label]', 'button[aria-label*="story" i]', '[role="button"][aria-label*="story" i]', '[aria-label*="истори" i]', '[aria-label*="hikoya" i]'],
 } as const;
 
 export type InstagramSelectorFeature = keyof typeof instagramSelectors;

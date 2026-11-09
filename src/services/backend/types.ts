@@ -21,6 +21,14 @@ export type CloudSettings = {
    * before 3 November 2026.
    */
   onboarding?: CloudOnboarding;
+  /** Newer free settings (settingsExtensions.ts). Missing in backups from builds before November 2026. */
+  extensions?: CloudSettingsExtensions;
+};
+export type CloudSettingsExtensions = {
+  version: 1;
+  grayscale?: boolean;
+  dailyLimits?: Partial<Record<SocialAppId, number>>;
+  filters?: Partial<Record<SocialAppId, Partial<Record<'stories' | 'messagesOnly', boolean>>>>;
 };
 export type CloudOnboarding = { completed: boolean; usualMinutes: number; cut: number };
 export type CloudBackup = { revision: number; payload: CloudSettings | null; updatedAt: string | null };
@@ -29,7 +37,8 @@ export type Account = { id: string; email: string | null; profile: AccountProfil
 export type AuthSession = { accessToken: string; refreshToken: string; expiresAt: number | null; user: { id: string; email: string | null } };
 export type OAuthProvider = 'apple' | 'google' | 'telegram';
 export type Credentials = { email: string; password: string; captchaToken?: string };
-export type AccountExport = { exportedAt: string; account: Pick<Account, 'id' | 'email'>; profile: AccountProfile; settings: CloudBackup };
+/** `family`: the parent's Vaqtim Family records (children, rules, phones, consents), or null. Missing from older servers. */
+export type AccountExport = { exportedAt: string; account: Pick<Account, 'id' | 'email'>; profile: AccountProfile; settings: CloudBackup; family?: unknown };
 /** One message of the user's support thread; `support` messages are the team's Telegram replies. */
 export type SupportMessage = { id: number; sender: 'user' | 'support'; body: string; createdAt: string };
 export type SupportThread = { available: boolean; messages: SupportMessage[] };

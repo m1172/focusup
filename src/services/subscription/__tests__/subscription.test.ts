@@ -41,10 +41,12 @@ describe('subscription feature access', () => {
     expect(canUseFeature(true, 'instagramCleanBrowsing')).toBe(true);
     expect(canUseFeature(false, 'instagramReels')).toBe(true);
     expect(canUseFeature(true, 'instagramReels')).toBe(true);
-    expect(canUseFeature(false, 'instagramExplore')).toBe(false);
-    expect(canUseFeature(false, 'instagramSuggestedPosts')).toBe(false);
+    expect(canUseFeature(false, 'instagramExplore')).toBe(true);
+    expect(canUseFeature(false, 'instagramSuggestedPosts')).toBe(true);
     expect(canUseFeature(false, 'youtubeShorts')).toBe(true);
-    expect(canUseFeature(false, 'youtubeHomeRecommendations')).toBe(false);
+    expect(canUseFeature(false, 'youtubeHomeRecommendations')).toBe(true);
+    for (const feature of ['grayscale', 'schedules', 'sleepMode', 'dailyLimits', 'tiktokExplore'] as const) expect(canUseFeature(false, feature)).toBe(true);
+    for (const feature of ['strictMode', 'temporaryAccess', 'nativeProtection'] as const) expect(canUseFeature(false, feature)).toBe(false);
     expect(canUseFeature(false, 'youtubeComments')).toBe(false);
     expect(canUseFeature(false, 'advancedStatistics')).toBe(false);
     expect(canUseFeature(true, 'strictMode')).toBe(true);

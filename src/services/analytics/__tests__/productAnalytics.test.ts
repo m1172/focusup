@@ -163,3 +163,27 @@ test('replay pauses while a social page fills the screen and resumes after, with
   await analytics.setAnalyticsConsent(true);
   expect(mockClient.startSessionRecording).not.toHaveBeenCalled();
 });
+
+test('Vaqtim Family: a supervised or not-yet-known phone never starts PostHog, and pairing stops a running one', async () => {
+  let role: 'personal' | 'supervised' | 'unknown' = 'unknown';
+  analytics.setAnalyticsRoleGate(() => role);
+  await analytics.initializeProductAnalytics();
+  expect(mockPostHog).not.toHaveBeenCalled();
+  role = 'supervised';
+  await analytics.initializeProductAnalytics();
+  expect(mockPostHog).not.toHaveBeenCalled();
+  expect(analytics.captureProductEvent('onboarding_started')).toBe(false);
+
+  role = 'personal';
+  await analytics.initializeProductAnalytics();
+  expect(mockPostHog).toHaveBeenCalledTimes(1);
+  expect(analytics.captureProductEvent('onboarding_started')).toBe(true);
+  role = 'supervised';
+  expect(analytics.captureProductEvent('onboarding_started')).toBe(false);
+  await analytics.shutDownProductAnalytics();
+  expect(mockClient.stopSessionRecording).toHaveBeenCalled();
+  expect(mockClient.optOut).toHaveBeenCalled();
+  expect(mockClient.reset).toHaveBeenCalled();
+  role = 'personal';
+  expect(analytics.captureProductEvent('onboarding_started')).toBe(false);
+});

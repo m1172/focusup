@@ -22,7 +22,9 @@ export function fakeGateway(overrides: Partial<Gateway> = {}): Gateway {
     authenticate: async (token) => { if (token !== user.token) throw new ApiError(401, 'INVALID_TOKEN', 'Invalid token.'); return user; },
     signUp: unused, signIn: unused, refresh: unused, exchangeOAuth: unused, signInWithIdToken: unused, signInWithTelegram: unused,
     verify: unused, verifyCode: unused, resendConfirmation: unused, recover: unused, changePassword: unused, signOut: unused,
-    getProfile: unused, saveProfile: unused, getSettings: unused, saveSettings: unused,
+    getProfile: unused, saveProfile: unused, saveSettings: unused,
+    // An older build's save first reads the stored backup (settingsCompat.ts); nothing is stored by default.
+    getSettings: async () => ({ revision: 0, payload: null, updatedAt: null }),
     deleteAccount: unused, listSupportMessages: unused, addSupportMessage: unused, linkSupportMessage: unused, removeSupportMessage: unused, findSupportThread: unused,
     saveSupportPushToken: unused, removeSupportPushToken: unused, listSupportPushTokens: unused, forgetSupportPushTokens: unused,
     ready: async () => {}, ...overrides,

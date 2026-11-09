@@ -1,6 +1,6 @@
 import type { YouTubeBlockerConfig } from '../../../types/social';
 import { normalizeYouTubeBlockerConfig } from './config';
-import { youtubeShortsPathPattern } from './detectors';
+import { youtubeExplorePathPattern, youtubeShortsPathPattern } from './detectors';
 import { youtubeNavigationListener } from './navigation';
 import { youtubeSelectors } from './selectors';
 import { youtubeNavigationLayoutScript } from './navigationLayout';
@@ -14,6 +14,7 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
     'use strict';
     var CONFIG = ${JSON.stringify({ ...config, enabled, behaviorVersion: 1, ruleKey: JSON.stringify([rule?.selectors, rule?.routes]) })};
     var SHORTS_PATH = new RegExp(${JSON.stringify(youtubeShortsPathPattern.source)}, 'i');
+    var EXPLORE_PATH = new RegExp(${JSON.stringify(youtubeExplorePathPattern.source)}, 'i');
     var REMOTE_ROUTES = ${JSON.stringify(rule?.routes ?? [])};
     var SELECTORS = ${registry};
     var MARKER = 'data-focusup-youtube-hidden';
@@ -93,10 +94,21 @@ export function generateYouTubeBlockingScript(input: Partial<YouTubeBlockerConfi
       var watchPage = ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(location.hostname) !== -1 && location.pathname === '/watch';
       hide('recommendations', SELECTORS.recommendations, rootNode, CONFIG.recommendations && watchPage, function(node) { return true; }, function(node) { return node.closest('ytd-watch-next-secondary-results-renderer, ytm-watch-next-secondary-results-renderer') || node; });
       hide('comments', SELECTORS.comments, rootNode, CONFIG.comments && watchPage, function(node) { return true; }, function(node) { return node; });
+      // Explore entries in the menu and chips; the pages themselves are blocked by shouldBlock.
+      hide('explore', SELECTORS.exploreNavigation || [], rootNode, CONFIG.explore, function(node) { try { return EXPLORE_PATH.test(new URL(node.getAttribute('href') || '', location.origin).pathname); } catch (_) { return false; } }, function(node) { return node.closest('ytm-compact-link-renderer, ytd-guide-entry-renderer, ytm-guide-entry-renderer, yt-chip-cloud-chip-renderer, ytm-chip-cloud-chip-renderer') || node; });
       // Sponsored content remains a no-op until a high-confidence marker is verified.
     }
     root.apply = applyFocusUpYouTubeFilters;
-    root.shouldBlock = function(url, currentConfig) { try { var parsed = new URL(url); return Boolean(currentConfig && currentConfig.enabled && currentConfig.shorts && (parsed.hostname === 'youtube.com' || parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && (SHORTS_PATH.test(parsed.pathname) || REMOTE_ROUTES.some(function(route) { return parsed.pathname === route || parsed.pathname.indexOf(route.endsWith('/') ? route : route + '/') === 0; }))); } catch (_) { return false; } };
+    // Returns the blocked page's name ('shorts' or 'explore'), or '' when the page may open.
+    root.shouldBlock = function(url, currentConfig) {
+      try {
+        var parsed = new URL(url);
+        if (!currentConfig || !currentConfig.enabled || ['youtube.com', 'www.youtube.com', 'm.youtube.com'].indexOf(parsed.hostname) === -1) return '';
+        if (currentConfig.shorts && (SHORTS_PATH.test(parsed.pathname) || REMOTE_ROUTES.some(function(route) { return parsed.pathname === route || parsed.pathname.indexOf(route.endsWith('/') ? route : route + '/') === 0; }))) return 'shorts';
+        if (currentConfig.explore && EXPLORE_PATH.test(parsed.pathname)) return 'explore';
+        return '';
+      } catch (_) { return ''; }
+    };
     if (root.observer) root.observer.disconnect();
     var passScheduled = false;
     var slowPassTimer = null;

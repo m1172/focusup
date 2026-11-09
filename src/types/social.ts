@@ -7,7 +7,14 @@ export type InstagramBlockerConfig = {
   recommendations: boolean;
   sponsoredPosts: boolean;
   homeFeed: boolean;
+  /** Hide the Stories tray and block Story pages. Experimental. */
+  stories: boolean;
+  /** Messages-only mode: opens the inbox and blocks Home, Explore, Reels and Stories. Shared posts still open. */
+  messagesOnly: boolean;
 };
+
+/** Instagram pages Vaqtim can refuse to open. */
+export type InstagramBlockedPage = 'reels' | 'stories' | 'explore' | 'homeFeed';
 
 export type InstagramFilterFeature = keyof InstagramBlockerConfig;
 export type SocialBrowserRoute = 'feed' | 'search' | 'watch' | 'subscriptions' | 'channel' | 'playlist' | 'reels' | 'shorts' | 'profile' | 'inbox' | 'other';
@@ -18,6 +25,8 @@ export type YouTubeBlockerConfig = {
   recommendations: boolean;
   comments: boolean;
   sponsoredContent: boolean;
+  /** Close Explore, Trending and the other discovery pages. */
+  explore: boolean;
 };
 
 export type YouTubeFilterFeature = keyof YouTubeBlockerConfig;
@@ -42,7 +51,7 @@ export type InstagramWebViewEvent =
   | { type: 'CONTENT_DETECTED'; platform: 'instagram'; feature: 'sponsoredPosts' | 'suggestedPosts'; count: number }
   | { type: 'FILTER_APPLIED'; platform: 'instagram'; feature: InstagramFilterFeature; count: number }
   | { type: 'URL_CHANGED'; platform: 'instagram'; route: SocialBrowserRoute }
-  | { type: 'BLOCKED_NAVIGATION'; platform: 'instagram'; feature: 'reels' }
+  | { type: 'BLOCKED_NAVIGATION'; platform: 'instagram'; feature: InstagramBlockedPage }
   /** Feed posts that were at least half on screen, counted once each, for the session strip. */
   | { type: 'POSTS_SEEN'; platform: 'instagram'; count: number }
   /** The signed-in account, read from the profile tab. Kept on the phone for the account switcher only. */
@@ -57,7 +66,7 @@ export type YouTubeWebViewEvent =
   | { type: 'READY'; platform: 'youtube'; observerActive: boolean }
   | { type: 'FILTER_APPLIED'; platform: 'youtube'; feature: YouTubeFilterFeature; count: number }
   | { type: 'URL_CHANGED'; platform: 'youtube'; route: SocialBrowserRoute }
-  | { type: 'BLOCKED_NAVIGATION'; platform: 'youtube'; feature: 'shorts' }
+  | { type: 'BLOCKED_NAVIGATION'; platform: 'youtube'; feature: 'shorts' | 'explore' }
   | { type: 'ERROR'; platform: 'youtube'; scope: string };
 
 export type TikTokWebViewEvent =

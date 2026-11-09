@@ -24,6 +24,10 @@ const envSchema = z.object({
   TELEGRAM_LOGIN_ORIGIN: z.url().optional(),
   // At least 32 random characters; encrypts the login state and the one-time code.
   TELEGRAM_LOGIN_KEY: z.string().min(32).max(512).optional(),
+  // Vaqtim Family. Setting up families and pairing phones stays closed until this is 'true';
+  // removal, deletion and phone syncing work either way. Countries are ISO codes, comma-separated.
+  FAMILY_ENROLLMENT_ENABLED: z.enum(['true', 'false']).default('false'),
+  FAMILY_COUNTRIES: z.string().regex(/^[A-Z]{2}(?:,[A-Z]{2})*$/).default('UZ'),
 });
 export type Config = z.infer<typeof envSchema>;
 

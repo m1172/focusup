@@ -29,8 +29,35 @@ export function normalizeSocialBrowserLink(platform: SocialAppId, input: string)
   } catch { return null; }
 }
 
-/** Embedded frames belong to the current page and must never launch an external browser. */
-export function classifySocialBrowserNavigation(platform: SocialAppId, value: string, isTopFrame = true): 'internal' | 'external' | 'reject' {
+/**
+ * Embedded frames belong to the current page and must never launch an external browser.
+ * `supervised` (Vaqtim Family): nothing leaves Vaqtim. Outside links are rejected instead of opened elsewhere,
+ * and sign-in pages are allowed only on their exact sign-in routes.
+ */
+export function classifySocialBrowserNavigation(platform: SocialAppId, value: string, isTopFrame = true, supervised = false): 'internal' | 'external' | 'reject' {
+  const target = classifyUnsupervised(platform, value, isTopFrame);
+  if (!supervised || target === 'reject') return target;
+  if (target === 'external') return 'reject';
+  return isTopFrame && !isSupervisedTopFrame(platform, value) ? 'reject' : target;
+}
+
+/** Supervised top-level pages: the platform's own site, or only the sign-in paths of the providers it uses. */
+export function isSupervisedTopFrame(platform: SocialAppId, value: string): boolean {
+  try {
+    const url = new URL(value);
+    const hosts: readonly string[] = isCleanPlatform(platform) ? socialBrowserHosts[platform] : [];
+    if (hosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) return url.protocol === 'https:';
+    if (platform === 'instagram') return isInstagramMetaAuthRedirect(value) && url.pathname !== '/';
+    if (platform === 'youtube' || platform === 'tiktok') {
+      if (isYouTubeGoogleAuthUrl(value)) return /^\/(?:ServiceLogin|InteractiveLogin|signin|v3\/signin|speedbump|o\/oauth2|CheckCookie|accounts\/SetSID|SetSID|AccountChooser)(?:\/|$|\?)/i.test(url.pathname) || url.hostname === 'accounts.youtube.com';
+      if (platform === 'tiktok' && url.hostname === 'appleid.apple.com') return /^\/auth\//i.test(url.pathname);
+      if (platform === 'tiktok' && isInstagramMetaAuthRedirect(value)) return url.pathname !== '/';
+    }
+    return false;
+  } catch { return false; }
+}
+
+function classifyUnsupervised(platform: SocialAppId, value: string, isTopFrame: boolean): 'internal' | 'external' | 'reject' {
   try {
     const url = new URL(value);
     if (url.username || url.password || !['https:', 'http:'].includes(url.protocol)) return 'reject';

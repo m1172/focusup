@@ -106,3 +106,31 @@ describe('Instagram Messages route', () => {
     expect(getSocialBrowserRoute('instagram', 'https://www.instagram.com/direct/t/123456/')).toBe('other');
   });
 });
+
+describe('supervised navigation (Vaqtim Family)', () => {
+  const supervised = (platform: 'instagram' | 'youtube' | 'tiktok', url: string, top = true) => classifySocialBrowserNavigation(platform, url, top, true);
+  it('never hands outside links to another browser or app', () => {
+    expect(supervised('instagram', 'https://example.com/')).toBe('reject');
+    expect(supervised('instagram', 'https://l.instagram.com/?u=https%3A%2F%2Fexample.com')).toBe('internal');
+    expect(supervised('youtube', 'https://apps.apple.com/app/youtube/id544007664')).toBe('reject');
+    expect(supervised('tiktok', 'snssdk1233://feed')).toBe('reject');
+    expect(supervised('youtube', 'http://m.youtube.com/')).toBe('reject');
+  });
+  it('keeps the supported sites and only the narrow sign-in routes', () => {
+    expect(supervised('instagram', 'https://www.instagram.com/direct/inbox/')).toBe('internal');
+    expect(supervised('instagram', 'https://www.facebook.com/login/')).toBe('internal');
+    expect(supervised('instagram', 'https://www.facebook.com/')).toBe('reject');
+    expect(supervised('youtube', 'https://accounts.google.com/ServiceLogin?service=youtube')).toBe('internal');
+    expect(supervised('youtube', 'https://accounts.google.com/v3/signin/identifier?continue=x')).toBe('internal');
+    expect(supervised('youtube', 'https://accounts.youtube.com/accounts/SetSID')).toBe('internal');
+    // Account pages reachable from sign-in are not a way out to the rest of Google.
+    expect(supervised('youtube', 'https://accounts.google.com/lifecycle/steps/signup/name')).toBe('reject');
+    expect(supervised('youtube', 'https://myaccount.google.com/')).toBe('reject');
+    expect(supervised('tiktok', 'https://appleid.apple.com/auth/authorize?client_id=x')).toBe('internal');
+    expect(supervised('tiktok', 'https://appleid.apple.com/account/manage')).toBe('reject');
+  });
+  it('leaves embedded frames and unsupervised browsing as they were', () => {
+    expect(supervised('youtube', 'https://accounts.google.com/embedded/setup', false)).toBe('internal');
+    expect(classifySocialBrowserNavigation('instagram', 'https://example.com/', true, false)).toBe('external');
+  });
+});

@@ -1,11 +1,18 @@
 import type { YouTubeBlockerConfig } from '../../../types/social';
-import { isYouTubeShortsUrl } from './detectors';
+import { isYouTubeExploreUrl, isYouTubeShortsUrl } from './detectors';
 
-export function isBlockedYouTubeNavigation(url: string, config: Partial<YouTubeBlockerConfig>): boolean {
-  return Boolean(config.shorts && isYouTubeShortsUrl(url));
+/** Which blocked YouTube page a link leads to, or null. */
+export function youtubeBlockedPage(url: string, config: Partial<YouTubeBlockerConfig>): 'shorts' | 'explore' | null {
+  if (config.shorts && isYouTubeShortsUrl(url)) return 'shorts';
+  if (config.explore && isYouTubeExploreUrl(url)) return 'explore';
+  return null;
 }
 
-/** Injected path listener; Shorts SPA routes fall back to Subscriptions exactly once. */
+export function isBlockedYouTubeNavigation(url: string, config: Partial<YouTubeBlockerConfig>): boolean {
+  return youtubeBlockedPage(url, config) !== null;
+}
+
+/** Injected path listener; blocked SPA routes (Shorts, Explore) fall back to Subscriptions exactly once. */
 export const youtubeNavigationListener = String.raw`
   (() => {
     const bridge = window.__focusUpYouTube;
@@ -13,8 +20,9 @@ export const youtubeNavigationListener = String.raw`
     bridge.navigationInstalled = true;
     let lastRoute = '';
     const report = () => {
-      if (bridge.shouldBlock(location.href, bridge.config)) {
-        bridge.post({ type: 'BLOCKED_NAVIGATION', feature: 'shorts' });
+      const page = bridge.shouldBlock(location.href, bridge.config);
+      if (page) {
+        bridge.post({ type: 'BLOCKED_NAVIGATION', feature: page });
         location.replace('/feed/subscriptions');
         return;
       }

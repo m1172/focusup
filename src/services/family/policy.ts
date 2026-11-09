@@ -1,22 +1,84 @@
 import type { SocialAppId } from '../../types/app';
 import { ALL_PLATFORMS } from '../protection/engine';
 
-/** A future authenticated parent/child backend must verify and authorize policy
- * revisions. A local pairing code alone must never grant remote control. */
-export type FamilyPolicy = {
-  version: 1;
-  revision: number;
-  profileId: string;
-  apps: Partial<Record<SocialAppId, { available: boolean; dailyLimitMinutes: number | null; filters: Record<string, boolean>; allowMultipleAccounts: boolean }>>;
-  downtime: { start: string; end: string; weekdays: number[] }[];
+/**
+ * Rules a parent set for one child (Vaqtim Family). The server checks the same shape
+ * (backend/src/familySchemas.ts); the phone checks it again before using it.
+ */
+export type FamilyDowntime = { id: string; name: string; start: string; end: string; weekdays: number[]; apps: SocialAppId[] };
+export type FamilyBrowsers = {
+  instagram?: { enabled: boolean; followingFocus: boolean; hideSponsored: boolean; hideStories?: boolean; messagesOnly?: boolean };
+  youtube?: { enabled: boolean; subscriptionsFocus: boolean; hideSponsored: boolean; hideComments: boolean; hideExplore?: boolean };
+  tiktok?: { enabled: boolean; followingFocus: boolean };
 };
-export type FamilyPolicyProvider = { getPolicy(): Promise<FamilyPolicy | null>; verifyAndAcceptPolicy(signedPayload: string): Promise<FamilyPolicy> };
-export const familyCapabilities = { linking: false, managedChildAuthorization: false, remoteEnforcement: false, nativeSectionAllowances: false, preventMultipleWebsiteAccounts: false } as const;
-function object(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
-export function isValidFamilyPolicy(value: unknown): value is FamilyPolicy {
-  if (!object(value) || value.version !== 1 || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 || typeof value.profileId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.profileId) || !object(value.apps) || !Array.isArray(value.downtime) || value.downtime.length > 16) return false;
-  const filters = ['reels', 'shorts', 'explore', 'recommendations', 'homeRecommendations', 'suggestedPosts', 'homeFeed', 'comments', 'savedPosts'];
-  if (!Object.entries(value.apps).every(([platform, rule]) => ALL_PLATFORMS.includes(platform as SocialAppId) && object(rule) && typeof rule.available === 'boolean' && (rule.dailyLimitMinutes === null || (Number.isInteger(rule.dailyLimitMinutes) && Number(rule.dailyLimitMinutes) > 0 && Number(rule.dailyLimitMinutes) <= 1440)) && typeof rule.allowMultipleAccounts === 'boolean' && object(rule.filters) && Object.entries(rule.filters).every(([key, enabled]) => filters.includes(key) && typeof enabled === 'boolean'))) return false;
-  const clock = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-  return value.downtime.every((item) => object(item) && typeof item.start === 'string' && clock.test(item.start) && typeof item.end === 'string' && clock.test(item.end) && item.start !== item.end && Array.isArray(item.weekdays) && item.weekdays.length > 0 && item.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6));
+/** Minutes a day in each clean browser, across all its accounts. */
+export type FamilyLimits = Partial<Record<keyof FamilyBrowsers, number>>;
+export const FAMILY_LIMIT_MINUTES = { min: 5, max: 720 } as const;
+export type FamilyPolicy = { schemaVersion: 1; protectedApps: SocialAppId[]; browsers: FamilyBrowsers; downtime: FamilyDowntime[]; limits?: FamilyLimits };
+export type BrowserApp = keyof FamilyBrowsers;
+export const BROWSER_APPS: BrowserApp[] = ['instagram', 'youtube', 'tiktok'];
+
+/** What a supervised phone knows: its rules plus the child's age, from the birth date the parent gave. */
+export type SupervisionRules = { policy: FamilyPolicy; birthDate: string };
+export type AgeBand = 'child' | 'teen' | 'adult';
+
+const clock = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).every((key) => keys.includes(key)) && keys.every((key) => key in value);
+const apps = (value: unknown, max = 8): value is SocialAppId[] => Array.isArray(value) && value.length <= max && new Set(value).size === value.length && value.every((app) => ALL_PLATFORMS.includes(app as SocialAppId));
+/** `keys` must be there; `optional` may be. Nothing else is allowed. */
+const booleans = (value: unknown, keys: string[], optional: string[] = []) => object(value)
+  && Object.keys(value).every((key) => keys.includes(key) || optional.includes(key)) && keys.every((key) => key in value)
+  && Object.values(value).every((item) => typeof item === 'boolean');
+
+export function isFamilyPolicy(value: unknown): value is FamilyPolicy {
+  if (!object(value) || !Object.keys(value).every((key) => ['schemaVersion', 'protectedApps', 'browsers', 'downtime', 'limits'].includes(key)) || !['schemaVersion', 'protectedApps', 'browsers', 'downtime'].every((key) => key in value)) return false;
+  if (value.schemaVersion !== 1 || !apps(value.protectedApps)) return false;
+  if (value.limits !== undefined && !(object(value.limits) && Object.entries(value.limits).every(([app, minutes]) => (BROWSER_APPS as string[]).includes(app) && Number.isInteger(minutes) && (minutes as number) >= FAMILY_LIMIT_MINUTES.min && (minutes as number) <= FAMILY_LIMIT_MINUTES.max))) return false;
+  const browsers = value.browsers;
+  if (!object(browsers) || !Object.keys(browsers).every((key) => (BROWSER_APPS as string[]).includes(key))) return false;
+  if (browsers.instagram !== undefined && !booleans(browsers.instagram, ['enabled', 'followingFocus', 'hideSponsored'], ['hideStories', 'messagesOnly'])) return false;
+  if (browsers.youtube !== undefined && !booleans(browsers.youtube, ['enabled', 'subscriptionsFocus', 'hideSponsored', 'hideComments'], ['hideExplore'])) return false;
+  if (browsers.tiktok !== undefined && !booleans(browsers.tiktok, ['enabled', 'followingFocus'])) return false;
+  if (!Array.isArray(value.downtime) || value.downtime.length > 8) return false;
+  const ids = new Set<string>();
+  return value.downtime.every((item) => {
+    if (!object(item) || !exactKeys(item, ['id', 'name', 'start', 'end', 'weekdays', 'apps'])) return false;
+    if (typeof item.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(item.id) || ids.has(item.id)) return false;
+    ids.add(item.id);
+    return typeof item.name === 'string' && item.name.trim().length > 0 && item.name.length <= 40
+      && typeof item.start === 'string' && clock.test(item.start) && typeof item.end === 'string' && clock.test(item.end) && item.start !== item.end
+      && Array.isArray(item.weekdays) && item.weekdays.length > 0 && item.weekdays.length <= 7 && new Set(item.weekdays).size === item.weekdays.length
+      && item.weekdays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) && apps(item.apps) && (item.apps as unknown[]).length > 0;
+  });
+}
+
+export function isBirthDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/** Whole years on the phone's local calendar day. */
+export function ageOn(birthDate: string, now = new Date()): number {
+  const [year, month, day] = birthDate.split('-').map(Number) as [number, number, number];
+  let age = now.getFullYear() - year;
+  if (now.getMonth() + 1 < month || (now.getMonth() + 1 === month && now.getDate() < day)) age -= 1;
+  return age;
+}
+
+/** Under 13: blocking only. 13 to 17: blocking plus parent-enabled clean browsers. 18 and over: may end supervision. */
+export function ageBand(birthDate: string, now = new Date()): AgeBand {
+  const age = ageOn(birthDate, now);
+  return age < 13 ? 'child' : age < 18 ? 'teen' : 'adult';
+}
+
+/** Turns the parent's form back into a valid policy; drops browsers for children under 13. */
+export function normalizePolicy(policy: FamilyPolicy, birthDate: string, now = new Date()): FamilyPolicy {
+  const under13 = ageBand(birthDate, now) === 'child';
+  const browsers = under13 ? {} : policy.browsers;
+  // Limits only matter for browsers the child can open.
+  const limits = Object.fromEntries(Object.entries(policy.limits ?? {}).filter(([app, minutes]) => !under13 && browsers[app as BrowserApp]?.enabled && typeof minutes === 'number')
+    .map(([app, minutes]) => [app, Math.min(FAMILY_LIMIT_MINUTES.max, Math.max(FAMILY_LIMIT_MINUTES.min, Math.round(minutes as number)))])) as FamilyLimits;
+  return { schemaVersion: 1, protectedApps: [...new Set(policy.protectedApps)], browsers, downtime: policy.downtime.slice(0, 8), ...(Object.keys(limits).length ? { limits } : {}) };
 }

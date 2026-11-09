@@ -1,5 +1,6 @@
 import Fastify, { LogController, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.js';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
@@ -7,6 +8,7 @@ import { telegramLoginConfig, type Config } from './config.js';
 import { ApiError } from './errors.js';
 import { createGateway, type Gateway, type Identity } from './gateway.js';
 import { createTelegramLogin, TELEGRAM_CODE_PREFIX, type TelegramLogin } from './telegramLogin.js';
+import { createExpoRefreshHint, createFamilyApi, createFamilyRpc, type FamilyRefreshHint, type FamilyRpc } from './family.js';
 import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSchema, oauthStartSchema, passwordSchema, profileSchema, recoverySchema, refreshSchema, resendSchema, saveSettingsSchema, signupSchema, verifyCodeSchema, verifySchema } from './schemas.js';
 
 declare module 'fastify' {
@@ -18,7 +20,7 @@ function telegramLoginFrom(config: Config) {
   return settings ? createTelegramLogin(settings) : null;
 }
 
-export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config)) {
+export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config), familyRpc: FamilyRpc | null = createFamilyRpc(config), familyHint: FamilyRefreshHint = createExpoRefreshHint()) {
   const app = Fastify({
     logger: config.NODE_ENV === 'test' ? false : { level: config.LOG_LEVEL, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] },
     // Never include query strings in logs: email verification links can carry tokens.
@@ -30,7 +32,7 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
   });
   app.decorateRequest('identity', null);
   await app.register(helmet);
-  await app.register(cors, { origin: config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean), methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] });
+  await app.register(cors, { origin: config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean), methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['authorization', 'content-type', 'accept', SETTINGS_VERSION_HEADER] });
   // In-memory limiter is appropriate for one MVP instance. Use a shared store when scaling.
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
   app.addHook('onRequest', async (_request, reply) => { reply.header('Cache-Control', 'no-store'); });
@@ -59,6 +61,18 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
     return request.identity;
   };
   const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
+  // Vaqtim Family (family.ts): the same routes and checks as the Edge Function. Fastify limits by address instead of the shared counter.
+  const familyApi = createFamilyApi({ config, rpc: familyRpc, limit: async () => undefined, hint: familyHint });
+  for (const definition of familyApi.routes) {
+    app.route({
+      method: definition.method, url: definition.path, config: { rateLimit: { max: definition.limit, timeWindow: '1 minute' } },
+      handler: async (request, reply) => {
+        if (definition.auth === 'parent') await authenticate(request);
+        const result = await definition.run({ params: request.params as Record<string, string>, body: request.body, user: definition.auth === 'parent' ? identity(request) : null, authorization: request.headers.authorization ?? null });
+        return result.status === 204 ? reply.code(204).send() : reply.code(result.status ?? 200).send(result.data);
+      },
+    });
+  }
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async () => { await gateway.ready(); return { status: 'ready' }; });
 
@@ -116,16 +130,18 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
       return { id: user.id, email: user.email, profile: await gateway.getProfile(user) };
     });
     privateApi.put('/me/profile', async (request) => gateway.saveProfile(identity(request), profileSchema.parse(request.body).displayName));
-    privateApi.get('/me/settings', async (request) => gateway.getSettings(identity(request)));
+    privateApi.get('/me/settings', async (request) => backupForClient(await gateway.getSettings(identity(request)), settingsClientVersion(request.headers[SETTINGS_VERSION_HEADER])));
     privateApi.put('/me/settings', async (request) => {
       const { expectedRevision, payload } = saveSettingsSchema.parse(request.body);
-      return gateway.saveSettings(identity(request), expectedRevision, payload);
+      const user = identity(request), version = settingsClientVersion(request.headers[SETTINGS_VERSION_HEADER]);
+      const saved = await gateway.saveSettings(user, expectedRevision, await payloadToSave(payload, expectedRevision, version, () => gateway.getSettings(user)));
+      return backupForClient(saved, version);
     });
     privateApi.delete('/me/settings', async (request) => gateway.saveSettings(identity(request), deleteSettingsSchema.parse(request.body).expectedRevision, null));
     privateApi.get('/me/export', async (request) => {
       const user = identity(request);
-      const [profile, settings] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user)]);
-      return { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings };
+      const [profile, settings, family] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user), familyApi.exportFor(user)]);
+      return { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings, family };
     });
     privateApi.delete('/me', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
       await gateway.deleteAccount(identity(request));

@@ -17,6 +17,7 @@ const glyphs = {
   sparkles: <Path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9zM18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />,
   sparkle: <Path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z" />,
   home: <Path d="M4 11.2 12 4.6l8 6.6V19a1.5 1.5 0 0 1-1.5 1.5H15V15H9v5.5H5.5A1.5 1.5 0 0 1 4 19z" />,
+  users: <><Circle cx="9" cy="8.5" r="3.3" /><Path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" /><Circle cx="16.8" cy="9.6" r="2.6" /><Path d="M15.6 14.6c2.6-.3 4.4 1.3 4.9 4.4" /></>,
   apps: <><Rect x="4" y="4" width="6.5" height="6.5" rx="2" /><Rect x="13.5" y="4" width="6.5" height="6.5" rx="2" /><Rect x="4" y="13.5" width="6.5" height="6.5" rx="2" /><Rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2" /></>,
   stats: <Path d="M5 20v-7M12 20V5M19 20v-10" />,
   sliders: <><Path d="M4 7h8M18 7h2M4 17h2M12 17h8" /><Circle cx="15" cy="7" r="2.5" /><Circle cx="9" cy="17" r="2.5" /></>,

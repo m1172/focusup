@@ -11,6 +11,8 @@ import { useAccountStore } from '../store/accountStore';
 import { entryDestination } from '../services/backend/accessPolicy';
 import { isBackendConfigured } from '../services/backend/accountSession';
 import { useWellbeingStore } from '../store/wellbeingStore';
+import { useFamilyStore } from '../store/familyStore';
+import { FAMILY_ENABLED } from '../config/release';
 import { useAppTheme } from '../theme';
 import { ActionButton, BackgroundGlow } from '../components/ui';
 import { ScreenStatusBar } from '../components/ScreenStatusBar';
@@ -41,6 +43,7 @@ export default function SplashScreen() {
   const account = useAccountStore();
   const completed = useAppStore((state) => state.onboardingCompleted);
   const destination = useWellbeingStore((state) => state.launchDestination);
+  const familyRole = useFamilyStore((state) => state.role);
   const [hydrated, setHydrated] = useState(useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated());
 
   useEffect(() => { void i18n.changeLanguage(language); }, [language, i18n]);
@@ -53,9 +56,9 @@ export default function SplashScreen() {
   }, []);
   useEffect(() => {
     if (!hydrated || !account.ready) return;
-    const target = entryDestination(account, completed, destination);
+    const target = entryDestination(account, completed, destination, familyRole);
     if (target) router.replace(target);
-  }, [account, completed, destination, hydrated]);
+  }, [account, completed, destination, hydrated, familyRole]);
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: c.bg }}>
@@ -83,10 +86,12 @@ export default function SplashScreen() {
         <ActionButton
           title={completed ? t('home') : t('start')}
           arrow
-          onPress={() => { const target = entryDestination(account, completed, destination); router.push(target ?? '/onboarding'); }}
+          onPress={() => { useFamilyStore.getState().choosePersonal(); const target = entryDestination(account, completed, destination, familyRole); router.push(target ?? '/onboarding'); }}
         />
+        {/* Vaqtim Family: a child's phone connects with the code from the parent's phone, without an account. */}
+        {FAMILY_ENABLED && !completed && !account.user && isBackendConfigured() ? <ActionButton variant="outline" title={t('family.child.connectButton')} onPress={() => router.push('/family/connect')} /> : null}
         {/* Someone who already has an account signs in here and skips onboarding (see leaveAuth). */}
-        {!completed && !account.user && isBackendConfigured() ? <Pressable accessibilityRole="button" onPress={() => router.push('/auth/sign-in')} hitSlop={8}
+        {!completed && !account.user && isBackendConfigured() ? <Pressable accessibilityRole="button" onPress={() => { useFamilyStore.getState().choosePersonal(); router.push('/auth/sign-in'); }} hitSlop={8}
           style={({ pressed }) => ({ alignSelf: 'center', minHeight: 44, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 5, marginVertical: -12, paddingHorizontal: 12, opacity: pressed ? 0.6 : 1 })}>
           <Text style={{ color: c.text2, fontSize: 15, fontWeight: '600' }}>{t('cloudAuth.haveAccount')}</Text>
           <Text style={{ color: c.accent, fontSize: 15, fontWeight: '800' }}>{t('cloudAuth.signIn')}</Text>

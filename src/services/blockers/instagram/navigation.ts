@@ -1,16 +1,20 @@
-/** Block Reels before Instagram's SPA handles a tap or changes history. Only coarse route labels cross the bridge. */
+/** Block Reels, Stories and (messages-only) feeds before Instagram's SPA handles a tap or changes history. Only coarse route labels cross the bridge. */
 export const instagramNavigationListener = String.raw`
   (() => {
     const bridge = window.__focusUpInstagram;
     if (!bridge || bridge.navigationInstalled) return;
     bridge.navigationInstalled = true;
     let last = '';
-    let lastSafeUrl = '/';
+    let lastSafeUrl = '';
+    const blocked = (url) => bridge.shouldBlock ? bridge.shouldBlock(url, bridge.config) : '';
     const block = (url) => {
-      if (!bridge.shouldBlock || !bridge.shouldBlock(url, bridge.config)) return false;
-      bridge.post({ type: 'BLOCKED_NAVIGATION', feature: 'reels' });
+      const page = blocked(url);
+      if (!page) return false;
+      bridge.post({ type: 'BLOCKED_NAVIGATION', feature: page });
       return true;
     };
+    // Go back to the last allowed page; Home in messages-only mode is blocked, so that falls back to the inbox.
+    const safeUrl = () => lastSafeUrl && !blocked(lastSafeUrl) ? lastSafeUrl : (bridge.safeHome ? bridge.safeHome() : '/');
     document.addEventListener('click', (event) => {
       const target = event.target && (event.target.nodeType === 1 ? event.target : event.target.parentElement);
       const link = target && target.closest('a[href]');
@@ -25,10 +29,11 @@ export const instagramNavigationListener = String.raw`
       }
       bridge.authenticationPage = false;
       if (bridge.updateDmReelSwipeState) bridge.updateDmReelSwipeState(location.pathname);
-      if (bridge.shouldBlock && bridge.shouldBlock(location.href, bridge.config)) {
+      const page = blocked(location.href);
+      if (page) {
         document.querySelectorAll('video').forEach((video) => video.pause());
-        bridge.post({ type: 'BLOCKED_NAVIGATION', feature: 'reels' });
-        location.replace(lastSafeUrl);
+        bridge.post({ type: 'BLOCKED_NAVIGATION', feature: page });
+        location.replace(safeUrl());
         return;
       }
       lastSafeUrl = location.href;

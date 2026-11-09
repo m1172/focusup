@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent" android:layout_height="match_parent"
+  android:orientation="horizontal" android:gravity="center" android:padding="8dp"
+  android:background="@drawable/focusup_quick_background">
+  <TextView android:id="@+id/focusup_quick_instagram" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+    android:layout_margin="4dp" android:gravity="center" android:text="Instagram" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="13sp"
+    android:background="@drawable/focusup_quick_instagram" android:contentDescription="@string/focusup_quick_instagram" />
+  <TextView android:id="@+id/focusup_quick_youtube" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+    android:layout_margin="4dp" android:gravity="center" android:text="YouTube" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="13sp"
+    android:background="@drawable/focusup_quick_youtube" android:contentDescription="@string/focusup_quick_youtube" />
+  <TextView android:id="@+id/focusup_quick_tiktok" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+    android:layout_margin="4dp" android:gravity="center" android:text="TikTok" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="13sp"
+    android:background="@drawable/focusup_quick_tiktok" android:contentDescription="@string/focusup_quick_tiktok" />
+</LinearLayout>

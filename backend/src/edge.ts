@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.ts';
 import { telegramLoginConfig, type Config } from './config.ts';
 import { ApiError } from './errors.ts';
 import { createGateway, type Gateway, type Identity } from './gateway.ts';
@@ -7,9 +8,10 @@ import { credentialsSchema, deleteSettingsSchema, idTokenSchema, oauthExchangeSc
 import { createExpoPush, supportReplyPreview, type PushSender } from './push.ts';
 import { createSupportRelay, supportPostText, type SupportRelay, type TelegramUpdate } from './telegram.ts';
 import { createTelegramLogin, TELEGRAM_CODE_PREFIX, type TelegramLogin } from './telegramLogin.ts';
+import { createExpoRefreshHint, createFamilyApi, createFamilyRpc, matchFamilyPath, type FamilyRefreshHint, type FamilyRpc } from './family.ts';
 
 type Result = { data?: unknown; status?: number; redirect?: string };
-type Route = { private?: boolean; auth?: boolean; body?: boolean; run: (body: unknown, user: Identity, request: Request) => Promise<Result> };
+type Route = { private?: boolean; auth?: boolean; body?: boolean; run: (body: unknown, user: Identity, request: Request, params: Record<string, string>) => Promise<Result> };
 const BODY_LIMIT = 65_536;
 
 async function jsonBody(request: Request): Promise<unknown> {
@@ -48,7 +50,7 @@ function telegramLoginFrom(config: Config) {
 /** Fetch-based API used by the Supabase runtime. Public login routes deliberately
  * have no platform JWT requirement; every private route verifies the user's
  * token through Auth, and the gateway uses that token for RLS-scoped data access. */
-export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config), relay: SupportRelay = createSupportRelay(config), push: PushSender = createExpoPush(), telegramLogin: TelegramLogin | null = telegramLoginFrom(config)) {
+export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, gateway: Gateway = createGateway(config), relay: SupportRelay = createSupportRelay(config), push: PushSender = createExpoPush(), telegramLogin: TelegramLogin | null = telegramLoginFrom(config), familyRpc: FamilyRpc | null = createFamilyRpc(config), familyHint: FamilyRefreshHint = createExpoRefreshHint()) {
   if (!config.SUPABASE_SECRET_KEY) throw new Error('Edge API requires a server secret key');
   const secret = config.SUPABASE_SECRET_KEY;
   const origins = config.CORS_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean);
@@ -58,6 +60,12 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   const auth = { auth: true, body: true };
   const privateRoute = { private: true };
   const privateBody = { private: true, body: true };
+  // Vaqtim Family (family.ts): the same routes and checks as the Fastify app.
+  const familyApi = createFamilyApi({ config, rpc: familyRpc, limit: consumeLimit, hint: familyHint });
+  const familyRoutes = familyApi.routes.map((definition) => ({ definition, route: {
+    private: definition.auth === 'parent', body: definition.body,
+    run: async (body, user, request, params) => ({ ...await definition.run({ params, body, user: user ?? null, authorization: request.headers.get('authorization') }) }),
+  } satisfies Route }));
 
   route('GET', '/health', async () => ({ data: { status: 'ok' } }));
   route('GET', '/ready', async () => { await consumeLimit('edge:readiness', 60); await gateway.ready(); return { data: { status: 'ready' } }; });
@@ -107,14 +115,16 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   route('PATCH', '/v1/auth/password', async (body, user) => { await gateway.changePassword(user, passwordSchema.parse(body).password); return { status: 204 }; }, privateBody);
   route('GET', '/v1/me', async (_body, user) => ({ data: { id: user.id, email: user.email, profile: await gateway.getProfile(user) } }), privateRoute);
   route('PUT', '/v1/me/profile', async (body, user) => ({ data: await gateway.saveProfile(user, profileSchema.parse(body).displayName) }), privateBody);
-  route('GET', '/v1/me/settings', async (_body, user) => ({ data: await gateway.getSettings(user) }), privateRoute);
-  route('PUT', '/v1/me/settings', async (body, user) => {
-    const value = saveSettingsSchema.parse(body); return { data: await gateway.saveSettings(user, value.expectedRevision, value.payload) };
+  route('GET', '/v1/me/settings', async (_body, user, request) => ({ data: backupForClient(await gateway.getSettings(user), settingsClientVersion(request.headers.get(SETTINGS_VERSION_HEADER))) }), privateRoute);
+  route('PUT', '/v1/me/settings', async (body, user, request) => {
+    const value = saveSettingsSchema.parse(body), version = settingsClientVersion(request.headers.get(SETTINGS_VERSION_HEADER));
+    const payload = await payloadToSave(value.payload, value.expectedRevision, version, () => gateway.getSettings(user));
+    return { data: backupForClient(await gateway.saveSettings(user, value.expectedRevision, payload), version) };
   }, privateBody);
   route('DELETE', '/v1/me/settings', async (body, user) => ({ data: await gateway.saveSettings(user, deleteSettingsSchema.parse(body).expectedRevision, null) }), privateBody);
   route('GET', '/v1/me/export', async (_body, user) => {
-    const [profile, settings] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user)]);
-    return { data: { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings } };
+    const [profile, settings, family] = await Promise.all([gateway.getProfile(user), gateway.getSettings(user), familyApi.exportFor(user)]);
+    return { data: { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings, family } };
   }, privateRoute);
   route('DELETE', '/v1/me', async (_body, user) => {
     await consumeLimit(`edge:delete:${await rateLimitSubject(secret, user.id)}`, 3);
@@ -188,14 +198,21 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
       if (origin && !origins.includes(origin)) throw new ApiError(403, 'ORIGIN_FORBIDDEN', 'This origin is not allowed.');
       if (request.method === 'OPTIONS') {
         headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        headers.set('Access-Control-Allow-Headers', 'authorization, content-type, apikey, x-client-info');
+        headers.set('Access-Control-Allow-Headers', `authorization, content-type, apikey, x-client-info, ${SETTINGS_VERSION_HEADER}`);
         return respond(undefined, 204);
       }
       // Hosted and local gateways may include /functions/v1 in the incoming URL.
       const pathname = new URL(request.url).pathname;
       const mount = ['/functions/v1/focusup-api', '/focusup-api'].find((prefix) => pathname.startsWith(prefix + '/'));
       const path = mount ? pathname.slice(mount.length) : '';
-      const handler = routes.get(`${request.method} ${path}`);
+      let handler = routes.get(`${request.method} ${path}`);
+      let params: Record<string, string> = {};
+      if (!handler) {
+        for (const item of familyRoutes) {
+          const match = item.definition.method === request.method ? matchFamilyPath(item.definition.path, path) : null;
+          if (match) { handler = item.route; params = match; break; }
+        }
+      }
       if (!handler) throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
       let user: Identity | undefined;
       if (handler.private) {
@@ -215,7 +232,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
         if (subject) await consumeLimit(`edge:auth:${await rateLimitSubject(secret, subject)}`, 10);
       }
       // Private handlers only receive identities returned by Auth, never body IDs.
-      const result = await handler.run(body, user!, request);
+      const result = await handler.run(body, user!, request, params);
       if (result.redirect) { headers.set('Location', result.redirect); return new Response(null, { status: 302, headers }); }
       if (path === '/v1/blocker-config') headers.set('Cache-Control', 'public, max-age=900');
       return respond(result.data, result.status);

@@ -9,6 +9,7 @@ import { AlertBanner, BackButton, Note, ProBadge, Screen, Sheet, SheetActions, T
 import { AppIcon } from '../../components/AppIcon';
 import { appCatalog } from '../../features/apps/catalog';
 import { useAppStore } from '../../store/appStore';
+import { useFamilyStore } from '../../store/familyStore';
 import { useAppTheme } from '../../theme';
 import type { BlockingSwitch, SocialAppId } from '../../types/app';
 import { isPlatformLocked } from '../../services/strict-mode/strictModeController';
@@ -38,6 +39,8 @@ const filterIcons: Record<string, IconName> = {
   homeRecommendations: 'home',
   comments: 'comment',
   homeFeed: 'feed',
+  stories: 'eyeOff',
+  messagesOnly: 'mail',
 };
 
 export default function AppSettingsScreen() {
@@ -50,6 +53,8 @@ export default function AppSettingsScreen() {
   const saved = useAppStore((state) => state.apps[appId]);
   const setAppEnabled = useAppStore((state) => state.setAppEnabled);
   const setFilter = useAppStore((state) => state.setFilter);
+  // Vaqtim Family: on a supervised phone the parent's rules for this app cannot be weakened here.
+  const familyParent = useFamilyStore((state) => state.role === 'child' && state.supervision ? state.supervision.parentName : null);
   const setBlocking = useAppStore((state) => state.setBlocking);
   const nativeBlockOn = useAppStore((state) => shortVideoBlockedApps({ [appId]: state.apps[appId] }).includes(appId));
   const strict = useAppStore((state) => state.strictSession);
@@ -83,6 +88,8 @@ export default function AppSettingsScreen() {
   const explainLock = () => Alert.alert(t('strictActive'), t('strictCannotChange'));
   const filterTitles: Record<string, string> = {
     homeFeed: 'ui.homeFeed',
+    stories: 'features.stories',
+    messagesOnly: 'features.messagesOnly',
     reels: 'reels',
     explore: 'explore',
     recommendations: 'recommendations',
@@ -101,7 +108,9 @@ export default function AppSettingsScreen() {
       ? {
           homeFeed: { feature: 'instagramHomeFeed', source: 'instagram_recommendations' },
           reels: { feature: 'instagramReels', source: 'instagram_clean_browsing' },
-          sponsoredPosts: { feature: 'instagramCleanBrowsing', source: 'instagram_clean_browsing' },
+          sponsoredPosts: { feature: 'instagramSponsored', source: 'instagram_clean_browsing' },
+          stories: { feature: 'instagramStories', source: 'instagram_clean_browsing' },
+          messagesOnly: { feature: 'focusedMessages', source: 'instagram_clean_browsing' },
           explore: { feature: 'instagramExplore', source: 'instagram_explore' },
           recommendations: { feature: 'instagramRecommendations', source: 'instagram_recommendations' },
           suggestedPosts: { feature: 'instagramSuggestedPosts', source: 'instagram_suggested_posts' },
@@ -116,6 +125,7 @@ export default function AppSettingsScreen() {
           shorts: { feature: 'youtubeShorts', source: 'youtube_related_recommendations' },
           homeRecommendations: { feature: 'youtubeHomeRecommendations', source: 'youtube_home_recommendations' },
           recommendations: { feature: 'youtubeRelatedRecommendations', source: 'youtube_related_recommendations' },
+          explore: { feature: 'youtubeExplore', source: 'youtube_home_recommendations' },
           comments: { feature: 'youtubeComments', source: 'youtube_comments' },
         };
 
@@ -161,9 +171,9 @@ export default function AppSettingsScreen() {
   }
 
   const visibleFilters = (appId === 'instagram'
-    ? ['reels', 'explore', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed']
+    ? ['reels', 'messagesOnly', 'explore', 'stories', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed']
     : appId === 'tiktok' ? ['forYou', 'following', 'explore']
-    : ['shorts', 'recommendations', 'homeRecommendations', 'sponsoredContent', 'comments']).filter((filter) => (PRO_ENABLED || filter !== 'sponsoredContent') && (!filterFeatures[filter] || isFeatureAvailable(filterFeatures[filter]!.feature)));
+    : ['shorts', 'recommendations', 'homeRecommendations', 'explore', 'sponsoredContent', 'comments']).filter((filter) => (PRO_ENABLED || filter !== 'sponsoredContent') && (!filterFeatures[filter] || isFeatureAvailable(filterFeatures[filter]!.feature)));
   // Free version: the short-video filter is the only one, so clean mode and that filter are a single control.
   const singleFilter = visibleFilters.length === 1 && visibleFilters[0] === shortVideo;
   const connectedOn = visibleEnabled && (!singleFilter || !shortVideo || locked || Boolean(filters[shortVideo]));
@@ -190,6 +200,7 @@ export default function AppSettingsScreen() {
       <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, fontWeight: '500' }}>{t(appId === 'instagram' ? 'ui.instagramQuestion' : appId === 'tiktok' ? 'ui.tiktokQuestion' : 'ui.youtubeQuestion')}</Text>
       <AlertBanner visible={Boolean(banner)} title={banner?.title ?? ''} message={banner?.message ?? ''} />
       {locked ? <Note tone="amber" icon="lock">{t('strictCannotChange')}</Note> : null}
+      {familyParent !== null ? <Note tone="mint" icon="lock">{t('family.child.lockedBy', { parent: familyParent || t('family.child.yourParent') })}</Note> : null}
 
       {savingsApp ? <View style={{ gap: 16, padding: 18, borderRadius: 28, backgroundColor: c.card, backgroundImage: perDay > 0 ? 'radial-gradient(80% 90% at 100% 0%, rgba(22,185,133,0.16), rgba(22,185,133,0) 70%)' : undefined, boxShadow: c.sh }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -250,9 +261,10 @@ export default function AppSettingsScreen() {
       {savingsApp ? <NativeAppProtectionCard appId={appId} name={app.name} feature={shortVideoName} filterOn={nativeBlockOn} /> : null}
 
       {singleFilter ? null : <>
-        <Text accessibilityRole="header" style={sectionLabel}>{t('ui.proSettings')}</Text>
+        {/* While Pro is off the short-video block can't be turned off; it is shown above as "Always on", not again here with a Pro badge. */}
+        <Text accessibilityRole="header" style={sectionLabel}>{t(PRO_ENABLED ? 'ui.proSettings' : 'features.moreFilters')}</Text>
         <View style={{ padding: 8, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
-          {visibleFilters.map((filter, index) => {
+          {visibleFilters.filter((filter) => filter !== shortVideo || isFeatureAvailable('shortVideoControl')).map((filter, index) => {
             const unsupported = filter === 'ads' || filter === 'sponsoredContent';
             const strictBaseline = appId === 'instagram' ? filter === 'reels' : appId === 'tiktok' ? filter === 'forYou' : appId === 'youtube' && filter === 'shorts';
             const access = feedFixed && filter === shortVideo ? feedAccess : filterFeatures[filter];
@@ -263,7 +275,8 @@ export default function AppSettingsScreen() {
             };
             const label = t(filterTitles[filter] ?? filter);
             const valueSubtitle = savingsApp && filter === shortVideo ? t('savings.filterValue', { time: formatDuration(Math.round(usual[savingsApp]), locale) }) : t('savings.fewerDistractions');
-            const subtitle = locked ? t('strictLockedLabel') : unsupported ? t('ui.unavailableNow') : filter === 'comments' ? t('design.optional') : valueSubtitle;
+            const hint = appId === 'instagram' && filter === 'stories' ? 'features.storiesHint' : appId === 'instagram' && filter === 'messagesOnly' ? 'features.messagesOnlyHint' : appId === 'instagram' && filter === 'sponsoredPosts' ? 'features.adsHint' : appId === 'youtube' && filter === 'explore' ? 'features.youtubeExploreHint' : null;
+            const subtitle = locked ? t('strictLockedLabel') : unsupported ? t('ui.unavailableNow') : hint ? t(hint) : filter === 'comments' ? t('design.optional') : valueSubtitle;
             return (
               <Pressable
                 key={filter}

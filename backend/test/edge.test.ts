@@ -42,7 +42,7 @@ test('edge API preserves login, settings revisions, export and bodyless deletion
       return { revision: 1, payload, updatedAt: null };
     },
     signOut: async () => {}, deleteAccount: async () => {},
-  }));
+  }), undefined, undefined, null, null);
   assert.deepEqual(await (await handler(request('/v1/auth/sign-in', 'POST', { email: 'test@example.com', password: 'password' }))).json(), session);
   assert.equal((await handler(request('/v1/me/settings', 'PUT', { expectedRevision: 0, payload: settings }, user.token))).status, 200);
   assert.equal((await handler(request('/v1/me/settings', 'PUT', { expectedRevision: 1, payload: settings }, user.token))).status, 409);

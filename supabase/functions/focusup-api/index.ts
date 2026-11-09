@@ -19,6 +19,8 @@ const config = readConfig({
   TELEGRAM_LOGIN_CLIENT_SECRET: Deno.env.get('TELEGRAM_LOGIN_CLIENT_SECRET'),
   TELEGRAM_LOGIN_ORIGIN: Deno.env.get('TELEGRAM_LOGIN_ORIGIN'),
   TELEGRAM_LOGIN_KEY: Deno.env.get('TELEGRAM_LOGIN_KEY'),
+  FAMILY_ENROLLMENT_ENABLED: Deno.env.get('FAMILY_ENROLLMENT_ENABLED'),
+  FAMILY_COUNTRIES: Deno.env.get('FAMILY_COUNTRIES'),
 });
 
 Deno.serve(createEdgeHandler(config, createEdgeRateLimit(config)));

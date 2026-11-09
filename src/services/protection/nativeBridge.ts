@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 import { ANDROID_APP_BLOCKING, IOS_APP_BLOCKING } from '../../config/release';
-import type { NativeProtectionBridge, NativeProtectionStatus } from './types';
+import type { ChildAuthorizationResult, NativeProtectionBridge, NativeProtectionStatus } from './types';
 
 const module = requireOptionalNativeModule<NativeProtectionBridge>('FocusUpProtection');
 // Without the Accessibility service (Android) or the Screen Time entitlement (iOS) in the build, the app cannot
@@ -21,6 +21,17 @@ export const protectionBridge = {
   },
   async getStatus() { try { return await blocking?.getStatus() ?? unavailable; } catch { return unavailable; } },
   async requestAuthorization() { return await blocking?.requestAuthorization() ?? false; },
+  /**
+   * iOS, supervised phones: asks Apple for Screen Time as a child, which a parent or guardian in Family Sharing
+   * approves. Never falls back to the personal (individual) authorization.
+   */
+  async requestChildAuthorization(): Promise<ChildAuthorizationResult> {
+    if (Platform.OS !== 'ios' || !blocking?.requestChildAuthorization) return 'unavailable';
+    try {
+      const result = await blocking.requestChildAuthorization();
+      return (['approved', 'denied', 'notChildAccount', 'restricted', 'networkError', 'unavailable'] as const).find((value) => value === result) ?? 'unavailable';
+    } catch { return 'unavailable'; }
+  },
   async selectApps(platform: string) { return await blocking?.selectApps(platform) ?? 0; },
   async applyPlan(json: string) { if (!blocking) throw new Error('nativeUnavailable'); await blocking.applyPlan(json); },
   async clearBrowserData() { return await module?.clearBrowserData() ?? false; },

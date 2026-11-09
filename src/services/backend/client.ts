@@ -1,3 +1,5 @@
+import type { FamilyChild, FamilyClaim, FamilyDeviceSync, FamilyDeviceSyncRequest, FamilyOverview, FamilyPolicyRecord } from '../family/types';
+import type { FamilyPolicy } from '../family/policy';
 import type { Account, AccountExport, AccountProfile, AuthSession, CloudBackup, CloudSettings, Credentials, OAuthProvider, SupportMessage, SupportThread } from './types';
 
 export class BackendError extends Error {
@@ -7,6 +9,8 @@ export class BackendError extends Error {
 type Options = {
   baseUrl: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  /** Replaces the Bearer token with another Authorization value (a supervised phone's `Device <secret>`). */
+  getAuthorization?: () => string | null | Promise<string | null>;
   /** Explicit opt-in for a local development server. Keep false in distributed builds. */
   allowInsecureHttp?: boolean;
   fetch?: typeof fetch;
@@ -25,13 +29,15 @@ export function createBackendClient(options: Options) {
   const fetcher = options.fetch ?? fetch;
 
   async function request<T>(path: string, method = 'GET', body?: unknown, authenticated = true): Promise<T> {
-    const token = authenticated ? await options.getAccessToken?.() : null;
-    if (authenticated && !token) throw new BackendError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+    const token = authenticated && !options.getAuthorization ? await options.getAccessToken?.() : null;
+    const authorization = authenticated ? (options.getAuthorization ? await options.getAuthorization() : token ? `Bearer ${token}` : null) : null;
+    if (authenticated && !authorization) throw new BackendError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const response = await fetcher(new URL(path.replace(/^\//, ''), base).toString(), {
-        method, headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        // 'X-Vaqtim-Settings: 2' tells the server this build understands backup extensions (backend/src/settingsCompat.ts).
+        method, headers: { Accept: 'application/json', 'X-Vaqtim-Settings': '2', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(authorization ? { Authorization: authorization } : {}) },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: controller.signal,
       });
       if (response.status === 204) return undefined as T;
@@ -74,5 +80,20 @@ export function createBackendClient(options: Options) {
     sendSupportMessage: (body: string, context?: string) => request<SupportMessage>('/v1/support/messages', 'POST', { body, ...(context ? { context } : {}) }),
     saveSupportPushToken: (token: string, platform: 'ios' | 'android') => request<void>('/v1/support/push-token', 'PUT', { token, platform }),
     removeSupportPushToken: (token: string) => request<void>('/v1/support/push-token', 'DELETE', { token }),
+    // Vaqtim Family, parent side. Pairing approval, removal and deletion need a recent sign-in (REAUTH_REQUIRED).
+    getFamily: () => request<FamilyOverview>('/v1/family'),
+    setUpFamily: (country: string, consentVersion: string) => request<FamilyOverview>('/v1/family', 'POST', { country, consentVersion }),
+    deleteFamily: () => request<{ deleted: boolean }>('/v1/family', 'DELETE'),
+    addFamilyChild: (nickname: string, birthDate: string, consentVersion: string) => request<FamilyChild>('/v1/family/children', 'POST', { nickname, birthDate, consentVersion }),
+    saveFamilyPolicy: (childId: string, expectedRevision: number, policy: FamilyPolicy) => request<FamilyPolicyRecord>(`/v1/family/children/${encodeURIComponent(childId)}/policy`, 'PUT', { expectedRevision, policy }),
+    removeFamilyChild: (childId: string) => request<{ state: 'pending' | 'removed' }>(`/v1/family/children/${encodeURIComponent(childId)}`, 'DELETE'),
+    startFamilyPairing: (childId: string) => request<{ code: string; expiresAt: string }>(`/v1/family/children/${encodeURIComponent(childId)}/pairing`, 'POST'),
+    cancelFamilyPairing: (childId: string) => request<{ ok: boolean }>(`/v1/family/children/${encodeURIComponent(childId)}/pairing`, 'DELETE'),
+    approveFamilyPairing: (childId: string, confirmationCode: string) => request<{ replaced: boolean }>(`/v1/family/children/${encodeURIComponent(childId)}/pairing/approve`, 'POST', { confirmationCode }),
+    // Vaqtim Family, child phone. Claiming needs no account; the others send `Device <secret>` (getAuthorization).
+    claimFamilyPairing: (code: string, platform: 'ios' | 'android') => request<FamilyClaim>('/v1/family/device/claim', 'POST', { code, platform }, false),
+    syncFamilyDevice: (body: FamilyDeviceSyncRequest) => request<FamilyDeviceSync>('/v1/family/device/sync', 'POST', body),
+    releaseFamilyDevice: () => request<{ ok: boolean }>('/v1/family/device/release', 'POST'),
+    endFamilySupervision: () => request<{ state: 'released' }>('/v1/family/device/end-supervision', 'POST'),
   };
 }

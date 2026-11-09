@@ -5,14 +5,19 @@ import { reconcileProtection, resetProtectionController } from '../../services/p
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
 import type { SocialAppId } from '../../types/app';
 import type { NativeProtectionStatus } from '../../services/protection/types';
+import { isFamilyDevice } from '../../store/familyStore';
 
 /** `active` means FocusUp can block the original app: permission granted and, on iOS, the app picked in Apple's list. */
 export type NativeBlockState = 'unsupported' | 'needsPermission' | 'needsSelection' | 'active';
 
-/** Android identifies the app by package, so only iOS needs a selection. */
-export function nativeBlockState(status: NativeProtectionStatus, appId: SocialAppId): NativeBlockState {
+/**
+ * Android identifies the app by package, so only iOS needs a selection. A supervised iPhone must hold the
+ * child (Family Sharing) authorization; a personal one does not count for family rules.
+ */
+export function nativeBlockState(status: NativeProtectionStatus, appId: SocialAppId, supervised = isFamilyDevice()): NativeBlockState {
   if (!status.supported) return 'unsupported';
   if (!status.authorized) return 'needsPermission';
+  if (supervised && Platform.OS === 'ios' && status.member !== 'child') return 'needsPermission';
   if (Platform.OS !== 'ios') return 'active';
   // Builds before `selectedPlatforms` only report apps the current plan protects.
   return (status.selectedPlatforms ?? status.protectedPlatforms)?.includes(appId) ? 'active' : 'needsSelection';
@@ -34,6 +39,16 @@ const confirm = (title: string, message: string, action: string) => new Promise<
     { text: action, onPress: () => resolve(true) },
   ], { cancelable: true, onDismiss: () => resolve(false) });
 });
+
+/** A supervised iPhone asks for the child authorization; every other phone keeps the personal one. */
+async function requestAuthorizationForThisPhone(): Promise<boolean> {
+  if (Platform.OS === 'ios' && isFamilyDevice()) {
+    const result = await protectionBridge.requestChildAuthorization();
+    if (result !== 'approved') Alert.alert(i18n.t('family.child.screenTimeTitle'), i18n.t(`family.child.screenTime.${result}`));
+    return result === 'approved';
+  }
+  return protectionBridge.requestAuthorization();
+}
 
 async function refreshStatus() {
   const status = await protectionBridge.getStatus();
@@ -57,9 +72,9 @@ export async function setUpNativeAppBlock(appId: SocialAppId, name: string, opti
     const steps = i18n.t(Platform.OS === 'ios' ? 'browser.nativeBlockIOSSteps' : 'browser.nativeBlockAndroidSteps', { name });
     const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
     if (!options.confirmed && !await confirm(title, `${reason}${steps}\n\n${disclosure}`, i18n.t('wellbeing.authorize'))) return 'cancelled';
-    if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
+    if (!await requestAuthorizationForThisPhone()) return 'needsPermission';
     status = await refreshStatus();
-    if (!status.authorized) return 'needsPermission';
+    if (nativeBlockState(status, appId) === 'needsPermission') return 'needsPermission';
   } else if (!options.confirmed && !await confirm(title, `${reason}${i18n.t('browser.nativeBlockChoose', { name })}`, i18n.t('browser.nativeBlockChooseAction'))) return 'cancelled';
   // A picked app is ready even when the status cannot say so yet (builds before `selectedPlatforms`).
   let picked = false;
@@ -104,6 +119,6 @@ export async function ensureNativeAuthorization(): Promise<'authorized' | 'unsup
   if (status.authorized) return 'authorized';
   const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
   if (!await confirm(i18n.t('wellbeing.disclosureTitle'), disclosure, i18n.t('wellbeing.authorize'))) return 'cancelled';
-  if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
+  if (!await requestAuthorizationForThisPhone()) return 'needsPermission';
   return (await refreshStatus()).authorized ? 'authorized' : 'needsPermission';
 }

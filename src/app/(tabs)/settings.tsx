@@ -1,4 +1,5 @@
-import { PRO_ENABLED } from '../../config/release';
+import { FAMILY_ENABLED, PRO_ENABLED } from '../../config/release';
+import { useFamilyStore } from '../../store/familyStore';
 import { useAccountStore } from '../../store/accountStore';
 import { useStrictMode } from '../../hooks/useStrictMode';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   const c = useAppTheme();
   const subscription = useSubscription();
   const accountUser = useAccountStore((state) => state.user);
+  const supervision = useFamilyStore((state) => state.role === 'child' ? state.supervision : null);
   const supportUnread = useSupportUnread(Boolean(accountUser) && isBackendConfigured());
   const language = useAppStore((state) => state.selectedLanguage);
   const theme = useAppStore((state) => state.themeMode);
@@ -64,14 +66,27 @@ export default function SettingsScreen() {
   return <Screen glow={260} glowDarkOnly contentStyle={{ gap: 18 }}>
     <Heading size="large" title={t('settings')} />
 
-    <Pressable accessibilityRole="button" accessibilityLabel={accountUser ? t('cloudAuth.title') : t('settingsPages.signInTitle')} onPress={() => router.push(accountUser ? '/account' : '/auth/sign-in')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 26, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
+    {/* A supervised child's phone has no personal account here: it shows who supervises it instead. */}
+    {supervision ? <Pressable accessibilityRole="button" onPress={() => router.push('/family/supervised')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 26, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
+      <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: c.mintSoft }}><Icon name="shieldCheck" size={26} color={c.mintInk} strokeWidth={2} /></View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: c.text, fontSize: 18, lineHeight: 24, fontWeight: '800', letterSpacing: -0.36 }}>{t('family.child.supervisedBy', { parent: supervision.parentName || t('family.child.yourParent') })}</Text>
+        <Text numberOfLines={1} style={{ color: c.text2, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{t('family.child.rulesTitle')}</Text>
+      </View>
+      <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: c.soft }}><Icon name="chevron" size={18} color={c.ink} strokeWidth={2.4} /></View>
+    </Pressable> : <Pressable accessibilityRole="button" accessibilityLabel={accountUser ? t('cloudAuth.title') : t('settingsPages.signInTitle')} onPress={() => router.push(accountUser ? '/account' : '/auth/sign-in')} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 26, backgroundColor: c.card, boxShadow: c.sh, transform: [{ scale: pressed ? 0.985 : 1 }] })}>
       {accountUser ? <Avatar label={profileName || accountUser.email || ''} /> : <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundImage: c.grad, boxShadow: c.glow }}><Icon name="key" size={24} color="#FFFFFF" strokeWidth={2} /></View>}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ color: c.text, fontSize: 18, lineHeight: 24, fontWeight: '800', letterSpacing: -0.36 }}>{accountUser ? profileName || accountUser.email || t('cloudAuth.profile') : t('settingsPages.signInTitle')}</Text>
         <Text numberOfLines={1} style={{ color: c.text2, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{accountUser ? (profileName && accountUser.email ? accountUser.email : t('settingsPages.profileBody')) : t('settingsPages.signInBody')}</Text>
       </View>
       <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: c.soft }}><Icon name="chevron" size={18} color={c.ink} strokeWidth={2.4} /></View>
-    </Pressable>
+    </Pressable>}
+
+    {FAMILY_ENABLED && accountUser && !supervision ? <View style={{ gap: 6 }}>
+      <GroupLabel title={t('family.settingsRow')} />
+      {group(<SettingRow icon={<IconTile name="shieldCheck" tone="mint" />} title={t('family.settingsRow')} subtitle={t('family.settingsRowBody')} onPress={() => router.push('/family')} last />)}
+    </View> : null}
 
     {PRO_ENABLED ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/pro', params: { source: 'settings' } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, height: 76, paddingHorizontal: 16, borderRadius: 24, backgroundImage: c.hero, boxShadow: c.heroSh, opacity: pressed ? 0.9 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.heroIconBg, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={24} color="#FFFFFF" /></View>
@@ -94,8 +109,9 @@ export default function SettingsScreen() {
     <View style={{ gap: 6 }}>
       <GroupLabel title={t('settingsPages.groupHelp')} />
       {group(<>
-        <SettingRow icon={<IconTile name="shield" tone="mint" />} title={t('ui.privacy')} onPress={() => router.push('/privacy')} />
-        <SettingRow icon={<IconTile name="comment" tone="blue" />} title={t('supportChat.rowTitle')} right={supportUnread ? <View accessible={false} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : undefined} chevron onPress={() => router.push('/support')} last />
+        <SettingRow icon={<IconTile name="sparkles" tone="accent" />} title={t('features.title')} onPress={() => router.push('/capabilities')} />
+        <SettingRow icon={<IconTile name="shield" tone="mint" />} title={t('ui.privacy')} onPress={() => router.push('/privacy')} last={!accountUser} />
+        {accountUser ? <SettingRow icon={<IconTile name="comment" tone="blue" />} title={t('supportChat.rowTitle')} right={supportUnread ? <View accessible={false} style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent }} /> : undefined} chevron onPress={() => router.push('/support')} last /> : null}
       </>)}
     </View>
 

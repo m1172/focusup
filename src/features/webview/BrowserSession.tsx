@@ -1,6 +1,9 @@
 import { PRO_ENABLED } from '../../config/release';
 import { canUseFeature } from '../../services/subscription/subscriptionService';
 import { ProtectedScreen } from '../protection/ProtectedScreen';
+import { FamilyBrowserBlocked, useFamilyBrowserAccess } from '../family/browserAccess';
+import { useFamilyStore } from '../../store/familyStore';
+import { familyDailyLimit } from '../../services/family/resolver';
 import { Text } from '../../components/Typography';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, BackHandler, Platform, Pressable, View } from 'react-native';
@@ -52,8 +55,17 @@ type Props = {
   onTerminated: (appId: SocialAppId) => void;
 };
 
-/** One social app's browser. The root browser layer keeps it mounted between opens. */
-export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: rawInitialUrl, active, requestedUrl, requestKey, onTerminated }: Props) {
+/**
+ * One social app's browser. The root browser layer keeps it mounted between opens. On a supervised phone the page is
+ * replaced (unmounted, so playback stops) whenever the family rules close this browser, e.g. at the start of bedtime.
+ */
+export const BrowserSession = memo(function BrowserSession(props: Props) {
+  const access = useFamilyBrowserAccess(props.appId);
+  if (access !== 'allowed') return <FamilyBrowserBlocked appId={props.appId} reason={access} />;
+  return <BrowserPage {...props} />;
+});
+
+const BrowserPage = memo(function BrowserPage({ appId, initialUrl: rawInitialUrl, active, requestedUrl, requestKey, onTerminated }: Props) {
   const app = appCatalog[appId];
   const { t } = useTranslation();
   const c = useAppTheme();
@@ -62,7 +74,9 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   const [showProtection, setShowProtection] = useState(false);
   const [pageReady, setPageReady] = useState(false);
   const [initialUrl] = useState(() => normalizeSocialBrowserLink(appId, rawInitialUrl ?? '') ?? socialBrowserHome[isCleanPlatform(appId) ? appId : 'instagram']);
-  const limitReached = useDailyLimitReached(appId);
+  // The parent's limit (Vaqtim Family) and the personal one both count; the smaller wins.
+  const familyLimit = useFamilyStore((state) => familyDailyLimit(appId, state.role === 'child' && state.supervision ? { policy: state.supervision.policy, birthDate: state.supervision.birthDate } : null));
+  const limitReached = useDailyLimitReached(appId, familyLimit);
   const [menuExpanded, setMenuExpanded] = useState(false);
   /** Full screen hides the status bar and the session strip; the page itself always reaches the bottom edge. */
   const [fullScreen, setFullScreen] = useState(false);
@@ -209,7 +223,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
     } else if (event.type === 'BLOCKED_NAVIGATION') {
       setShowProtection(true);
       setDiagnostics(appId, { ...base, lastFilterPassAt: new Date().toLocaleTimeString() });
-      if (event.platform === 'instagram' && event.feature === 'reels') void trackBlockedNavigation('instagram', 'reels');
+      if (event.platform === 'instagram' && (event.feature === 'reels' || event.feature === 'explore')) void trackBlockedNavigation('instagram', event.feature);
       if (event.platform === 'youtube' && event.feature === 'shorts') void trackBlockedNavigation('youtube', 'shorts');
       if (event.platform === 'tiktok') void trackBlockedNavigation('tiktok', event.feature);
     }
@@ -230,7 +244,7 @@ export const BrowserSession = memo(function BrowserSession({ appId, initialUrl: 
   if (!app?.supported) return <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}><Text style={{ color: c.text, padding: 24 }}>{t('unavailable')}</Text></SafeAreaView>;
   if (limitReached) return <SafeAreaView style={{ flex: 1, backgroundColor: c.background, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
     <Text accessibilityRole="header" style={{ color: c.text, fontSize: 24, fontWeight: '800', textAlign: 'center' }}>{t('ui.limitReached')}</Text>
-    <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, textAlign: 'center' }}>{t('ui.dailyLimitsBody')}</Text>
+    <Text style={{ color: c.text2, fontSize: 15, lineHeight: 22, textAlign: 'center' }}>{t(familyLimit ? 'family.limitReachedBody' : 'ui.dailyLimitsBody')}</Text>
     <Pressable accessibilityRole="button" onPress={leaveBrowser} style={{ paddingHorizontal: 24, paddingVertical: 14, borderRadius: 22, backgroundColor: c.soft }}>
       <Text style={{ color: c.ink, fontSize: 16, fontWeight: '800' }}>{t('browser.leave')}</Text>
     </Pressable>
