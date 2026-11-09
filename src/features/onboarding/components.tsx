@@ -9,10 +9,10 @@ import { BackButton } from '../../components/ui';
 import { useAppTheme } from '../../theme';
 
 /**
- * Progress steps after the hook: your time, age, why, life in weeks, reveal, instead, how it works,
- * goals, commit, referral, account. Authentication is the required final step.
+ * Onboarding is kept short: your time (with the share of free time it takes), how it works, account.
+ * Authentication is the required final step.
  */
-export const ONBOARDING_STEPS = 10;
+export const ONBOARDING_STEPS = 3;
 
 /** Back button + a progress bar that grows from the previous step on mount. */
 /** `step` may be fractional (per-app questions); `from` is where the bar starts, the previous step by default. */

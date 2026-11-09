@@ -9,6 +9,10 @@ import { ActionButton, Card, Screen } from '../../components/ui';
 import { useAppTheme } from '../../theme';
 import Animated, { Easing, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { OnboardingHeader } from '../../features/onboarding/components';
+import { targetMinutes } from '../../features/onboarding/dayBudget';
+import { useAppStore } from '../../store/appStore';
+import { useAccountStore } from '../../store/accountStore';
+import { totalMinutes, useOnboardingStore } from '../../store/onboardingStore';
 
 /** Design uses 15px items (14/17 for the two-line one); long single words such as "Рекомендации" step down so they fit the column. */
 function itemType(label: string, twoLine: boolean) {
@@ -21,15 +25,24 @@ export default function HowItWorksScreen() {
   const { t } = useTranslation();
   const c = useAppTheme();
   const reducedMotion = useReducedMotion();
+  const dailyMinutes = useOnboardingStore(totalMinutes);
+  const cut = useOnboardingStore((s) => s.cut);
+  // Last step before the account: sets the daily goal and marks onboarding as finished.
   // Apps start uncleaned; the user sets them up later under Protection.
-  const next = () => router.push('/onboarding/goals');
+  const next = () => {
+    useAppStore.getState().setDailyGoal(targetMinutes(dailyMinutes, cut));
+    useOnboardingStore.getState().commit(PRO_ENABLED);
+    if (!useAccountStore.getState().user) { router.push('/onboarding/account'); return; }
+    useAppStore.getState().completeOnboarding();
+    router.replace('/');
+  };
   const enter = (delay: number) => (reducedMotion ? undefined : FadeInDown.delay(delay).duration(450).easing(Easing.out(Easing.cubic)));
   const columns = [
     { title: 'design.removed', color: c.red, dot: c.red, bg: c.redSoft, kind: 'x' as const, items: PRO_ENABLED ? ['reels', 'shorts', 'explore', 'ui.onboardingRecommendations'] : ['reels', 'shorts', 'ui.forYou'] },
     { title: 'kept', color: c.mintInk, dot: c.mint, bg: c.mintSoft, kind: 'check' as const, items: ['messages', 'friends', 'profiles', 'regularVideos'] },
   ];
   return <Screen glow={380} contentStyle={{ gap: 0 }} footer={<ActionButton title={t('continue')} arrow onPress={next} />}>
-    <OnboardingHeader step={7} />
+    <OnboardingHeader step={2} />
     <Text accessibilityRole="header" style={{ marginTop: 24, color: c.text, fontSize: 38, lineHeight: 44, fontWeight: '800', letterSpacing: -1.33 }}>{t('design.onboardingTitle')}</Text>
     <Text style={{ marginTop: 12, maxWidth: 320, color: c.text2, fontSize: 16, lineHeight: 24, fontWeight: '500' }}>{t('design.onboardingBody')}</Text>
     <View style={{ marginTop: 32, flexDirection: 'row', gap: 16 }}>
