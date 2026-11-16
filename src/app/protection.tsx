@@ -8,6 +8,7 @@ import { AppIcon } from '../components/AppIcon';
 import { appCatalog } from '../features/apps/catalog';
 import { ALL_PLATFORMS, protectionReason } from '../services/protection/engine';
 import { protectionBridge } from '../services/protection/nativeBridge';
+import { explainPermission } from '../features/protection/nativeAppSetup';
 import { reconcileProtection, resetProtectionController, startTemporaryAccess } from '../services/protection/controller';
 import { useProtectionStatusStore } from '../store/protectionStatusStore';
 import { useWellbeingStore } from '../store/wellbeingStore';
@@ -27,7 +28,7 @@ export default function ProtectionScreen() {
   const refresh = useCallback(() => { void protectionBridge.getStatus().then(useProtectionStatusStore.getState().setStatus); }, []);
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
   const fail = () => Alert.alert(t('wellbeing.nativeTitle'), t('wellbeing.failed'));
-  const authorize = () => Alert.alert(t('wellbeing.disclosureTitle'), t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid'), [{ text: t('cancel'), style: 'cancel' }, { text: t('wellbeing.authorize'), onPress: () => { void protectionBridge.requestAuthorization().then(refresh).catch(fail); } }]);
+  const authorize = () => void explainPermission(t('wellbeing.disclosureTitle'), t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid')).then((agreed) => { if (agreed) void protectionBridge.requestAuthorization().then(refresh).catch(fail); });
   const toggle = async (platform: SocialAppId, enabled: boolean) => {
     if (!canUseFeature(isPro, 'nativeProtection')) { router.push('/pro'); return; }
     if (isPlatformLocked(platform)) { Alert.alert(t('strictActive'), t('strictCannotChange')); return; }
