@@ -12,7 +12,7 @@ import { AVAILABLE_APPS, appCatalog } from '../../features/apps/catalog';
 import { AppOrbit } from '../../features/protection/AppOrbit';
 import { ExtraProtectionSettings } from '../../features/protection/ExtraProtectionSettings';
 import { isSavingsApp, useAppConnection } from '../../features/protection/useAppConnection';
-import { nativeBlockState } from '../../features/protection/nativeAppSetup';
+import { nativeBlockState, permissionMessageMustContinue } from '../../features/protection/nativeAppSetup';
 import { useAppStore } from '../../store/appStore';
 import { useWellbeingStore } from '../../store/wellbeingStore';
 import { useProtectionStatusStore } from '../../store/protectionStatusStore';
@@ -55,6 +55,9 @@ function LockDialog({ appId, add, lockedApps, onClose, onLock }: { appId: Social
   const locked = Boolean(shown && lockedApps.includes(shown));
   const state = shown ? nativeBlockState(status, shown) : 'unsupported';
   const startLock = () => { if (state === 'active') onLock(); else setAsking(true); };
+  // Before a system permission request the message cannot be skipped or closed: its one button goes to the request.
+  const mustContinue = asking && state === 'needsPermission' && permissionMessageMustContinue();
+  const close = mustContinue ? undefined : onClose;
 
   const title = !asking ? t(locked ? 'ui.appLockedTitle' : 'ui.appUnlockedTitle', { name })
     : state === 'unsupported' ? t('ui.cannotAddTitle', { name }) : t('ui.lockPermissionTitle', { name });
@@ -67,8 +70,8 @@ function LockDialog({ appId, add, lockedApps, onClose, onLock }: { appId: Social
     ? state === 'unsupported' ? null : { title: t(state === 'needsSelection' ? 'browser.nativeBlockChooseAction' : 'wellbeing.authorize'), icon: 'shieldCheck' as const, onPress: onLock }
     : locked ? null : { title: t('ui.lockIt'), icon: 'lock' as const, onPress: startLock };
 
-  return <Modal visible={Boolean(appId)} transparent animationType="fade" onRequestClose={onClose}>
-    <Pressable accessibilityLabel={t('ui.gotIt')} onPress={onClose} style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: c.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(14,16,32,0.4)' }}>
+  return <Modal visible={Boolean(appId)} transparent animationType="fade" onRequestClose={close}>
+    <Pressable accessible={!mustContinue} accessibilityLabel={t('ui.gotIt')} onPress={close} style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, backgroundColor: c.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(14,16,32,0.4)' }}>
       <Pressable onPress={(event) => event.stopPropagation()} style={{ alignItems: 'center', gap: 12, padding: 22, borderRadius: 32, backgroundColor: c.card, backgroundImage: locked ? undefined : c.lockHalo, boxShadow: c.sheetSh }}>
         {shown ? <View style={{ marginTop: 4 }}>
           <AppIcon appId={shown} size={64} />
@@ -80,7 +83,7 @@ function LockDialog({ appId, add, lockedApps, onClose, onLock }: { appId: Social
         <Text style={{ color: c.text2, fontSize: 15, lineHeight: 21, fontWeight: '500', textAlign: 'center' }}>{body}</Text>
         <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 6 }}>
           {primary ? <ActionButton title={primary.title} icon={<Icon name={primary.icon} size={18} color="#FFFFFF" strokeWidth={2.4} />} onPress={primary.onPress} /> : null}
-          <ActionButton variant="secondary" title={t(asking && state !== 'unsupported' ? 'subscription.notNow' : 'ui.gotIt')} onPress={onClose} />
+          {mustContinue ? null : <ActionButton variant="secondary" title={t(asking && state !== 'unsupported' ? 'subscription.notNow' : 'ui.gotIt')} onPress={onClose} />}
         </View>
       </Pressable>
     </Pressable>

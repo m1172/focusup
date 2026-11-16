@@ -11,6 +11,7 @@ import { useAppTheme } from '../theme';
 import { useAppStore } from '../store/appStore';
 import { useProtectionStatusStore } from '../store/protectionStatusStore';
 import { protectionBridge } from '../services/protection/nativeBridge';
+import { explainPermission } from '../features/protection/nativeAppSetup';
 import { requestNotificationPermission } from '../services/notifications/notificationService';
 
 export default function PermissionsScreen() {
@@ -27,7 +28,9 @@ export default function PermissionsScreen() {
   const authorize = () => {
     if (status.authorized) { if (PRO_ENABLED) router.push('/protection'); return; }
     if (!status.supported) { router.push('/capabilities'); return; }
-    Alert.alert(t('wellbeing.disclosureTitle'), t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid'), [{ text: t('cancel'), style: 'cancel' }, { text: t('wellbeing.authorize'), onPress: () => { void protectionBridge.requestAuthorization().then(() => protectionBridge.getStatus()).then(useProtectionStatusStore.getState().setStatus).catch(() => Alert.alert(t('design.permissions'), t('wellbeing.failed'))); } }]);
+    void explainPermission(t('wellbeing.disclosureTitle'), t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid')).then((agreed) => {
+      if (agreed) void protectionBridge.requestAuthorization().then(() => protectionBridge.getStatus()).then(useProtectionStatusStore.getState().setStatus).catch(() => Alert.alert(t('design.permissions'), t('wellbeing.failed')));
+    });
   };
   return <Screen contentStyle={{ gap: 18 }}><BackButton label={t('back')} /><Heading title={t('design.permissions')} />
     <View style={{ alignItems: 'center', paddingVertical: 12, gap: 12 }}><View style={{ width: 96, height: 96, borderRadius: 32, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}><Ionicons name="shield-checkmark-outline" size={52} color={c.primary} /></View><Text style={{ color: c.text, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>{t(status.supported && status.authorized ? 'design.permissionReady' : 'design.permissions')}</Text><Text style={{ color: c.muted, fontSize: 13, lineHeight: 20, textAlign: 'center', maxWidth: 300 }}>{t(status.supported ? 'design.permissionBody' : 'cloudAuth.freePermissions')}</Text></View>
