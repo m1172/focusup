@@ -28,12 +28,29 @@ export function isRealAppBlocked(appId: SocialAppId, blockSwitchOn: boolean, sta
   return !checked || nativeBlockState(status, appId) === 'active';
 }
 
+/**
+ * Apple's rule (App Review 5.1.1(iv)): a message shown before a system permission request must always lead to
+ * that request, so on iOS it has one button and cannot be skipped or closed. The user says yes or no in
+ * Apple's own prompt. Android keeps "Not now": Google requires a way to decline the Accessibility disclosure.
+ */
+export function permissionMessageMustContinue(platform: string = Platform.OS): boolean {
+  return platform === 'ios';
+}
+
 const confirm = (title: string, message: string, action: string) => new Promise<boolean>((resolve) => {
   Alert.alert(title, message, [
     { text: i18n.t('subscription.notNow'), style: 'cancel', onPress: () => resolve(false) },
     { text: action, onPress: () => resolve(true) },
   ], { cancelable: true, onDismiss: () => resolve(false) });
 });
+
+/** The explanation shown right before the system permission request. Resolves false only where it may be declined. */
+export const explainPermission = (title: string, message: string, action: string = i18n.t('wellbeing.authorize')) => {
+  if (!permissionMessageMustContinue()) return confirm(title, message, action);
+  return new Promise<boolean>((resolve) => {
+    Alert.alert(title, message, [{ text: action, onPress: () => resolve(true) }], { cancelable: false });
+  });
+};
 
 async function refreshStatus() {
   const status = await protectionBridge.getStatus();
@@ -56,7 +73,7 @@ export async function setUpNativeAppBlock(appId: SocialAppId, name: string, opti
   if (state === 'needsPermission') {
     const steps = i18n.t(Platform.OS === 'ios' ? 'browser.nativeBlockIOSSteps' : 'browser.nativeBlockAndroidSteps', { name });
     const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
-    if (!options.confirmed && !await confirm(title, `${reason}${steps}\n\n${disclosure}`, i18n.t('wellbeing.authorize'))) return 'cancelled';
+    if (!options.confirmed && !await explainPermission(title, `${reason}${steps}\n\n${disclosure}`)) return 'cancelled';
     if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
     status = await refreshStatus();
     if (!status.authorized) return 'needsPermission';
@@ -103,7 +120,7 @@ export async function ensureNativeAuthorization(): Promise<'authorized' | 'unsup
   if (!status.supported) return 'unsupported';
   if (status.authorized) return 'authorized';
   const disclosure = i18n.t(Platform.OS === 'ios' ? 'wellbeing.disclosureIOS' : 'wellbeing.disclosureAndroid');
-  if (!await confirm(i18n.t('wellbeing.disclosureTitle'), disclosure, i18n.t('wellbeing.authorize'))) return 'cancelled';
+  if (!await explainPermission(i18n.t('wellbeing.disclosureTitle'), disclosure)) return 'cancelled';
   if (!await protectionBridge.requestAuthorization()) return 'needsPermission';
   return (await refreshStatus()).authorized ? 'authorized' : 'needsPermission';
 }
