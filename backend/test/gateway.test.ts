@@ -96,3 +96,33 @@ test('signup verification uses the current email OTP type in Supabase Auth', asy
   };
   assert.equal((await createGateway(config).verifyCode('user@example.com', '123456', 'signup')).accessToken, 'access');
 });
+
+test('Telegram email collision cannot mint a session for an unrelated account', async (t) => {
+  const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith('/rpc/find_telegram_user')) return Response.json(null);
+    if (url.endsWith('/auth/v1/admin/users')) return Response.json({ code: 'email_exists', msg: 'Already exists' }, { status: 422 });
+    assert.fail('Untrusted email collision reached session creation');
+  };
+  await assert.rejects(createGateway({ ...config, SUPABASE_SECRET_KEY: 'test-server-secret' }).signInWithTelegram({ id: '123456789' }, 'example.com'), { code: 'IDENTITY_CONFLICT' });
+});
+
+test('concurrent Telegram creation requires the resolved owner at link and session boundaries', async (t) => {
+  const original = globalThis.fetch; t.after(() => { globalThis.fetch = original; });
+  const email = 'tg-123@example.com';
+  let lookups = 0, wrongSession = false;
+  globalThis.fetch = async input => {
+    const url = String(input);
+    if (url.endsWith('/rpc/find_telegram_user')) return Response.json(++lookups === 1 ? null : user.id);
+    if (url.endsWith('/auth/v1/admin/users')) return Response.json({ code: 'email_exists', msg: 'Already exists' }, { status: 422 });
+    if (url.endsWith(`/auth/v1/admin/users/${user.id}`)) return Response.json({ id: user.id, email });
+    if (url.endsWith('/auth/v1/admin/generate_link')) return Response.json({ id: user.id, email, hashed_token: 'test-hash', verification_type: 'magiclink' });
+    if (url.endsWith('/auth/v1/verify')) return Response.json({ access_token: 'test-access', refresh_token: 'test-refresh', expires_in: 3600, token_type: 'bearer', user: { id: wrongSession ? 'wrong-account' : user.id, email } });
+    assert.fail('Unexpected request');
+  };
+  const gateway = createGateway({ ...config, SUPABASE_SECRET_KEY: 'test-server-secret' });
+  assert.equal((await gateway.signInWithTelegram({ id: '123' }, 'example.com')).user.id, user.id);
+  wrongSession = true;
+  await assert.rejects(gateway.signInWithTelegram({ id: '123' }, 'example.com'), { code: 'IDENTITY_CONFLICT' });
+});

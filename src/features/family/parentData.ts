@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import { create } from 'zustand';
+import { useAccountStore } from '../../store/accountStore';
 import i18n from '../../i18n';
 import { BackendError } from '../../services/backend/client';
 import { accountApi, signOutAccount } from '../../services/backend/accountSession';
@@ -20,13 +21,16 @@ export const useFamilyParentStore = create<ParentState>((set, get) => ({
   loading: false,
   failed: false,
   load: async () => {
+    const owner = useAccountStore.getState().user?.id;
+    if (!owner) return null;
     set({ loading: true, failed: false });
     try {
       const overview = await accountApi().getFamily();
+      if (useAccountStore.getState().user?.id !== owner) return null;
       set({ overview, loading: false });
       return overview;
     } catch {
-      set({ loading: false, failed: true });
+      if (useAccountStore.getState().user?.id === owner) set({ loading: false, failed: true });
       return null;
     }
   },
@@ -37,6 +41,10 @@ export const useFamilyParentStore = create<ParentState>((set, get) => ({
   },
 }));
 
+useAccountStore.subscribe((next, previous) => {
+  if (next.user?.id !== previous.user?.id) useFamilyParentStore.setState({ overview: null, loading: false, failed: false });
+});
+
 export function useFamilyChild(childId: string | undefined) {
   return useFamilyParentStore((state) => state.overview?.children.find((child) => child.id === childId) ?? null);
 }
@@ -45,6 +53,8 @@ export function useFamilyChild(childId: string | undefined) {
 export function familyErrorMessage(error: unknown): string {
   const code = error instanceof BackendError ? error.code : '';
   const known: Record<string, string> = {
+    FAMILY_SUBSCRIPTION_REQUIRED: 'billing.familyRequired',
+    FAMILY_CHILD_LIMIT: 'billing.childLimit',
     FAMILY_ENROLLMENT_CLOSED: 'family.parent.closed',
     FAMILY_COUNTRY_UNAVAILABLE: 'family.parent.countryUnavailable',
     FAMILY_AGE_INVALID: 'family.addChild.tooOld',
@@ -62,12 +72,12 @@ export function familyErrorMessage(error: unknown): string {
  * server asks for one, the parent signs out and in again, then repeats the step. Resolves to the action's result,
  * or undefined when it needed a new sign-in (the prompt is already shown).
  */
-export async function runSensitive<T>(action: () => Promise<T>): Promise<T | undefined> {
+export async function runSensitive<T>(action: () => Promise<T>, accountDeletion = false): Promise<T | undefined> {
   try {
     return await action();
   } catch (error) {
     if (!(error instanceof BackendError) || error.code !== 'REAUTH_REQUIRED') throw error;
-    Alert.alert(i18n.t('family.parent.reauthTitle'), i18n.t('family.parent.reauthBody'), [
+    Alert.alert(i18n.t(accountDeletion ? 'billing.deleteReauthTitle' : 'family.parent.reauthTitle'), i18n.t(accountDeletion ? 'billing.deleteReauthBody' : 'family.parent.reauthBody'), [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('family.parent.reauthAction'), onPress: () => { void signOutAccount().finally(() => { if (router.canDismiss()) router.dismissAll(); router.replace('/auth/sign-in'); }); } },
     ]);

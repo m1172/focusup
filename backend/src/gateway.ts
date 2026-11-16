@@ -141,17 +141,26 @@ export function createGateway(config: Config): Gateway {
           email: syntheticEmail, email_confirm: true, app_metadata: { telegram_id: profile.id },
           user_metadata: { full_name: profile.name, preferred_username: profile.username, avatar_url: profile.picture },
         });
-        // A parallel first sign-in may have created it already; the address is unique, so carry on.
+        // A duplicate may be concurrent signup; the trusted mapping must still be resolved below.
         if (error && error.status !== 422) authError(error);
       }
+      // Email uniqueness never proves Telegram ownership, including concurrent signup.
+      const { data: ownerId, error: ownerError } = await client(undefined, true).rpc('find_telegram_user', { p_telegram_id: profile.id });
+      databaseError(ownerError);
+      if (typeof ownerId !== 'string' || !ownerId) throw new ApiError(409, 'IDENTITY_CONFLICT', 'Unable to complete this sign-in. Contact support.');
+      const owner = await admin.getUserById(ownerId);
+      authError(owner.error);
+      if (!owner.data.user?.email || owner.data.user.email !== email) throw new ApiError(409, 'IDENTITY_CONFLICT', 'Unable to complete this sign-in. Contact support.');
       // A magic link made server-side and redeemed at once: no email is sent and the link never leaves the server.
       const { data: link, error: linkError } = await admin.generateLink({ type: 'magiclink', email });
       authError(linkError);
+      if (link.user?.id !== ownerId) throw new ApiError(409, 'IDENTITY_CONFLICT', 'Unable to complete this sign-in.');
       const tokenHash = link.properties?.hashed_token;
       if (!tokenHash) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.');
       const { data, error } = await client().auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
       authError(error);
       const session = sessionDto(data.session);
+      if (session.user.id !== ownerId) throw new ApiError(409, 'IDENTITY_CONFLICT', 'Unable to complete this sign-in.');
       if (profile.name) {
         const identity = { id: session.user.id, email: session.user.email, token: session.accessToken };
         try {

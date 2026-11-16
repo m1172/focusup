@@ -33,7 +33,7 @@
     "android": {
       "package": "com.m1172.focusup",
       "versionCode": 8,
-      "runtimeVersion": "1.0.0-accessibility",
+      "runtimeVersion": "1.0.0-secure-cookies",
       "adaptiveIcon": {
         "backgroundColor": "#5B4FE9",
         "foregroundImage": "./assets/android-icon-foreground.png",

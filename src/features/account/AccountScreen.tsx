@@ -1,3 +1,5 @@
+import { runSensitive } from '../family/parentData';
+import { PRO_ENABLED } from '../../config/release';
 import { useAppStore } from '../../store/appStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, View } from 'react-native';
@@ -115,7 +117,8 @@ function SignedInAccount({ userId }: { userId: string }) {
   const unavailable = busy || loading;
   // The cloud account goes first; then nothing of it stays on this phone (same wipe as "Clear FocusUp data").
   const deleteEverything = async () => {
-    await accountApi().deleteAccount();
+    const deleted = await runSensitive(async () => { await accountApi().deleteAccount(); return true; }, true);
+    if (!deleted) return;
     try { await clearFocusUpData(); } catch { await forgetAccountSession(); }
     if (router.canDismiss()) router.dismissAll(); router.replace('/');
   };
@@ -143,7 +146,7 @@ function SignedInAccount({ userId }: { userId: string }) {
     </View>
 
     <Card style={{ gap: 18, borderWidth: 1, borderColor: c.redSoft }}>
-      <CardHeader icon="close" tone="red" title={t('cloudAuth.deleteAccount')} subtitle={t('cloudAuth.deleteAccountDescription')} />
+      <CardHeader icon="close" tone="red" title={t('cloudAuth.deleteAccount')} subtitle={PRO_ENABLED ? `${t('cloudAuth.deleteAccountDescription')} ${t('billing.deleteNotice')}` : t('cloudAuth.deleteAccountDescription')} />
       <View style={{ gap: 12 }}>
         <AuthField disabled={busy} label={t('cloudAuth.deleteAccountHint')} value={deleteText} onChange={setDeleteText} maxLength={6} />
         <ActionButton variant="destructive" disabled={busy || deleteText !== 'DELETE'} title={t('cloudAuth.deleteAccount')} onPress={() => confirm('cloudAuth.deleteAccountConfirm', 'cloudAuth.deleteAccountDescription', deleteEverything, true)} />

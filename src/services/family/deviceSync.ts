@@ -37,6 +37,19 @@ function deviceApi(deviceSecret: string | null) {
   return createBackendClient({ baseUrl: endpoint, allowInsecureHttp: __DEV__, getAuthorization: () => deviceSecret ? `Device ${deviceSecret}` : null });
 }
 
+let recovering: Promise<void> | null = null;
+export function recoverFamilyCredentials(): Promise<void> {
+  if (recovering) return recovering;
+  recovering = (async () => {
+    if (!useFamilyStore.persist.hasHydrated()) await useFamilyStore.persist.rehydrate();
+    const credential = await secret.read();
+    if (credential && useFamilyStore.getState().role === 'none') {
+      useFamilyStore.getState().setSupervision({ childNickname: '', parentName: '', birthDate: '2015-01-01', revision: 1, policy: { schemaVersion: 1, protectedApps: ['instagram', 'youtube', 'tiktok'], browsers: {}, downtime: [] } });
+    }
+  })().finally(() => { recovering = null; });
+  return recovering;
+}
+
 /** Step 1 on the child's phone: redeem the parent's code. Returns the confirmation code the parent must type. */
 export async function claimFamilyCode(code: string): Promise<string> {
   if (!isBackendConfigured()) throw new BackendError(503, 'NOT_CONFIGURED', 'Vaqtim is not connected.');
@@ -193,6 +206,7 @@ async function syncOnce() {
     // Offline or a server problem: keep enforcing the saved rules and try again on the next check-in.
     return;
   }
+  if (await secret.read() !== deviceSecret || useFamilyStore.getState().role === 'none') return;
   useFamilyStore.getState().setSynced(Date.now());
   if (response.state === 'pending') return;
   if (response.state === 'released') { await releaseHere(deviceSecret, 'released', true); return; }

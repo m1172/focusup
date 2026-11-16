@@ -20,6 +20,7 @@ jest.mock('../../protection/nativeBridge', () => ({
 }));
 
 const session = (user: string) => JSON.stringify([
+  { name: 'ds_user_id', value: String([...user].reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 0)), domain: '.instagram.com' },
   { name: 'sessionid', value: `${user}-session-${'x'.repeat(3000)}`, domain: '.instagram.com', path: '/', mockSecure: true, httpOnly: true },
   { name: 'csrftoken', value: `${user}-csrf`, domain: '.instagram.com', path: '/', mockSecure: true, httpOnly: false },
 ]);
@@ -93,4 +94,17 @@ describe('Instagram account switcher', () => {
     useInstagramAccountsStore.setState({ slots: Array.from({ length: MAX_INSTAGRAM_ACCOUNTS }, (_, index) => ({ id: String(index), username: `user${index}`, avatar: '', savedAt: 0 })), activeId: '0' });
     expect(await addInstagramAccount()).toBe(false);
   });
+});
+
+test('a forged username cannot overwrite another native account session', async () => {
+  mockSecure.clear(); useInstagramAccountsStore.setState({ slots: [], activeId: null });
+  mockCookies = session('alice'); await instagramAccountDetected('alice', '');
+  const alice = state().activeId!;
+  await addInstagramAccount(); mockCookies = session('bob'); await instagramAccountDetected('bob', '');
+  const bob = state().activeId!;
+  await switchInstagramAccount(alice);
+  await instagramAccountDetected('bob', '', Date.now() + 120000);
+  expect(state().activeId).toBe(alice);
+  await switchInstagramAccount(bob);
+  expect(mockCookies).toBe(session('bob'));
 });

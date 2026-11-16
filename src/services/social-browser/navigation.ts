@@ -126,7 +126,7 @@ export function isYouTubeGoogleAuthUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return false;
     // Google finishes sign-in by setting cookies on regional hosts such as accounts.google.co.uk.
-    return parsed.hostname === 'accounts.youtube.com' || /^accounts\.google\.(?:com|[a-z]{2,3})(?:\.[a-z]{2})?$/i.test(parsed.hostname);
+    return parsed.hostname === 'accounts.youtube.com' || ['accounts.google.com', 'accounts.google.co.uk', 'accounts.google.de', 'accounts.google.fr', 'accounts.google.pl', 'accounts.google.co.uz', 'accounts.google.ru'].includes(parsed.hostname);
   } catch {
     return false;
   }

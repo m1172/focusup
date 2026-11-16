@@ -39,7 +39,7 @@ describe('Instagram Clean Mode entitlement', () => {
     expect(isFilterAdjustable('instagram', 'explore', false)).toBe(true);
     expect(isFilterAdjustable('youtube', 'explore', false)).toBe(true);
     expect(isFilterAdjustable('youtube', 'comments', true)).toBe(true);
-    expect(isFilterAdjustable('instagram', 'reels', true)).toBe(true);
+    expect(isFilterAdjustable('instagram', 'reels', true)).toBe(false);
   });
 
   it('restores saved Instagram preferences for an active Pro subscription', () => {
@@ -64,10 +64,10 @@ describe('Instagram Clean Mode entitlement', () => {
     expect(getEffectiveAppConfig('instagram')).toEqual({ enabled: false, blocking: true, filters: { reels: true } });
   });
 
-  it('keeps the short-video feed blocked for free users who turned it off', () => {
+  it('keeps the short-video feed blocked for both tiers even when a saved preference turns it off', () => {
     useAppStore.getState().setFilter('youtube', 'shorts', false);
     expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(true);
     setPro(true);
-    expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(false);
+    expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(true);
   });
 });

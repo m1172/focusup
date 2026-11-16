@@ -57,6 +57,7 @@ export default function FamilyChildScreen() {
   const c = useAppTheme();
   const { childId } = useLocalSearchParams<{ childId: string }>();
   const child = useFamilyChild(childId);
+  const familyPaid = useFamilyParentStore((state) => state.overview?.familyPaid === true);
   const load = useFamilyParentStore((state) => state.load);
   const replaceChild = useFamilyParentStore((state) => state.replaceChild);
   // Unsaved edits; until the parent changes something the saved rules are shown.
@@ -80,7 +81,7 @@ export default function FamilyChildScreen() {
   const band = ageBand(child.birthDate);
   const state = childState(child);
   const report = child.device?.report ?? null;
-  const update = (next: Partial<FamilyPolicy>) => { setMessage(null); setDraft({ ...draft, ...next }, editedFrom ?? child.policy.revision); };
+  const update = (next: Partial<FamilyPolicy>) => { if (!familyPaid) return; setMessage(null); setDraft({ ...draft, ...next }, editedFrom ?? child.policy.revision); };
   const setLimit = (app: BrowserApp, minutes: number | null) => {
     const limits = { ...draft.limits };
     if (minutes === null) delete limits[app]; else limits[app] = minutes;
@@ -99,7 +100,7 @@ export default function FamilyChildScreen() {
   const timesValid = draft.downtime.every((item) => CLOCK.test(item.start) && CLOCK.test(item.end) && item.start !== item.end && item.weekdays.length > 0);
 
   const save = () => {
-    if (!timesValid) return;
+    if (!familyPaid || !timesValid) return;
     setBusy(true);
     void accountApi().saveFamilyPolicy(child.id, editedFrom ?? child.policy.revision, normalizePolicy(draft, child.birthDate))
       .then((record) => { replaceChild({ id: child.id, policy: record }); setDraft(null); setMessage(t('family.rules.saved')); })
@@ -111,6 +112,17 @@ export default function FamilyChildScreen() {
         setMessage(familyErrorMessage(error));
       }).finally(() => setBusy(false));
   };
+  const clearRules = () => Alert.alert(t('billing.clearRules'), t('billing.clearConfirm'), [
+    { text: t('cancel'), style: 'cancel' },
+    { text: t('billing.clearRules'), style: 'destructive', onPress: () => {
+      setBusy(true);
+      void accountApi().saveFamilyPolicy(child.id, child.policy.revision, {
+        schemaVersion: 1, protectedApps: [], browsers: child.policy.policy.browsers, downtime: [],
+      }).then((policy) => { replaceChild({ id: child.id, policy }); setDraft(null); })
+        .catch((error) => Alert.alert(t('billing.clearRules'), familyErrorMessage(error)))
+        .finally(() => setBusy(false));
+    } },
+  ]);
   const remove = () => Alert.alert(t('family.rules.removeTitle'), t('family.rules.removeBody', { name: child.nickname }), [
     { text: t('cancel'), style: 'cancel' },
     { text: t('family.rules.removeSupervision'), style: 'destructive', onPress: () => {
@@ -139,12 +151,12 @@ export default function FamilyChildScreen() {
       {report?.platform === 'ios' && report.missingApps.length ? <Text style={{ color: c.text2, fontSize: 13, lineHeight: 18 }}>{t('family.rules.iosPickerNote')}</Text> : null}
       {report ? <Text style={{ color: c.text3, fontSize: 13 }}>{t('family.rules.timezone', { zone: report.timezone })}</Text> : null}
       {!child.device ? <Text style={{ color: c.text2, fontSize: 14 }}>{t('family.rules.noPhone')}</Text> : <Text style={{ color: c.text2, fontSize: 13, lineHeight: 18 }}>{t('family.rules.replaceBody')}</Text>}
-      {!child.removalPending ? <ActionButton compact secondary title={t(child.device ? 'family.rules.replacePhone' : 'family.rules.pairPhone')} onPress={() => router.push({ pathname: '/family/pair/[childId]', params: { childId: child.id } })} /> : null}
+      {familyPaid && !child.removalPending ? <ActionButton compact secondary title={t(child.device ? 'family.rules.replacePhone' : 'family.rules.pairPhone')} onPress={() => router.push({ pathname: '/family/pair/[childId]', params: { childId: child.id } })} /> : null}
     </Panel>
 
-    {child.device && band !== 'child' ? <FamilyUsagePanel child={child} /> : null}
+    {familyPaid && child.device && band !== 'child' ? <FamilyUsagePanel child={child} /> : null}
 
-    {!child.removalPending ? <>
+    {!child.removalPending ? <View style={{ gap: 18 }} pointerEvents={familyPaid ? 'auto' : 'none'}>
       <Panel label={t('family.rules.protectedApps')}>
         <Text style={{ color: c.text2, fontSize: 13, lineHeight: 18 }}>{t('family.rules.protectedAppsHint')}</Text>
         {ALL_PLATFORMS.map((app) => <Row key={app} title={appCatalog[app].name} value={draft.protectedApps.includes(app)} onChange={(on) => toggleApp(app, on)} />)}
@@ -208,7 +220,11 @@ export default function FamilyChildScreen() {
       </Panel>
 
       {message ? <Note tone={message === t('family.rules.saved') ? 'mint' : 'amber'} icon="info">{message}</Note> : null}
-      <ActionButton title={t('family.rules.save')} disabled={!dirty || !timesValid || busy} onPress={save} />
+      <ActionButton title={t('family.rules.save')} disabled={!familyPaid || !dirty || !timesValid || busy} onPress={save} />
+    </View> : null}
+    {!familyPaid && !child.removalPending ? <>
+      <Note tone="amber" icon="info">{t('billing.familyRequired')}</Note>
+      <ActionButton secondary title={t('billing.clearRules')} disabled={busy} onPress={clearRules} />
     </> : null}
     <ActionButton variant="destructive" title={t('family.rules.removeSupervision')} disabled={busy || child.removalPending} onPress={remove} />
   </Screen>;

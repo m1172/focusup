@@ -1,3 +1,5 @@
+import { PRO_ENABLED } from '../../config/release';
+import { useFamilyStore } from '../../store/familyStore';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -94,6 +96,8 @@ export default function ProtectScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const isPro = useSubscription().isPro;
+  const role = useFamilyStore((state) => state.role);
+  const showPaid = PRO_ENABLED && role === 'none';
   const apps = useAppStore((state) => state.apps);
   const temporary = useWellbeingStore((state) => state.temporary);
   const breaks = useWellbeingStore((state) => state.breaks);
@@ -129,7 +133,7 @@ export default function ProtectScreen() {
   const breakSeconds = temporary ? Math.max(0, Math.ceil((temporary.endsAt - clockNow) / 1000)) : 0;
   const onBreak = Boolean(temporary && breakSeconds > 0);
   const left = breaksLeft(breaks, new Date(now));
-  const hardModeAvailable = isFeatureAvailable('strictMode');
+  const hardModeAvailable = isFeatureAvailable('strictMode', showPaid);
 
   const open = (feature: SubscriptionFeature | null, source: PaywallSource, route: Route, params?: Record<string, string>) => {
     setManageOpen(false);
@@ -144,10 +148,10 @@ export default function ProtectScreen() {
   };
   // The tiles are quick actions only; settings live behind the button at the top, so nothing is offered twice.
   const tiles: Tile[] = [];
-  if (isFeatureAvailable('temporaryAccess')) tiles.push({ key: 'break', title: t('ui.breakTile'), icon: 'clock', feature: 'temporaryAccess', onPress: takeBreak });
+  if (isFeatureAvailable('temporaryAccess', showPaid)) tiles.push({ key: 'break', title: t('ui.breakTile'), icon: 'clock', feature: 'temporaryAccess', onPress: takeBreak });
   if (isFeatureAvailable('dailyLimits')) tiles.push({ key: 'limits', title: t('ui.limitsTile'), icon: 'target', feature: 'dailyLimits', onPress: () => open('dailyLimits', 'schedules', '/daily-limits') });
   // The status page is the extra-apps native protection screen, which is Pro; in the free version it would only show a paywall.
-  if (isFeatureAvailable('nativeProtection')) tiles.push({ key: 'status', title: t('ui.statusTile'), subtitle: t('ui.statusTileHint'), icon: 'shieldCheck', feature: 'nativeProtection', onPress: () => open('nativeProtection', 'schedules', '/protection') });
+  if (isFeatureAvailable('nativeProtection', showPaid)) tiles.push({ key: 'status', title: t('ui.statusTile'), subtitle: t('ui.statusTileHint'), icon: 'shieldCheck', feature: 'nativeProtection', onPress: () => open('nativeProtection', 'schedules', '/protection') });
 
   const routines = ([
     { title: t('wellbeing.sleep'), icon: 'moon', feature: 'sleepMode', route: '/sleep' },

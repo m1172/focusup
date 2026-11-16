@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Platform, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text } from '../components/Typography';
@@ -30,7 +30,7 @@ export default function PrivacyScreen() {
       <Fact icon="eyeOff" text={t('settingsPages.storedSocial')} />
       <Fact icon="stats" text={t('settingsPages.analyticsFact')} />
     </Panel>
-    <Panel><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t('wellbeing.faqNativeAnswer')}</Text></Panel>
+    <Panel><Text style={{ color: c.text, fontSize: 15, lineHeight: 23 }}>{t(Platform.OS === 'ios' ? 'wellbeing.faqNativeAnswerIOS' : 'wellbeing.faqNativeAnswerAndroid')}</Text></Panel>
     {supervised ? <Panel label={t('family.child.privacyTitle')}>
       <Fact icon="shieldCheck" text={t('family.child.privacyShared')} />
       <Fact icon="eyeOff" text={t('family.child.privacyNotShared')} />

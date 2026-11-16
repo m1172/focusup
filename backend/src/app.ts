@@ -1,3 +1,6 @@
+import { loginReplay } from './loginReplay.ts';
+import { requireFreshAuthentication } from './recentAuth.ts';
+import { createBilling } from './billing.ts';
 import Fastify, { LogController, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.js';
@@ -17,7 +20,7 @@ declare module 'fastify' {
 
 function telegramLoginFrom(config: Config) {
   const settings = telegramLoginConfig(config);
-  return settings ? createTelegramLogin(settings) : null;
+  return settings ? createTelegramLogin(settings, fetch, Date.now, loginReplay(config)) : null;
 }
 
 export async function buildApp(config: Config, gateway: Gateway = createGateway(config), telegramLogin: TelegramLogin | null = telegramLoginFrom(config), familyRpc: FamilyRpc | null = createFamilyRpc(config), familyHint: FamilyRefreshHint = createExpoRefreshHint()) {
@@ -43,6 +46,7 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
     if (error instanceof ZodError) {
       return reply.code(400).send({ error: { code: 'VALIDATION_ERROR', message: 'Invalid request body.', fields: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) }, requestId: request.id });
     }
+    if (error instanceof ApiError && ['IDENTITY_CONFLICT', 'INVALID_CALLBACK', 'RATE_LIMITED'].includes(error.code)) request.log.warn({ event: error.code, requestId: request.id }, 'security event');
     if (error instanceof ApiError) return reply.code(error.statusCode).send({ error: { code: error.code, message: error.message }, requestId: request.id });
     const status = typeof error === 'object' && error && 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
     // Never log raw upstream errors: they can contain email addresses or credentials.
@@ -63,6 +67,7 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
   const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
   // Vaqtim Family (family.ts): the same routes and checks as the Edge Function. Fastify limits by address instead of the shared counter.
   const familyApi = createFamilyApi({ config, rpc: familyRpc, limit: async () => undefined, hint: familyHint });
+  const billing = createBilling(config, familyRpc);
   for (const definition of familyApi.routes) {
     app.route({
       method: definition.method, url: definition.path, config: { rateLimit: { max: definition.limit, timeWindow: '1 minute' } },
@@ -121,8 +126,12 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
     return reply.code(202).send({ message: 'If the account exists, password reset instructions have been sent.' });
   });
 
+  app.post('/v1/webhooks/revenuecat', async (request) => billing.webhook(request.headers.authorization ?? null, request.body));
+
   await app.register(async (privateApi) => {
     privateApi.addHook('onRequest', authenticate);
+    privateApi.get('/me/subscription', async (request) => billing.get(identity(request).id));
+    privateApi.post('/me/subscription/refresh', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => billing.refresh(identity(request).id));
     privateApi.post('/auth/sign-out', async (request, reply) => { await gateway.signOut(identity(request)); return reply.code(204).send(); });
     privateApi.patch('/auth/password', async (request, reply) => { await gateway.changePassword(identity(request), passwordSchema.parse(request.body).password); return reply.code(204).send(); });
     privateApi.get('/me', async (request) => {
@@ -144,7 +153,10 @@ export async function buildApp(config: Config, gateway: Gateway = createGateway(
       return { exportedAt: new Date().toISOString(), account: { id: user.id, email: user.email }, profile, settings, family };
     });
     privateApi.delete('/me', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
+      requireFreshAuthentication(identity(request).token);
+      const { id } = identity(request);
       await gateway.deleteAccount(identity(request));
+      await billing.forget(id);
       return reply.code(204).send();
     });
   }, { prefix: '/v1' });

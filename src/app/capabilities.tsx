@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../components/Typography';
 import { AppIcon } from '../components/AppIcon';
 import { BackButton, Card, GroupLabel, Heading, Screen } from '../components/ui';
-import { WIDGETS_ENABLED } from '../config/release';
+import { FAMILY_ENABLED, PRO_ENABLED, WIDGETS_ENABLED } from '../config/release';
 import { vaqtimFeatures, type FeatureStatus } from '../services/capabilities/features';
 import { useAppTheme } from '../theme';
 
@@ -18,10 +18,10 @@ export default function CapabilitiesScreen() {
   return <Screen contentStyle={{ gap: 14 }}>
     <BackButton label={t('back')} />
     <Heading title={t('features.title')} subtitle={t('features.subtitle')} />
-    {vaqtimFeatures({ widget: WIDGETS_ENABLED }).map(({ group, items }) => <View key={group} style={{ gap: 6 }}>
+    {vaqtimFeatures({ widget: WIDGETS_ENABLED, pro: PRO_ENABLED, family: PRO_ENABLED && FAMILY_ENABLED }).map(({ group, items }) => <View key={group} style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {group === 'general' ? null : <AppIcon appId={group} size={22} />}
-        <GroupLabel title={group === 'general' ? t('features.general') : group === 'instagram' ? 'Instagram' : group === 'youtube' ? 'YouTube' : 'TikTok'} />
+        {group === 'instagram' || group === 'youtube' || group === 'tiktok' ? <AppIcon appId={group} size={22} /> : null}
+        <GroupLabel title={group === 'general' ? t('features.general') : group === 'pro' ? t('billing.pro') : group === 'family' ? t('billing.family') : group === 'instagram' ? 'Instagram' : group === 'youtube' ? 'YouTube' : 'TikTok'} />
       </View>
       <Card style={{ paddingVertical: 4 }}>
         {items.map((item, index) => {

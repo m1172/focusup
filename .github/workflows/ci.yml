@@ -40,3 +40,36 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx --yes deno@2.9.6 check --config ../supabase/functions/focusup-api/deno.json ../supabase/functions/focusup-api/index.ts
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=high
+      - run: npm --prefix backend ci --ignore-scripts
+      - run: npm --prefix backend audit --audit-level=high
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - run: go install github.com/zricethezav/gitleaks/v8@v8.24.2
+      - run: gitleaks git --redact=100 --no-banner
+  website:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run build

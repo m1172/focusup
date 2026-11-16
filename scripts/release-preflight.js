@@ -24,16 +24,29 @@ if (/SECRET|SERVICE_ROLE/i.test(Object.keys(env).join(' '))) problems.push('.env
 const release = fs.readFileSync(path.join(root, 'src/config/release.ts'), 'utf8');
 if (/TEMP_FORCE_PRO\s*:\s*boolean\s*=\s*true/.test(release)) problems.push('TEMP_FORCE_PRO is on in src/config/release.ts: everyone would get Pro for free.');
 const proEnabled = /PRO_ENABLED\s*:\s*boolean\s*=\s*true/.test(release);
+const familyEnabled = /FAMILY_ENABLED\s*:\s*boolean\s*=\s*true/.test(release);
+if (proEnabled !== familyEnabled) problems.push('Pro and Family must launch together. Set PRO_ENABLED and FAMILY_ENABLED consistently.');
 if (proEnabled && (!env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || !env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY)) {
   problems.push('PRO_ENABLED is true but the RevenueCat keys are empty in .env.production.');
 }
+// Only the two store keys may ship. A Test Store key crashes release builds on purpose; a secret key must never be in the app.
+for (const [name, prefix] of [['EXPO_PUBLIC_REVENUECAT_IOS_API_KEY', 'appl_'], ['EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY', 'goog_']]) {
+  const key = env[name];
+  if (!key) continue;
+  if (key.startsWith('test_')) problems.push(`${name} is a RevenueCat Test Store key: store builds crash with it. Use the ${prefix}… key.`);
+  else if (key.startsWith('sk_')) problems.push(`${name} is a RevenueCat secret key. Only the public ${prefix}… key belongs in the app; rotate this one.`);
+  else if (!key.startsWith(prefix)) warnings.push(`${name} does not start with ${prefix}; check it is the public key for this store.`);
+}
 
 const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8')).expo;
+// Google Play: a build that lets parents supervise a child's phone must declare isMonitoringTool, and only such a build.
+const monitoringTool = (app.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === './plugins/withMonitoringTool') ?? [])[1]?.enabled === true;
+if (familyEnabled !== monitoringTool) problems.push(`FAMILY_ENABLED is ${familyEnabled} but withMonitoringTool is ${monitoringTool ? 'on' : 'off'} in app.json. Change both together.`);
 const gradleProps = path.join(require('os').homedir(), '.gradle', 'gradle.properties');
 const signing = fs.existsSync(gradleProps) && /^FOCUSUP_UPLOAD_STORE_FILE=/m.test(fs.readFileSync(gradleProps, 'utf8'));
 if (!signing) warnings.push('No Android upload key in ~/.gradle/gradle.properties: the .aab will be debug-signed and Google Play will reject it.');
 
-console.log(`Vaqtim ${app.version} (iOS build ${app.ios.buildNumber}, Android versionCode ${app.android.versionCode}), Pro ${proEnabled ? 'on' : 'off'}`);
+console.log(`Vaqtim ${app.version} (iOS build ${app.ios.buildNumber}, Android versionCode ${app.android.versionCode}), Pro ${proEnabled ? 'on' : 'off'}, Family ${familyEnabled ? 'on' : 'off'}`);
 warnings.forEach((w) => console.warn(`warning: ${w}`));
 if (problems.length) {
   problems.forEach((p) => console.error(`error: ${p}`));

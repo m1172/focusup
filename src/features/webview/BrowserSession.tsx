@@ -75,6 +75,7 @@ const BrowserPage = memo(function BrowserPage({ appId, initialUrl: rawInitialUrl
   const [pageReady, setPageReady] = useState(false);
   const [initialUrl] = useState(() => normalizeSocialBrowserLink(appId, rawInitialUrl ?? '') ?? socialBrowserHome[isCleanPlatform(appId) ? appId : 'instagram']);
   // The parent's limit (Vaqtim Family) and the personal one both count; the smaller wins.
+  const canShowPaid = useFamilyStore((state) => state.role === 'none') && PRO_ENABLED;
   const familyLimit = useFamilyStore((state) => familyDailyLimit(appId, state.role === 'child' && state.supervision ? { policy: state.supervision.policy, birthDate: state.supervision.birthDate } : null));
   const limitReached = useDailyLimitReached(appId, familyLimit);
   const [menuExpanded, setMenuExpanded] = useState(false);
@@ -164,7 +165,7 @@ const BrowserPage = memo(function BrowserPage({ appId, initialUrl: rawInitialUrl
   };
 
   const blockDetectedContent = () => {
-    if (!PRO_ENABLED) return;
+    if (!canShowPaid) return;
     if (!canUseFeature(pro, 'instagramCleanBrowsing')) { router.push({ pathname: '/pro', params: { source: 'instagram_clean_browsing' } }); return; }
     if (isPlatformLocked(appId) || (cleanModeEnabled && activeFilters.sponsoredPosts && activeFilters.suggestedPosts)) { openSettings(); return; }
     useAppStore.getState().setAppEnabled(appId, true);
@@ -259,7 +260,7 @@ const BrowserPage = memo(function BrowserPage({ appId, initialUrl: rawInitialUrl
         {!fullScreen && !appearance.isStory ? <BrowserTopStrip key={`strip-${openCount}`} active={active && pageReady && !showProtection && !linkSheetVisible}
           background={appearance.backgroundColor} count={seen} unit={appId === 'instagram' ? 'posts' : 'videos'} /> : null}
         <BrowserSessionBar key={openCount} active={active && pageReady && !showProtection && !linkSheetVisible}
-          visible={PRO_ENABLED && !fullScreen && appId === 'instagram' && pageReady && currentRoute === 'feed'}
+          visible={canShowPaid && !fullScreen && appId === 'instagram' && pageReady && currentRoute === 'feed'}
           ads={contentCounts.ads} suggested={contentCounts.suggested}
           filtered={cleanModeEnabled && Boolean(activeFilters.sponsoredPosts) && (Boolean(activeFilters.suggestedPosts) || !pro)}
           onBlock={blockDetectedContent} onLeave={leaveBrowser} />

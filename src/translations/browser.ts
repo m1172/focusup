@@ -36,7 +36,7 @@ export const browserTranslations = {
     nativeBlockIOSSteps: 'Next, allow Screen Time, then tick {{name}} under Social and tap Save.',
     nativeBlockAndroidSteps: 'On the next screen, open Downloaded apps → Vaqtim protection and turn it on.',
     nativeBlockTurnOn: 'Turn on', nativeBlockChooseAction: 'Choose app', nativeBlockOn: 'On',
-    cleanModeProDetail: 'Unlock focused search and additional Instagram filters while keeping messages, profiles, and individual videos available.',
+    cleanModeProDetail: 'Vaqtim Pro adds focused search on Instagram. Messages, profiles and individual videos stay available.',
   },
   uz: {
     paste: 'Qo‘yish',
@@ -75,7 +75,7 @@ export const browserTranslations = {
     nativeBlockIOSSteps: 'Keyin Screen Time’ga ruxsat bering, “Social” bo‘limida {{name}}ni belgilang va saqlang.',
     nativeBlockAndroidSteps: 'Keyingi ekranda yuklab olingan ilovalar ichidan “Vaqtim himoyasi”ni oching va yoqing.',
     nativeBlockTurnOn: 'Yoqish', nativeBlockChooseAction: 'Ilovani tanlash', nativeBlockOn: 'Yoqilgan',
-    cleanModeProDetail: 'Maxsus qidiruv va qo‘shimcha Instagram filtrlarini oching. Xabarlar, profillar va alohida videolar ochiq qoladi.',
+    cleanModeProDetail: 'Vaqtim Pro Instagram’ga chalg‘itmaydigan qidiruvni qo‘shadi. Xabarlar, profillar va alohida videolar ochiq qoladi.',
   },
   ru: {
     paste: 'Вставить',
@@ -114,6 +114,6 @@ export const browserTranslations = {
     nativeBlockIOSSteps: 'Затем разрешите Экранное время, отметьте {{name}} в разделе «Социальные сети» и нажмите «Сохранить».',
     nativeBlockAndroidSteps: 'На следующем экране откройте «Скачанные приложения» → «Защита Vaqtim» и включите её.',
     nativeBlockTurnOn: 'Включить', nativeBlockChooseAction: 'Выбрать', nativeBlockOn: 'Включено',
-    cleanModeProDetail: 'Откройте поиск без отвлечений и дополнительные фильтры Instagram. Сообщения, профили и отдельные видео остаются доступными.',
+    cleanModeProDetail: 'Vaqtim Pro добавляет в Instagram поиск без отвлечений. Сообщения, профили и отдельные видео остаются доступными.',
   },
 };

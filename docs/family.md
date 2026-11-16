@@ -1,6 +1,6 @@
 # Vaqtim Family
 
-Free family controls inside Vaqtim: one parent manages several children, each with one supervised phone. iPhone and Android, in any mix. Off by default on both the app and the server.
+Vaqtim Family gives one parent Pro and management of up to three children, each with one supervised phone. iPhone and Android, in any mix. Off by default on both the app and the server.
 
 ## How it works
 
@@ -84,3 +84,5 @@ By hand, on real phones (simulators have no Screen Time):
 ## Not in this version
 
 Subscriptions, whole-phone screen time, location, message monitoring, break requests, a TikTok messages-only mode. Background check-ins: pushes are handled while Vaqtim is open; when it is closed, the next open applies the changes (iOS and Android may delay or drop silent pushes).
+
+The [billing setup](subscriptions-setup.md) covers the paid launch and staging. An expired subscription preserves existing rules and supervision. The parent can still clear blocks, schedules and limits or unlink the phone. New rules, pairing and the usage dashboard require active Family access.

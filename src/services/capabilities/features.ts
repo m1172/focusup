@@ -4,10 +4,23 @@
  * Update this list whenever a feature ships or is switched off.
  */
 export type FeatureStatus = 'available' | 'experimental' | 'notAvailable';
-export type FeatureGroup = 'instagram' | 'youtube' | 'tiktok' | 'general';
+export type FeatureGroup = 'instagram' | 'youtube' | 'tiktok' | 'general' | 'pro' | 'family';
 export type FeatureItem = { key: string; status: FeatureStatus; alwaysOn?: boolean };
 
-export function vaqtimFeatures(options: { widget: boolean }): { group: FeatureGroup; items: FeatureItem[] }[] {
+/** Paid plans appear only once they can be bought (PRO_ENABLED and FAMILY_ENABLED), under their own headings. */
+export function vaqtimFeatures(options: { widget: boolean; pro?: boolean; family?: boolean }): { group: FeatureGroup; items: FeatureItem[] }[] {
+  const paid: { group: FeatureGroup; items: FeatureItem[] }[] = [];
+  if (options.pro) paid.push({ group: 'pro', items: [
+    { key: 'hardMode', status: 'available' },
+    { key: 'breaks', status: 'available' },
+    // A website filter like the others: it can miss comments when YouTube changes its page.
+    { key: 'youtubeComments', status: 'experimental' },
+    { key: 'advancedStats', status: 'available' },
+  ] });
+  if (options.family) paid.push({ group: 'family', items: [
+    { key: 'familyRules', status: 'available' },
+    { key: 'familyUsage', status: 'available' },
+  ] });
   return [
     { group: 'instagram', items: [
       { key: 'reels', status: 'available', alwaysOn: true },
@@ -44,5 +57,6 @@ export function vaqtimFeatures(options: { widget: boolean }): { group: FeatureGr
       { key: 'snapchat', status: 'notAvailable' },
       { key: 'systemGrayscale', status: 'notAvailable' },
     ] },
+    ...paid,
   ];
 }

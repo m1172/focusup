@@ -37,7 +37,7 @@ export const protectionBridge = {
   async clearBrowserData() { return await module?.clearBrowserData() ?? false; },
   async reset() { await module?.reset(); },
   /** Whether this build can save and restore a site's sign-in (the account switcher). */
-  canSwitchAccounts() { return Boolean(module?.getSiteCookies && module.setSiteCookies && module.clearSiteData); },
+  canSwitchAccounts() { return Boolean(module?.getSiteCookies && module.setSiteCookies && module.clearSiteData && (Platform.OS !== 'android' || module.supportsSecureCookies?.() === true)); },
   async getSiteCookies(domain: string) { return await module?.getSiteCookies?.(domain) ?? '[]'; },
   async setSiteCookies(domain: string, json: string) { return await module?.setSiteCookies?.(domain, json) ?? false; },
   async clearSiteData(domain: string) { return await module?.clearSiteData?.(domain) ?? false; },

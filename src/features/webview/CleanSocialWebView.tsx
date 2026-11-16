@@ -13,7 +13,7 @@ import { generateInstagramBlockingScript } from '../../services/blockers/instagr
 import { generateBlockingScript } from '../../services/blockers';
 import { createYouTubeBlockingScript, isBlockedYouTubeNavigation, youtubeBlockedPage, YOUTUBE_BASE_URL } from '../../services/blockers/youtube';
 import { createTikTokBlockingScript, isBlockedTikTokNavigation, tiktokFeedFeature, TIKTOK_BASE_URL } from '../../services/blockers/tiktok';
-import { parseSocialWebViewEvent } from '../../services/social-browser/messages';
+import { isSocialMessageSource, parseSocialWebViewEvent } from '../../services/social-browser/messages';
 import { classifySocialBrowserNavigation, isSameDocumentLocation, normalizeSocialBrowserLink } from '../../services/social-browser/navigation';
 import { useAppTheme } from '../../theme';
 import { WebViewErrorState } from './WebViewErrorState';
@@ -198,8 +198,14 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
     return false;
   };
 
-  const receiveMessage = (raw: string) => {
-    if (raw === PAGE_READY_MESSAGE) { if (!painted) { timing('first frame (loading screen hidden)'); setPainted(true); } return; }
+  const receiveMessage = (raw: string, source: string) => {
+    // Authentication pages can signal their first frame, but cannot change saved accounts.
+    if (raw === PAGE_READY_MESSAGE) {
+      if (classifySocialBrowserNavigation(platform, source, true) !== 'internal') return;
+      if (!painted) { timing('first frame (loading screen hidden)'); setPainted(true); }
+      return;
+    }
+    if (!isSocialMessageSource(source, platform)) return;
     const message = parseSocialWebViewEvent(raw, platform);
     if (message?.type === 'PAGE_APPEARANCE') { setPageBackground(message.backgroundColor); setIsStory(message.isStory); onAppearanceChange?.({ backgroundColor: message.backgroundColor, isStory: message.isStory }); return; }
     if (message) onEvent?.(message);
@@ -251,7 +257,7 @@ export const CleanSocialWebView = forwardRef<CleanSocialWebViewHandle, CleanSoci
           autoManageStatusBarEnabled={false}
           injectedJavaScriptBeforeContentLoaded={script}
           injectedJavaScript={script}
-          onMessage={(event) => receiveMessage(event.nativeEvent.data)}
+          onMessage={(event) => receiveMessage(event.nativeEvent.data, event.nativeEvent.url)}
           onLoadStart={(event) => {
             currentDocumentUrl.current = event.nativeEvent.url || currentDocumentUrl.current;
             // Android also reports in-page switches (Instagram's Messages, Search) as a load start, with loading false

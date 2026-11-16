@@ -34,11 +34,13 @@ Vaqtim (repo and slug `focusup`) is a free iPhone and Android app that helps peo
 These come straight from the project owner. Following them matters more than finishing a task.
 
 ### Money, accounts and stores
-1. **Vaqtim stays free.** Don't add a price, in-app purchases or subscriptions, and don't switch on `PRO_ENABLED`, unless the owner asks for it in the conversation.
+1. **Vaqtim's existing free features stay free.** The owner approved Pro ($1.99/month, $14.99/year) and Family ($3.99/month, $29.99/year) through Apple and Google. Family includes Pro for the parent and up to three children with one supervised device each. Launch both together after Family and billing pass device QA and the owner approves release. See `docs/subscriptions-setup.md`.
 2. **Never touch App Store Connect's Business section:** agreements, tax forms, DAC7, bank accounts. The developer account (team `GH6PP8FUU8`) also hosts other apps. If a submission is blocked by one of these, tell the owner what's missing and stop.
 3. **Never type passwords, card numbers or 2FA codes.** If a store console, Apple ID or Google sign-in asks for one, the owner signs in themselves.
 4. **Don't build or upload to the stores until the owner says the fixes are done.** That covers TestFlight archives and uploads, Play `.aab` uploads and `npm run release`. Finish the code, run the checks, then ask. Put several fixes into one build.
 5. **Production changes need the owner's OK first:** an over-the-air update (`npm run update:publish`), a website deploy, a backend or Supabase deploy, or a database migration.
+
+21. **Security release gate:** security migrations, native cookie checks, and trusted-ingress staging verification must pass before the security release. See `docs/security.md`. Never enable trusted client-IP headers without proving the gateway overwrites them.
 
 ### Code and git
 6. **Commit or push only when the owner asks.** Don't commit straight to `main`; work on a branch.
@@ -67,7 +69,7 @@ Some features are switched on or off in code. Change a switch and its partner to
 
 | Switch | File | Now | Partner that must match |
 |---|---|---|---|
-| `PRO_ENABLED` | `src/config/release.ts` | `false` | `FEATURE_ACCESS` in `src/services/subscription/subscriptionService.ts`, RevenueCat keys, store products |
+| `PRO_ENABLED` | `src/config/release.ts` | `false` | `FAMILY_ENABLED` (they launch together; `npm run release:check` fails otherwise), `FEATURE_ACCESS` in `src/services/subscription/subscriptionService.ts`, RevenueCat keys, store products, the paywall rules and store checklists in `docs/subscriptions-setup.md` |
 | `IOS_APP_BLOCKING` | `src/config/release.ts` | `true` | `familyControls` in the `withFocusUpProtection` plugin options in `app.json`; give `ios.runtimeVersion` a new value |
 | `ANDROID_APP_BLOCKING` | `src/config/release.ts` | `true` | `enabled` in the `withAndroidAccessibility` plugin options in `app.json`; give `android.runtimeVersion` a new value; Google Play needs an Accessibility declaration and a video |
 | `WEBSITE_BLOCKING` | `src/config/release.ts` | `false` | iOS applies the web filter to every web view, including Vaqtim's own, which showed "Website Not Allowed" |
@@ -148,7 +150,7 @@ Store builds are made **locally** (Xcode and Gradle), not with EAS Build. The fu
 
 - `npm run release` bumps the build number, runs `release:check`, regenerates the native folders, builds, and uploads to TestFlight and Play internal testing. Pass `--ios` or `--android` for one platform, or `--no-bump` to rebuild the same number.
 - Build numbers: `ios.buildNumber` and `android.versionCode` in `app.json`. Every upload needs a higher number.
-- **Over-the-air updates** (`npm run update:publish "<message>"`, channel `production`) only reach builds with the same runtime version. iOS uses `ios.runtimeVersion` (now `1.0.0-screentime`) and Android uses `android.runtimeVersion` (now `1.0.0-accessibility`), so builds made before Screen Time or the Accessibility service was switched on never get updates meant for later builds. JavaScript-only fixes can ship this way. Native changes need a new store build.
+- **Over-the-air updates** (`npm run update:publish "<message>"`, channel `production`) only reach builds with the same runtime version. iOS uses `ios.runtimeVersion` (now `1.0.0-screentime`) and Android uses `android.runtimeVersion` (now `1.0.0-secure-cookies`), so builds made before Screen Time or the Accessibility service was switched on never get updates meant for later builds. JavaScript-only fixes can ship this way. Native changes need a new store build.
 - Known local build problems:
   - `pod install` needs `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
   - Gradle can run out of memory. Use `-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"`.

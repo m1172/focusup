@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 /** One Instagram account in the in-app browser. Its sign-in cookies live in the secure store, never here. */
-export type InstagramAccountSlot = { id: string; username: string; avatar: string; savedAt: number };
+export type InstagramAccountSlot = { id: string; accountId?: string; username: string; avatar: string; savedAt: number };
 
 type InstagramAccountsState = {
   slots: InstagramAccountSlot[];

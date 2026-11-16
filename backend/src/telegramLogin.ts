@@ -22,7 +22,7 @@ export type TelegramLoginConfig = { clientId: string; clientSecret: string; orig
 export type TelegramProfile = { id: string; name?: string; username?: string; picture?: string };
 type Fetcher = typeof fetch;
 type State = { c: string; v: string; n: string; e: number };
-type Result = { c: string; s: string; nm?: string; u?: string; p?: string; e: number };
+type Result = { j: string; c: string; s: string; nm?: string; u?: string; p?: string; e: number };
 type Jwk = JsonWebKey & { kid?: string; alg?: string };
 
 const encoder = new TextEncoder();
@@ -36,7 +36,7 @@ const randomToken = (bytes = 32) => b64url(crypto.getRandomValues(new Uint8Array
 const sha256 = async (text: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(text)));
 export const pkceChallenge = async (verifier: string) => b64url(await sha256(verifier));
 
-export function createTelegramLogin(config: TelegramLoginConfig, fetcher: Fetcher = fetch, now: () => number = Date.now) {
+export function createTelegramLogin(config: TelegramLoginConfig, fetcher: Fetcher = fetch, now: () => number = Date.now, consume?: (hash: string, expiresAt: number) => Promise<boolean>) {
   const redirectUri = `${config.origin.replace(/\/+$/, '')}/telegram/callback`;
   const appRedirect = (params: Record<string, string>) => {
     const url = new URL(config.appRedirectUrl);
@@ -130,7 +130,7 @@ export function createTelegramLogin(config: TelegramLoginConfig, fetcher: Fetche
         const tokens = await response.json() as { id_token?: unknown };
         if (typeof tokens.id_token !== 'string') throw new Error('no id token');
         const profile = await verifyIdToken(tokens.id_token, state.n);
-        const result: Result = { c: state.c, s: profile.id, nm: profile.name, u: profile.username, p: profile.picture, e: now() + RESULT_TTL_MS };
+        const result: Result = { j: randomToken(), c: state.c, s: profile.id, nm: profile.name, u: profile.username, p: profile.picture, e: now() + RESULT_TTL_MS };
         return appRedirect({ code: TELEGRAM_CODE_PREFIX + await seal('result', result) });
       } catch {
         // Never echo upstream details into the redirect.
@@ -142,6 +142,8 @@ export function createTelegramLogin(config: TelegramLoginConfig, fetcher: Fetche
       if (!code.startsWith(TELEGRAM_CODE_PREFIX)) throw new ApiError(400, 'INVALID_CALLBACK', 'Start a new sign-in attempt.');
       const result = await open<Result>('result', code.slice(TELEGRAM_CODE_PREFIX.length));
       if (result.c !== await pkceChallenge(verifier)) throw new ApiError(400, 'INVALID_CALLBACK', 'Start a new sign-in attempt.');
+      if (!result.j || !consume) throw new ApiError(503, 'AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.');
+      if (!await consume(b64url(await sha256(result.j)), result.e)) throw new ApiError(400, 'INVALID_CALLBACK', 'Start a new sign-in attempt.');
       return { id: result.s, name: result.nm, username: result.u, picture: result.p };
     },
   };

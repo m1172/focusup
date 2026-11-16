@@ -32,6 +32,11 @@ test('migration enforces RLS, atomic revisions, tombstones and account cascades'
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id]);
   };
   await asUser(user.id);
+  await assert.rejects(db.query("select public.consume_login_result($1, now() + interval '2 minutes')", ['a'.repeat(43)]), /permission denied/);
+  await db.exec('reset role; set role service_role');
+  const redemption = await Promise.all([1, 2].map(() => db.query<{ consumed: boolean }>("select public.consume_login_result($1, now() + interval '2 minutes') as consumed", ['a'.repeat(43)])));
+  assert.equal(redemption.filter(result => result.rows[0]?.consumed).length, 1);
+  await asUser(user.id);
   const saved = await db.query<{ revision: number }>('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]);
   assert.equal(Number(saved.rows[0]?.revision), 1);
   await assert.rejects(db.query('select * from public.save_user_settings($1, $2::jsonb)', [0, JSON.stringify(settings)]), { code: 'PT409', message: /revision conflict/ });

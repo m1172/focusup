@@ -5,11 +5,6 @@ export const DEFAULT_OFFERING_ID = 'default';
 export const SUBSCRIPTION_TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL ?? '';
 export const SUBSCRIPTION_PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? '';
 
-export const subscriptionProductIdExamples = {
-  ios: { monthly: 'focusup_pro_monthly', annual: 'focusup_pro_annual' },
-  android: { monthly: 'focusup_pro_monthly', annual: 'focusup_pro_annual' },
-} as const;
-
 export function getRevenueCatApiKey(platform: string = Platform.OS): string | undefined {
   if (platform === 'ios') return process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
   if (platform === 'android') return process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;

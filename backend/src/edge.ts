@@ -1,3 +1,6 @@
+import { loginReplay } from './loginReplay.ts';
+import { requireFreshAuthentication } from './recentAuth.ts';
+import { createBilling } from './billing.ts';
 import { ZodError } from 'zod';
 import { backupForClient, payloadToSave, SETTINGS_VERSION_HEADER, settingsClientVersion } from './settingsCompat.ts';
 import { telegramLoginConfig, type Config } from './config.ts';
@@ -44,7 +47,7 @@ async function jsonBody(request: Request): Promise<unknown> {
 
 function telegramLoginFrom(config: Config) {
   const settings = telegramLoginConfig(config);
-  return settings ? createTelegramLogin(settings) : null;
+  return settings ? createTelegramLogin(settings, fetch, Date.now, loginReplay(config)) : null;
 }
 
 /** Fetch-based API used by the Supabase runtime. Public login routes deliberately
@@ -62,10 +65,18 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   const privateBody = { private: true, body: true };
   // Vaqtim Family (family.ts): the same routes and checks as the Fastify app.
   const familyApi = createFamilyApi({ config, rpc: familyRpc, limit: consumeLimit, hint: familyHint });
+  const billing = createBilling(config, familyRpc);
   const familyRoutes = familyApi.routes.map((definition) => ({ definition, route: {
     private: definition.auth === 'parent', body: definition.body,
     run: async (body, user, request, params) => ({ ...await definition.run({ params, body, user: user ?? null, authorization: request.headers.get('authorization') }) }),
   } satisfies Route }));
+
+  route('GET', '/v1/me/subscription', async (_body, user) => ({ data: await billing.get(user.id) }), privateRoute);
+  route('POST', '/v1/me/subscription/refresh', async (_body, user) => {
+    await consumeLimit(`edge:billing:${await rateLimitSubject(secret, user.id)}`, 10);
+    return { data: await billing.refresh(user.id) };
+  }, privateRoute);
+  route('POST', '/v1/webhooks/revenuecat', async (body, _user, request) => ({ data: await billing.webhook(request.headers.get('authorization'), body) }), { body: true });
 
   route('GET', '/health', async () => ({ data: { status: 'ok' } }));
   route('GET', '/ready', async () => { await consumeLimit('edge:readiness', 60); await gateway.ready(); return { data: { status: 'ready' } }; });
@@ -128,7 +139,10 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
   }, privateRoute);
   route('DELETE', '/v1/me', async (_body, user) => {
     await consumeLimit(`edge:delete:${await rateLimitSubject(secret, user.id)}`, 3);
-    await gateway.deleteAccount(user); return { status: 204 };
+    requireFreshAuthentication(user.token);
+    await gateway.deleteAccount(user);
+    await billing.forget(user.id);
+    return { status: 204 };
   }, privateRoute);
 
   // Support chat: users write here, the bot posts each message to the team's
@@ -214,15 +228,20 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
         }
       }
       if (!handler) throw new ApiError(404, 'NOT_FOUND', 'Endpoint not found.');
+      // Enable only after staging proves the managed ingress overwrites this header.
+      if (config.EDGE_TRUSTED_CLIENT_IP_HEADER) {
+        const address = request.headers.get(config.EDGE_TRUSTED_CLIENT_IP_HEADER);
+        if (!address || address.length > 64 || !/^[0-9a-fA-F:.]+$/.test(address)) throw new ApiError(503, 'INGRESS_UNAVAILABLE', 'The service is temporarily unavailable.');
+        await consumeLimit(`edge:admission:${await rateLimitSubject(secret, address)}`, handler.auth ? 30 : 120);
+      }
       let user: Identity | undefined;
       if (handler.private) {
         const token = /^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization') ?? '')?.[1];
         if (!token || token.length > 8192) throw new ApiError(401, 'AUTH_REQUIRED', 'A valid Bearer access token is required.');
-        await consumeLimit('edge:protected-global', 1200);
         user = await gateway.authenticate(token);
         await consumeLimit(`edge:user:${await rateLimitSubject(secret, user.id)}`, 120);
       }
-      if (handler.auth) await consumeLimit('edge:auth-global', 120);
+
       // Supabase's proxy can forward an empty stream even when the caller sent
       // no body. Parse JSON only on routes that require a JSON payload.
       const body = handler.body ? await jsonBody(request) : undefined;
@@ -237,6 +256,7 @@ export function createEdgeHandler(config: Config, consumeLimit: ConsumeLimit, ga
       if (path === '/v1/blocker-config') headers.set('Cache-Control', 'public, max-age=900');
       return respond(result.data, result.status);
     } catch (error) {
+      if (error instanceof ApiError && ['IDENTITY_CONFLICT', 'INVALID_CALLBACK', 'RATE_LIMITED'].includes(error.code)) console.warn(JSON.stringify({ event: error.code, requestId }));
       if (error instanceof RateLimitError) headers.set('Retry-After', String(error.retryAfter));
       if (error instanceof ZodError) return respond({ error: { code: 'VALIDATION_ERROR', message: 'Invalid request body.', fields: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) }, requestId }, 400);
       if (error instanceof ApiError) return respond({ error: { code: error.code, message: error.message }, requestId }, error.statusCode);

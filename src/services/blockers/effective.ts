@@ -19,11 +19,11 @@ const SHORT_VIDEO: Partial<Record<SocialAppId, string>> = { instagram: 'reels', 
 
 /**
  * `enabled` is clean mode (the app is added to Vaqtim); `blocking` says whether blockers run at all.
- * The short-video feed is blocked even for apps that are not added, and free users cannot turn it off.
+ * The short-video feed is blocked even for apps that are not added, and users cannot turn it off.
  */
 /**
  * Whether a filter can be changed by the user right now. Pro-only filters can't while Pro is off, and the
- * short-video feed (Reels, Shorts, For You) is always blocked unless Pro's "turn it off" is available.
+ * short-video feed (Reels, Shorts, For You) stays blocked across tiers.
  */
 export function isFilterAdjustable(appId: SocialAppId, key: string, isPro: boolean): boolean {
   if (SHORT_VIDEO[appId] === key) return canUseFeature(isPro, 'shortVideoControl');

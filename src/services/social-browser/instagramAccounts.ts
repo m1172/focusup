@@ -16,6 +16,11 @@ const MAX_CHUNKS = 40;
 /** Instagram renews its cookies; the active account's copy is refreshed at most this often. */
 const RESAVE_MS = 60_000;
 
+const secureOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+let operations: Promise<unknown> = Promise.resolve();
+let generation = 0;
+function serial<T>(operation: () => Promise<T>): Promise<T> { const next = operations.then(operation); operations = next.catch(() => undefined); return next; }
+const accountIdentity = (json: string): string | null => { try { const cookies = JSON.parse(json) as Cookie[]; const id = cookies.find(c => c.name === 'ds_user_id')?.value; return id && /^\d+$/.test(id) ? id : null; } catch { return null; } };
 const key = (id: string, part: string | number) => `vaqtim.instagram.${id}.${part}`;
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const store = () => useInstagramAccountsStore.getState();
@@ -26,11 +31,12 @@ const signedIn = (json: string) => {
 };
 
 async function writeSession(id: string, json: string) {
+  json = JSON.stringify({ version: 2, cookies: json });
   const parts = Math.ceil(json.length / CHUNK);
   if (parts > MAX_CHUNKS) throw new Error('sessionTooLarge');
-  for (let index = 0; index < parts; index++) await SecureStore.setItemAsync(key(id, index), json.slice(index * CHUNK, (index + 1) * CHUNK));
+  for (let index = 0; index < parts; index++) await SecureStore.setItemAsync(key(id, index), json.slice(index * CHUNK, (index + 1) * CHUNK), secureOptions);
   const previous = Number(await SecureStore.getItemAsync(key(id, 'n'))) || 0;
-  await SecureStore.setItemAsync(key(id, 'n'), String(parts));
+  await SecureStore.setItemAsync(key(id, 'n'), String(parts), secureOptions);
   for (let index = parts; index < previous; index++) await SecureStore.deleteItemAsync(key(id, index));
 }
 async function readSession(id: string): Promise<string | null> {
@@ -42,7 +48,7 @@ async function readSession(id: string): Promise<string | null> {
     if (piece === null) return null;
     json += piece;
   }
-  return json;
+  try { const saved = JSON.parse(json); return saved.version === 2 && typeof saved.cookies === 'string' ? saved.cookies : null; } catch { return null; }
 }
 async function deleteSession(id: string) {
   const parts = Number(await SecureStore.getItemAsync(key(id, 'n'))) || 0;
@@ -58,54 +64,47 @@ function update(id: string, change: Partial<InstagramAccountSlot>) {
 export const canSwitchInstagramAccounts = () => protectionBridge.canSwitchAccounts();
 
 /** Saves the browser's current Instagram sign-in into the active account. Returns false when nobody is signed in. */
-export async function saveActiveInstagramSession(): Promise<boolean> {
+async function saveActiveInstagramSessionInternal(): Promise<boolean> {
   const { activeId } = store();
   if (!activeId || !canSwitchInstagramAccounts()) return false;
   const json = await protectionBridge.getSiteCookies(DOMAIN);
-  if (!signedIn(json)) return false;
+  if (!signedIn(json) || !accountIdentity(json) || store().slots.find(slot => slot.id === activeId)?.accountId !== accountIdentity(json)) return false;
   await writeSession(activeId, json);
   update(activeId, { savedAt: Date.now() });
   return true;
 }
 
 /** The page reported who is signed in: keep the account list in step and refresh the saved sign-in. */
-export async function instagramAccountDetected(username: string, avatar: string, now = Date.now()) {
-  const { slots, activeId } = store();
-  const active = slots.find((slot) => slot.id === activeId);
-  const existing = slots.find((slot) => slot.username.toLowerCase() === username.toLowerCase());
-  let next = slots;
-  let nextActive = activeId;
-  if (active && active.username.toLowerCase() === username.toLowerCase()) {
-    next = slots.map((slot) => slot.id === active.id ? { ...slot, username, avatar: avatar || slot.avatar } : slot);
-  } else if (existing) {
-    // Signed in to an account that is already on the list (e.g. through Instagram's own login): use that one.
-    next = slots.filter((slot) => !(active && slot.id === active.id && !active.username)).map((slot) => slot.id === existing.id ? { ...slot, avatar: avatar || slot.avatar } : slot);
-    nextActive = existing.id;
-  } else if (active && !active.username) {
-    // The account the user just added has finished signing in.
-    next = slots.map((slot) => slot.id === active.id ? { ...slot, username, avatar } : slot);
-  } else if (slots.length < MAX_INSTAGRAM_ACCOUNTS) {
-    const slot = { id: newId(), username, avatar, savedAt: 0 };
-    next = [...slots, slot];
-    nextActive = slot.id;
-  } else if (active) {
-    next = slots.map((slot) => slot.id === active.id ? { ...slot, username, avatar, savedAt: 0 } : slot);
-  }
-  store().setSlots(next, nextActive);
-  const current = next.find((slot) => slot.id === nextActive);
-  if (current && now - current.savedAt >= RESAVE_MS) await saveActiveInstagramSession().catch(() => false);
+export function saveActiveInstagramSession() { return serial(saveActiveInstagramSessionInternal); }
+export function instagramAccountDetected(username: string, avatar: string, now = Date.now()) {
+  const expected = generation;
+  return serial(async () => {
+    if (expected !== generation || !canSwitchInstagramAccounts()) return;
+    const json = await protectionBridge.getSiteCookies(DOMAIN);
+    const accountId = accountIdentity(json);
+    if (!accountId || !signedIn(json)) return;
+    const { slots, activeId } = store();
+    const existing = slots.find(slot => slot.accountId === accountId);
+    const pending = slots.find(slot => slot.id === activeId && !slot.username && !slot.accountId);
+    const selected = existing ?? pending;
+    if (!selected && slots.length >= MAX_INSTAGRAM_ACCOUNTS) return;
+    const slot = { ...(selected ?? { id: newId(), savedAt: 0 }), accountId, username, avatar };
+    const next = selected ? slots.map(item => item.id === selected.id ? slot : item) : [...slots, slot];
+    store().setSlots(existing && pending && pending.id !== existing.id ? next.filter(item => item.id !== pending.id) : next, slot.id);
+    if (now - slot.savedAt >= RESAVE_MS) await saveActiveInstagramSessionInternal();
+  });
 }
 
 /** Signs the browser in to another saved account. The caller reloads Instagram afterwards. */
-export async function switchInstagramAccount(id: string): Promise<boolean> {
+async function switchInstagramAccountInternal(id: string): Promise<boolean> {
   const { slots, activeId } = store();
   if (id === activeId || !slots.some((slot) => slot.id === id)) return false;
   const saved = await readSession(id);
-  if (!saved) return false;
+  if (!saved || !canSwitchInstagramAccounts() || accountIdentity(saved) !== slots.find(slot => slot.id === id)?.accountId) return false;
   const leaving = slots.find((slot) => slot.id === activeId);
-  const kept = await saveActiveInstagramSession().catch(() => false);
+  const kept = await saveActiveInstagramSessionInternal().catch(() => false);
   await protectionBridge.clearSiteData(DOMAIN);
-  await protectionBridge.setSiteCookies(DOMAIN, saved);
+  if (!await protectionBridge.setSiteCookies(DOMAIN, saved)) throw new Error('cookieRestoreFailed');
   // An account that was being added but never finished signing in is dropped.
   const remaining = leaving && !leaving.username && !kept ? store().slots.filter((slot) => slot.id !== leaving.id) : store().slots;
   store().setSlots(remaining, id);
@@ -113,12 +112,12 @@ export async function switchInstagramAccount(id: string): Promise<boolean> {
 }
 
 /** Keeps the current sign-in, signs the browser out and adds a new account. The caller opens the login page. */
-export async function addInstagramAccount(): Promise<boolean> {
+async function addInstagramAccountInternal(): Promise<boolean> {
   const { slots, activeId } = store();
   if (slots.length >= MAX_INSTAGRAM_ACCOUNTS || !canSwitchInstagramAccounts()) return false;
   const pending = slots.find((slot) => !slot.username);
   if (pending && pending.id === activeId) return true;
-  await saveActiveInstagramSession().catch(() => false);
+  await saveActiveInstagramSessionInternal().catch(() => false);
   await protectionBridge.clearSiteData(DOMAIN);
   const slot = pending ?? { id: newId(), username: '', avatar: '', savedAt: 0 };
   store().setSlots(pending ? store().slots : [...store().slots, slot], slot.id);
@@ -126,10 +125,14 @@ export async function addInstagramAccount(): Promise<boolean> {
 }
 
 /** Forgets an account that is not in use: its saved sign-in is deleted from this phone. */
-export async function removeInstagramAccount(id: string): Promise<boolean> {
+async function removeInstagramAccountInternal(id: string): Promise<boolean> {
   const { slots, activeId } = store();
   if (id === activeId || !slots.some((slot) => slot.id === id)) return false;
   await deleteSession(id);
   store().setSlots(store().slots.filter((slot) => slot.id !== id), store().activeId);
   return true;
 }
+
+export function switchInstagramAccount(id: string) { generation++; return serial(() => switchInstagramAccountInternal(id)); }
+export function addInstagramAccount() { generation++; return serial(addInstagramAccountInternal); }
+export function removeInstagramAccount(id: string) { generation++; return serial(() => removeInstagramAccountInternal(id)); }

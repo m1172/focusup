@@ -107,7 +107,7 @@ test('account deletion only passes the verified identity; upstream errors remain
   let deleted: unknown;
   const app = await buildApp(config, fakeGateway({ deleteAccount: async (identity) => { deleted = identity; }, getProfile: async () => { throw new Error('secret-service-key password private-email'); } })); t.after(() => app.close());
   const response = await app.inject({ method: 'DELETE', url: '/v1/me', headers: { authorization } });
-  assert.equal(response.statusCode, 204); assert.deepEqual(deleted, user);
+  assert.equal(response.statusCode, 403); assert.equal(deleted, undefined);
   const failed = await app.inject({ method: 'GET', url: '/v1/me', headers: { authorization } });
   assert.equal(failed.statusCode, 500); assert.doesNotMatch(failed.body, /secret-service-key|password|private-email/);
 });

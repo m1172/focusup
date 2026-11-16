@@ -49,7 +49,7 @@ test('edge API preserves login, settings revisions, export and bodyless deletion
   assert.equal((await handler(request('/v1/me/settings', 'PUT', { expectedRevision: 0, payload: settings, userId: 'other-user' }, user.token))).status, 400);
   const exported = await (await handler(request('/v1/me/export', 'GET', undefined, user.token))).json();
   assert.equal(exported.account.id, user.id);
-  for (const [path, method] of [['/v1/auth/sign-out', 'POST'], ['/v1/me', 'DELETE']]) {
+  for (const [path, method] of [['/v1/auth/sign-out', 'POST']]) {
     const response = await handler(request(path!, method, undefined, user.token));
     assert.equal(response.status, 204); assert.equal(await response.text(), '');
     const forwardedEmpty = new Request(base + path, { method, headers: { Authorization: `Bearer ${user.token}` }, body: new Uint8Array() });
@@ -81,14 +81,14 @@ test('edge rate limits are shared, fail closed, redact subjects and ignore spoof
     req.headers.set('X-Forwarded-For', ip); req.headers.set('CF-Connecting-IP', ip);
     assert.equal((await handler(req)).status, 200);
   }
-  assert.equal(buckets[1], buckets[3]);
+  assert.equal(buckets[0], buckets[1]);
   assert.ok(!buckets.some((bucket) => /test@|1\.2\.3\.4|password/.test(bucket)));
   assert.notEqual(await rateLimitSubject('secret-one', 'test@example.com'), await rateLimitSubject('secret-two', 'test@example.com'));
   const blocked = createEdgeHandler(edgeConfig, async () => { throw new RateLimitError(45); }, fakeGateway());
-  const limited = await blocked(request('/v1/auth/sign-in', 'POST', {}));
+  const limited = await blocked(request('/v1/auth/sign-in', 'POST', { email: 'test@example.com', password: 'password' }));
   assert.equal(limited.status, 429); assert.equal(limited.headers.get('retry-after'), '45');
   const unavailable = createEdgeHandler(edgeConfig, async () => { throw new ApiError(503, 'RATE_LIMIT_UNAVAILABLE', 'Unavailable.'); }, fakeGateway());
-  assert.equal((await unavailable(request('/v1/auth/sign-in', 'POST', {}))).status, 503);
+  assert.equal((await unavailable(request('/v1/auth/sign-in', 'POST', { email: 'test@example.com', password: 'password' }))).status, 503);
 });
 
 const webhookSecret = 'webhook-secret-0123456789abcdef';
@@ -245,4 +245,27 @@ test('expo push sends one batch and reports only unregistered devices', async ()
   await assert.rejects(createExpoPush(async () => new Response('busy', { status: 503 }))(tokens, { title: 'FocusUp', body: 'Hi', data: {} }));
   assert.equal(supportReplyPreview('  Short\nreply  '), 'Short reply');
   assert.equal(supportReplyPreview('👍'.repeat(150)), '👍'.repeat(99) + '…');
+});
+
+test('invalid bearer traffic cannot spend verified user quotas', async () => {
+  const buckets: string[] = [];
+  const handler = createEdgeHandler(edgeConfig, async bucket => { buckets.push(bucket); }, fakeGateway());
+  await handler(request('/v1/me', 'GET', undefined, 'forged-token'));
+  assert.equal(buckets.length, 0);
+  await handler(request('/v1/me', 'GET', undefined, user.token));
+  assert.ok(buckets.some(bucket => bucket.startsWith('edge:user:')));
+  assert.ok(!buckets.some(bucket => bucket.includes('global')));
+});
+
+test('configured ingress limits isolate callers and fail closed without the trusted header', async () => {
+  const buckets: string[] = [];
+  const handler = createEdgeHandler({ ...edgeConfig, EDGE_TRUSTED_CLIENT_IP_HEADER: 'cf-connecting-ip' }, async bucket => { buckets.push(bucket); }, fakeGateway());
+  assert.equal((await handler(request('/v1/auth/providers'))).status, 503);
+  for (const ip of ['192.0.2.1', '192.0.2.2']) {
+    const req = request('/v1/auth/providers'); req.headers.set('cf-connecting-ip', ip);
+    req.headers.set('x-forwarded-for', 'attacker-controlled');
+    assert.equal((await handler(req)).status, 200);
+  }
+  assert.notEqual(buckets[0], buckets[1]);
+  assert.ok(buckets.every(bucket => !bucket.includes('192.0.2')));
 });

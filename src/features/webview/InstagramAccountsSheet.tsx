@@ -25,7 +25,7 @@ export function InstagramAccountsSheet({ visible, onClose, onSwitch, onAdd, onMa
     { text: t('browser.remove'), style: 'destructive', onPress: () => { void removeInstagramAccount(id).then(() => { if (useInstagramAccountsStore.getState().slots.length < 2) setEditing(false); }); } },
   ]);
 
-  if (!available) return <Sheet visible={visible} onClose={close} title={t('browser.switchAccount')} message={t('browser.accountsUnavailable')}>
+  if (!available) return <Sheet visible={visible} onClose={close} title={t('browser.switchAccount')} message={t('billing.secureCookiesUnavailable')}>
     <Pressable accessibilityRole="button" onPress={() => { close(); onManage(); }} style={({ pressed }) => ({ minHeight: 52, borderRadius: 18, backgroundColor: c.card2, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
       <Text style={{ color: c.text, fontSize: 16, fontWeight: '700' }}>{t('browser.manageAccount')}</Text>
     </Pressable>

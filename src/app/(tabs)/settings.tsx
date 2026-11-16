@@ -28,6 +28,7 @@ export default function SettingsScreen() {
   const c = useAppTheme();
   const subscription = useSubscription();
   const accountUser = useAccountStore((state) => state.user);
+  const showPaid = useFamilyStore((state) => state.role === 'none') && PRO_ENABLED && Boolean(accountUser);
   const supervision = useFamilyStore((state) => state.role === 'child' ? state.supervision : null);
   const supportUnread = useSupportUnread(Boolean(accountUser) && isBackendConfigured());
   const language = useAppStore((state) => state.selectedLanguage);
@@ -88,11 +89,11 @@ export default function SettingsScreen() {
       {group(<SettingRow icon={<IconTile name="shieldCheck" tone="mint" />} title={t('family.settingsRow')} subtitle={t('family.settingsRowBody')} onPress={() => router.push('/family')} last />)}
     </View> : null}
 
-    {PRO_ENABLED ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/pro', params: { source: 'settings' } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, height: 76, paddingHorizontal: 16, borderRadius: 24, backgroundImage: c.hero, boxShadow: c.heroSh, opacity: pressed ? 0.9 : 1 })}>
+    {showPaid ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/pro', params: { source: 'settings' } })} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, height: 76, paddingHorizontal: 16, borderRadius: 24, backgroundImage: c.hero, boxShadow: c.heroSh, opacity: pressed ? 0.9 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.heroIconBg, alignItems: 'center', justifyContent: 'center' }}><Icon name="sparkle" size={24} color="#FFFFFF" /></View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ color: '#FFFFFF', fontSize: 17, lineHeight: 22, fontWeight: '800', letterSpacing: -0.17 }}>Vaqtim Pro</Text>
-        <Text style={{ color: c.onHero, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{subscription.isPro ? t('ui.proActive') : t('ui.proBanner')}</Text>
+        <Text style={{ color: c.onHero, fontSize: 13, lineHeight: 18, fontWeight: '600' }}>{subscription.isPro ? t('billing.current', { tier: t(subscription.status?.tier === 'family' ? 'billing.family' : 'billing.pro') }) : t('subscription.choosePlan')}</Text>
       </View>
       <Icon name="chevron" size={20} color="#FFFFFF" strokeWidth={2.2} />
     </Pressable> : null}
@@ -101,8 +102,8 @@ export default function SettingsScreen() {
       <GroupLabel title={t('settingsPages.groupApp')} />
       {group(<>
         <SettingRow icon={<IconTile name="globe" tone="blue" />} title={t('language')} value={currentLanguageName} onPress={() => router.push('/language')} />
-        <SettingRow icon={<IconTile name="contrast" tone="accent" />} title={t('theme')} value={t(`ui.themeValue.${theme}`)} onPress={() => router.push('/theme')} last={!PRO_ENABLED} />
-        {PRO_ENABLED ? <SettingRow icon={<IconTile name="bell" tone="red" />} title={t('ui.notifications')} right={<Toggle label={t('ui.notifications')} value={completionNotices} onChange={toggleCompletionNotices} />} last /> : null}
+        <SettingRow icon={<IconTile name="contrast" tone="accent" />} title={t('theme')} value={t(`ui.themeValue.${theme}`)} onPress={() => router.push('/theme')} last={!showPaid} />
+        {showPaid ? <SettingRow icon={<IconTile name="bell" tone="red" />} title={t('ui.notifications')} right={<Toggle label={t('ui.notifications')} value={completionNotices} onChange={toggleCompletionNotices} />} last /> : null}
       </>)}
     </View>
 
@@ -118,7 +119,7 @@ export default function SettingsScreen() {
     {/* The adult-website filter lives with the other blocking settings on the Protect tab. */}
     <ExtraProtectionSettings only={['uninstallProtection', 'grayscale']} />
 
-    {PRO_ENABLED ? <View style={{ gap: 6 }}>
+    {showPaid ? <View style={{ gap: 6 }}>
       <GroupLabel title={t('ui.groupFocus')} />
       {group(<>
         <SettingRow icon={<IconTile name="lock" tone="accent" />} title={t('strict')} right={strictActive ? <Pill label={t('active')} variant="success" /> : undefined} chevron onPress={() => router.push('/strict-mode')} />

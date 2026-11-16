@@ -1,3 +1,5 @@
+import { PRO_ENABLED } from '../../config/release';
+import { useFamilyStore } from '../../store/familyStore';
 import { getDailyActivityTimeline } from '../../services/analytics/activityTimeline';
 import { Text } from '../../components/Typography';
 import { useCallback, useState } from 'react';
@@ -32,6 +34,7 @@ export function StatisticsScreen() {
   const setPeriod = useStatisticsStore((state) => state.setPeriod);
   const revision = useStatisticsStore((state) => state.revision);
   const isPro = useSubscription().isPro;
+  const showPaid = useFamilyStore((state) => state.role === 'none') && PRO_ENABLED;
   const [showProSheet, setShowProSheet] = useState(false);
   const [dayTimeline, setDayTimeline] = useState<ReturnType<typeof getDailyActivityTimeline>>([]);
   const [daily, setDaily] = useState<AnalyticsStorage['daily']>({});
@@ -86,7 +89,7 @@ export function StatisticsScreen() {
         value={visiblePeriod}
         options={(['day', 'week', 'month', 'year'] as const).map((period) => ({ value: period, label: t(period) }))}
         onChange={(period) => {
-          if (period !== 'day' && !canUseFeature(isPro, 'advancedStatistics')) setShowProSheet(true);
+          if (period !== 'day' && !canUseFeature(isPro, 'advancedStatistics')) { if (showPaid) setShowProSheet(true); }
           else setPeriod(period);
         }}
       /> : null}
@@ -121,7 +124,7 @@ export function StatisticsScreen() {
         </View>
       </View> : null}
 
-      <Sheet visible={isFeatureAvailable('advancedStatistics') && showProSheet} onClose={() => setShowProSheet(false)} title={t('subscription.advancedStatsTitle')} message={t('subscription.advancedStatsMessage')}>
+      <Sheet visible={isFeatureAvailable('advancedStatistics', showPaid) && showProSheet} onClose={() => setShowProSheet(false)} title={t('subscription.advancedStatsTitle')} message={t('subscription.advancedStatsMessage')}>
         <SheetActions cancel={t('subscription.notNow')} confirm={t('subscription.viewPro')} onCancel={() => setShowProSheet(false)} onConfirm={() => { setShowProSheet(false); router.push({ pathname: '/pro', params: { source: 'advanced_statistics' } }); }} />
       </Sheet>
     </Screen>

@@ -41,7 +41,7 @@ function parseInstagramOnlyEvent(value: Record<string, unknown>): SocialWebViewE
 }
 
 export function parseSocialWebViewEvent(raw: string, expectedPlatform: SocialAppId): SocialWebViewEvent | null {
-  if (!isCleanPlatform(expectedPlatform)) return null;
+  if (!isCleanPlatform(expectedPlatform) || raw.length > 16384 || new TextEncoder().encode(raw).length > 16384) return null;
   try {
     const value: unknown = JSON.parse(raw);
     if (!record(value) || value.platform !== expectedPlatform || typeof value.type !== 'string') return null;
@@ -84,4 +84,14 @@ export function parseSocialWebViewEvent(raw: string, expectedPlatform: SocialApp
     return null;
   }
   return null;
+}
+
+/** Source checks are supplementary: website messages never establish credential ownership. */
+export function isSocialMessageSource(source: string, platform: SocialAppId): boolean {
+  if (!isCleanPlatform(platform)) return false;
+  try {
+    const url = new URL(source);
+    const host = `${platform}.com`;
+    return url.protocol === 'https:' && !url.username && !url.password && (url.hostname === host || url.hostname.endsWith('.' + host));
+  } catch { return false; }
 }

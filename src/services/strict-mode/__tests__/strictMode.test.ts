@@ -44,7 +44,7 @@ describe('Strict Mode session helpers', () => {
     expect(getEffectiveAppConfig('instagram').filters.reels).toBe(true);
     expect(getEffectiveAppConfig('youtube').filters.shorts).toBe(true);
     useRemoteBlockerConfigStore.getState().setConfig({ schemaVersion: 1, platforms: { instagram: { version: 4, enabled: true, features: { reels: false } } } }, 'remote');
-    expect(getEffectiveAppConfig('instagram').filters.reels).toBe(false);
+    expect(getEffectiveAppConfig('instagram').filters.reels).toBe(true);
     useRemoteBlockerConfigStore.getState().setConfig({ schemaVersion: 1, platforms: {} }, 'bundled');
     useAppStore.setState({ strictSession: null });
   });

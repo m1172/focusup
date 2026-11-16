@@ -21,6 +21,7 @@ export type FamilyUsageRow = { day: string; platform: 'instagram' | 'youtube' | 
 export type FamilyUsageReport = { sequence: number; days: { day: string; apps: Partial<Record<'instagram' | 'youtube' | 'tiktok', number>> }[] };
 export type FamilyOverview = {
   enrollmentOpen: boolean;
+  familyPaid?: boolean;
   countries: string[];
   consentVersion: string;
   family: { id: string; country: string; createdAt: string } | null;

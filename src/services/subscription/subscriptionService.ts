@@ -1,7 +1,7 @@
 import { PRO_ENABLED, WEBSITE_BLOCKING } from '../../config/release';
 import type { PurchasesPackage } from 'react-native-purchases';
 
-/** 'free' features work for everyone while Pro is off; 'pro' ones stay hidden. */
+/** Free features work for everyone. Unavailable controls stay hidden when billing launches. */
 export const FEATURE_ACCESS = {
   instagramCleanBrowsing: 'pro',
   instagramReels: 'free',
@@ -19,12 +19,11 @@ export const FEATURE_ACCESS = {
   instagramSponsored: 'free',
   focusedMessages: 'free',
   youtubeExplore: 'free',
-  // Turning the Reels/Shorts/For You block off. Free users keep it on all the time.
-  shortVideoControl: 'pro',
+  shortVideoControl: 'unavailable',
   blockNativeShortVideoApp: 'free',
   blockWebsiteVersion: 'pro',
-  adultContentFilter: 'pro',
-  uninstallProtection: 'pro',
+  adultContentFilter: 'unavailable',
+  uninstallProtection: 'unavailable',
   grayscale: 'free',
   dailyLimits: 'free',
   tiktokFollowing: 'free',
@@ -43,12 +42,12 @@ export type SubscriptionFeature = keyof typeof FEATURE_ACCESS;
 /** Visibility differs from entitlement access: a future Pro release can show locked controls. */
 export function isFeatureAvailable(feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
   if (feature === 'blockWebsiteVersion' && !WEBSITE_BLOCKING) return false;
-  return FEATURE_ACCESS[feature] === 'free' || proEnabled;
+  return FEATURE_ACCESS[feature] === 'free' || (FEATURE_ACCESS[feature] === 'pro' && proEnabled);
 }
 
 export function canUseFeature(isPro: boolean, feature: SubscriptionFeature, proEnabled = PRO_ENABLED): boolean {
   if (feature === 'blockWebsiteVersion' && !WEBSITE_BLOCKING) return false;
-  return FEATURE_ACCESS[feature] === 'free' || (proEnabled && isPro);
+  return FEATURE_ACCESS[feature] === 'free' || (FEATURE_ACCESS[feature] === 'pro' && proEnabled && isPro);
 }
 
 export function calculateAnnualSavings(monthly: PurchasesPackage | null | undefined, annual: PurchasesPackage | null | undefined): number | null {

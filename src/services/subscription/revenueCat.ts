@@ -1,10 +1,10 @@
 import { PRO_ENABLED } from '../../config/release';
 import { Platform } from 'react-native';
-import Purchases, { LOG_LEVEL, PACKAGE_TYPE, PURCHASES_ERROR_CODE, type CustomerInfo, type PurchasesOffering, type PurchasesPackage } from 'react-native-purchases';
+import Purchases, { LOG_LEVEL, PURCHASES_ERROR_CODE, STORE_REPLACEMENT_MODE, type CustomerInfo, type PurchasesOffering, type PurchasesPackage } from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { DEFAULT_OFFERING_ID, getRevenueCatApiKey, getRevenueCatConfigurationError } from './subscriptionConfig';
 import { hasProEntitlement } from './entitlements';
-import type { PlanId, PurchaseResult, SubscriptionService } from './types';
+import type { PaidTier, PurchaseResult, SubscriptionService } from './types';
 
 export { hasProEntitlement } from './entitlements';
 
@@ -13,22 +13,22 @@ let listenerInstalled = false;
 let customerInfoListener: ((info: CustomerInfo) => void) | undefined;
 const revenueCatCustomerInfoListener = (info: CustomerInfo) => customerInfoListener?.(info);
 
-function getPlanId(pkg: PurchasesPackage): PlanId | null {
-  if (pkg.packageType === PACKAGE_TYPE.MONTHLY) return 'monthly';
-  if (pkg.packageType === PACKAGE_TYPE.ANNUAL) return 'annual';
-  const identifier = `${pkg.identifier} ${pkg.product.identifier}`.toLowerCase();
-  if (identifier.includes('annual') || identifier.includes('year')) return 'annual';
-  if (identifier.includes('monthly') || identifier.includes('month')) return 'monthly';
-  return null;
+const offeringIds = { pro: DEFAULT_OFFERING_ID, family: 'family' } as const;
+const offeringsByTier = new Map<PaidTier, PurchasesOffering>();
+export function getPlanPackages(offering: PurchasesOffering | null) {
+  const packages = offering?.availablePackages ?? [];
+  return {
+    monthly: packages.find((pkg) => pkg.identifier === '$rc_monthly') ?? null,
+    annual: packages.find((pkg) => pkg.identifier === '$rc_annual') ?? null,
+  };
 }
 
-export function getPlanPackages(offering: PurchasesOffering | null): { monthly: PurchasesPackage | null; annual: PurchasesPackage | null } {
-  const plans: { monthly: PurchasesPackage | null; annual: PurchasesPackage | null } = { monthly: null, annual: null };
-  for (const pkg of offering?.availablePackages ?? []) {
-    const plan = getPlanId(pkg);
-    if (plan) plans[plan] = pkg;
-  }
-  return plans;
+export function confirmsProduct(info: CustomerInfo, tier: PaidTier, pkg: PurchasesPackage) {
+  const active = info.entitlements.active[tier];
+  if (!active) return false;
+  const [product, plan] = pkg.product.identifier.split(':');
+  return active.productIdentifier === pkg.product.identifier
+    || (Boolean(plan) && active.productIdentifier === product && active.productPlanIdentifier === plan);
 }
 
 function isCancelledError(error: unknown): boolean {
@@ -37,7 +37,7 @@ function isCancelledError(error: unknown): boolean {
 }
 
 export const revenueCatSubscriptionService: SubscriptionService = {
-  async initialize() {
+  async initialize(userId) {
     if (!PRO_ENABLED) return;
     if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
     if (configured) return;
@@ -46,21 +46,18 @@ export const revenueCatSubscriptionService: SubscriptionService = {
     if (!apiKey) throw new Error(configurationError ?? 'RevenueCat is unavailable on this platform.');
 
     if (__DEV__) await Purchases.setLogLevel(LOG_LEVEL.INFO);
-    Purchases.configure({ apiKey });
+    if (!userId) throw new Error('A Vaqtim account is required.');
+    Purchases.configure({ apiKey, appUserID: userId });
     configured = true;
     if (__DEV__) console.info('[FocusUp Subscription] RevenueCat configured');
   },
 
-  async getOfferings() {
+  async getOfferings(tier = 'pro') {
     if (!PRO_ENABLED || !configured) return null;
-    const offerings = await Purchases.getOfferings();
-    const current = offerings.current ?? offerings.all[DEFAULT_OFFERING_ID] ?? null;
-    if (!current) {
-      if (__DEV__) console.error('[FocusUp Subscription] No RevenueCat current Offering was returned. Check RevenueCat products and Offering configuration.');
-      return null;
-    }
-    if (__DEV__) console.info('[FocusUp Subscription] Offering loaded');
-    return current;
+    const offering = (await Purchases.getOfferings()).all[offeringIds[tier]] ?? null;
+    if (offering) offeringsByTier.set(tier, offering);
+    else offeringsByTier.delete(tier);
+    return offering;
   },
 
   async getCustomerInfo() {
@@ -68,22 +65,31 @@ export const revenueCatSubscriptionService: SubscriptionService = {
     return Purchases.getCustomerInfo();
   },
 
-  async purchasePackage(packageId: string): Promise<PurchaseResult> {
+  async purchasePackage(packageId, tier = 'pro', previous): Promise<PurchaseResult> {
     if (!PRO_ENABLED || !configured) return { status: 'unavailable', message: 'RevenueCat is not initialized.' };
-    const offering = (await Purchases.getOfferings()).current;
-    const pkg = offering?.availablePackages.find((item) => item.identifier === packageId || item.product.identifier === packageId);
-    if (!pkg) return { status: 'unavailable', message: 'This subscription plan is currently unavailable.' };
+    const pkg = offeringsByTier.get(tier)?.availablePackages.find((item) => item.identifier === packageId);
+    if (!pkg || (previous?.store && previous.store !== Platform.OS)) return { status: 'unavailable', message: 'This subscription plan is currently unavailable.' };
+    const productChange = Platform.OS === 'android' && previous?.store === 'android' && previous.productId
+      ? {
+        oldProductIdentifier: previous.productId,
+        replacementMode: previous.productId.split(':')[0] === pkg.product.identifier.split(':')[0]
+          ? STORE_REPLACEMENT_MODE.WITHOUT_PRORATION
+          : previous.tier === 'pro' && tier === 'family' ? STORE_REPLACEMENT_MODE.CHARGE_FULL_PRICE : STORE_REPLACEMENT_MODE.DEFERRED,
+      } : null;
     try {
-      const result = await Purchases.purchasePackage(pkg);
-      return hasProEntitlement(result.customerInfo)
-        ? { status: 'purchased', customerInfo: result.customerInfo }
-        : { status: 'pending', customerInfo: result.customerInfo };
+      const { customerInfo } = await Purchases.purchasePackage(pkg, null, productChange);
+      if (confirmsProduct(customerInfo, tier, pkg)) return { status: 'purchased', customerInfo };
+      const deferred = productChange?.replacementMode === STORE_REPLACEMENT_MODE.DEFERRED
+        || (Platform.OS === 'ios' && previous?.productId && (previous.tier === tier || previous.tier === 'family'));
+      if (deferred) return { status: 'scheduled' };
+      return { status: 'pending', customerInfo };
     } catch (error) {
       if (isCancelledError(error)) return { status: 'cancelled' };
-      // Already owned products can be refreshed and recognized without asking the user to buy again.
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR) {
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      if (code === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) return { status: 'pending' };
+      if (code === PURCHASES_ERROR_CODE.PRODUCT_ALREADY_PURCHASED_ERROR) {
         const customerInfo = await Purchases.getCustomerInfo();
-        return hasProEntitlement(customerInfo) ? { status: 'purchased', customerInfo } : { status: 'pending', customerInfo };
+        return confirmsProduct(customerInfo, tier, pkg) ? { status: 'purchased', customerInfo } : { status: 'pending', customerInfo };
       }
       throw error;
     }
@@ -129,19 +135,19 @@ export async function presentSubscriptionCustomerCenter(): Promise<void> {
   await RevenueCatUI.presentCustomerCenter();
 }
 
-/** Reserved for a future FocusUp account system; never pass social-platform identities. */
+/** Only use a Vaqtim account ID. */
 export async function identifySubscriptionUser(userId: string): Promise<CustomerInfo> {
   if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
   const safeId = userId.trim();
   if (!safeId || safeId.length > 100) throw new Error('A valid FocusUp account ID is required.');
   const result = await Purchases.logIn(safeId);
-  customerInfoListener?.(result.customerInfo);
+  offeringsByTier.clear();
   return result.customerInfo;
 }
 
 export async function resetSubscriptionUser(): Promise<CustomerInfo> {
   if (!PRO_ENABLED || !configured) throw new Error('RevenueCat is not initialized.');
   const customerInfo = await Purchases.logOut();
-  customerInfoListener?.(customerInfo);
+  offeringsByTier.clear();
   return customerInfo;
 }

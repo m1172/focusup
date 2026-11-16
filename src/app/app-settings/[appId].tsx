@@ -68,6 +68,7 @@ export default function AppSettingsScreen() {
   const [bursts, setBursts] = useState<Record<string, number>>({});
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+  const showPaid = PRO_ENABLED && familyParent === null;
   const [lockedFeature, setLockedFeature] = useState<{ title: string; source: PaywallSource } | null>(null);
   const visibleEnabled = locked ? true : enabled;
   const locale = useAppStore((state) => state.selectedLanguage);
@@ -173,7 +174,7 @@ export default function AppSettingsScreen() {
   const visibleFilters = (appId === 'instagram'
     ? ['reels', 'messagesOnly', 'explore', 'stories', 'recommendations', 'suggestedPosts', 'sponsoredPosts', 'homeFeed']
     : appId === 'tiktok' ? ['forYou', 'following', 'explore']
-    : ['shorts', 'recommendations', 'homeRecommendations', 'explore', 'sponsoredContent', 'comments']).filter((filter) => (PRO_ENABLED || filter !== 'sponsoredContent') && (!filterFeatures[filter] || isFeatureAvailable(filterFeatures[filter]!.feature)));
+    : ['shorts', 'recommendations', 'homeRecommendations', 'explore', 'comments']).filter((filter) => !filterFeatures[filter] || isFeatureAvailable(filterFeatures[filter]!.feature, showPaid));
   // Free version: the short-video filter is the only one, so clean mode and that filter are a single control.
   const singleFilter = visibleFilters.length === 1 && visibleFilters[0] === shortVideo;
   const connectedOn = visibleEnabled && (!singleFilter || !shortVideo || locked || Boolean(filters[shortVideo]));
@@ -262,7 +263,7 @@ export default function AppSettingsScreen() {
 
       {singleFilter ? null : <>
         {/* While Pro is off the short-video block can't be turned off; it is shown above as "Always on", not again here with a Pro badge. */}
-        <Text accessibilityRole="header" style={sectionLabel}>{t(PRO_ENABLED ? 'ui.proSettings' : 'features.moreFilters')}</Text>
+        <Text accessibilityRole="header" style={sectionLabel}>{t('features.moreFilters')}</Text>
         <View style={{ padding: 8, borderRadius: 24, backgroundColor: c.card, boxShadow: c.sh }}>
           {visibleFilters.filter((filter) => filter !== shortVideo || isFeatureAvailable('shortVideoControl')).map((filter, index) => {
             const unsupported = filter === 'ads' || filter === 'sponsoredContent';
@@ -308,7 +309,7 @@ export default function AppSettingsScreen() {
 
       <TurnOffSheet visible={Boolean(turnOff)} name={turnOff?.blocking === 'blockNativeApp' ? t('browser.blockRealApp', { name: app.name }) : turnOff?.blocking === 'blockWebsite' ? t('browser.blockWebsite') : turnOff?.filter ? t(filterTitles[turnOff.filter] ?? turnOff.filter) : singleFilter ? shortVideoName : t('cleanMode')} minutesPerDay={turnOff ? turnOffMinutes(turnOff.filter, turnOff.blocking) : 0} onKeep={keepOn} onTurnOff={finishTurnOff} />
 
-      <Sheet visible={PRO_ENABLED && Boolean(lockedFeature)} onClose={() => setLockedFeature(null)} title={lockedFeature?.title ?? t('subscription.proFeature')} message={t(appId === 'instagram' ? 'browser.cleanModeProDetail' : 'subscription.featureUpsell')}>
+      <Sheet visible={showPaid && Boolean(lockedFeature)} onClose={() => setLockedFeature(null)} title={lockedFeature?.title ?? t('subscription.proFeature')} message={t(appId === 'instagram' ? 'browser.cleanModeProDetail' : 'subscription.featureUpsell')}>
         <SheetActions
           cancel={t('subscription.notNow')}
           confirm={t('subscription.viewPro')}

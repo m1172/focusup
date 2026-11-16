@@ -1,4 +1,4 @@
-import { parseSocialWebViewEvent } from '../messages';
+import { isSocialMessageSource, parseSocialWebViewEvent } from '../messages';
 
 describe('parseSocialWebViewEvent', () => {
   it('accepts known, correctly typed events for the expected platform', () => {
@@ -76,4 +76,13 @@ describe('Instagram account and session events', () => {
     expect(parse({ type: 'OPEN_ACCOUNTS' }, 'youtube')).toBeNull();
     expect(parse({ type: 'URL_CHANGED', route: 'inbox' })).toEqual({ type: 'URL_CHANGED', platform: 'instagram', route: 'inbox' });
   });
+});
+
+test('rejects oversized bridge payloads before parsing', () => {
+  expect(parseSocialWebViewEvent(' '.repeat(16385), 'instagram')).toBeNull();
+});
+
+test('credential-bearing events accept only the matching social origin', () => {
+  expect(isSocialMessageSource('https://www.instagram.com/', 'instagram')).toBe(true);
+  for (const url of ['https://instagram.com.evil.test/', 'https://accounts.google.com/', 'http://instagram.com/', 'https://user@instagram.com/', 'bad']) expect(isSocialMessageSource(url, 'instagram')).toBe(false);
 });

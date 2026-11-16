@@ -21,7 +21,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         '<b>Settings backup:</b> your app settings (for example which filters are on), whether you finished the first-time setup, and the daily scrolling time you entered there, so they can be restored on a new phone. Your other setup answers (such as your age and goals) stay on your phone.',
         '<b>Support messages:</b> messages you send in the in-app support chat, with your account email and name, and a notification token so we can tell you about replies.',
         '<b>Usage analytics, session replay and crash reports</b> (if enabled): app events such as which screens you open, weekly time summaries, recordings of Vaqtim’s own screens and crash details. Passwords, email fields, the account screen and all social network content are masked. You can turn this off at any time in Settings → Privacy.',
-        '<b>Purchases</b> (when paid plans launch): handled by Apple or Google. We receive your subscription status, not your card details.',
+        '<b>Purchases</b> (when paid plans launch): Apple or Google processes the payment. RevenueCat uses the Vaqtim account ID and store transaction data to verify and restore purchases. Vaqtim records the plan, store and expiry. Card details stay with the store.',
       ]],
       ['Why we use it', [
         'To run your account, restore your settings, answer support requests, fix crashes and improve the app. We do not sell your data and we do not show ads.',
@@ -38,7 +38,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         `Ask us for a copy of your data, to correct it, or to delete analytics records: ${mail}.`,
       ]],
       ['Children', [
-        'Vaqtim is not directed at children under 13.',
+        'When Family is available, a parent can link a child’s phone after giving consent. Vaqtim stores the child’s nickname, date of birth, supervision rules and device status. The paid dashboard uses daily time in Vaqtim browsers for up to seven days. Supervised phones send no app analytics, and children under 13 receive blocking only.',
       ]],
       ['Changes', [
         'If we change this policy, we will update the date below and, for important changes, tell you in the app.',
@@ -59,7 +59,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         '<b>Резервная копия настроек:</b> настройки приложения (например, какие фильтры включены), завершена ли первая настройка и указанное там ежедневное время в лентах, чтобы восстановить их на новом телефоне. Остальные ответы при настройке (например, возраст и цели) остаются на телефоне.',
         '<b>Сообщения в поддержку:</b> сообщения из чата поддержки в приложении вместе с почтой и именем аккаунта, а также токен уведомлений, чтобы сообщать об ответах.',
         '<b>Аналитика, запись сеансов и отчёты о сбоях</b> (если включены): события приложения, например какие экраны вы открываете, недельные сводки времени, записи собственных экранов Vaqtim и данные о сбоях. Пароли, поля почты, экран аккаунта и весь контент соцсетей скрываются. Это можно выключить в Настройки → Конфиденциальность.',
-        '<b>Покупки</b> (когда появятся платные тарифы): обрабатываются Apple или Google. Мы получаем статус подписки, а не данные карты.',
+        '<b>Покупки</b> (когда появятся платные тарифы): оплату обрабатывает Apple или Google. RevenueCat использует идентификатор аккаунта Vaqtim и данные транзакций магазина для проверки и восстановления покупок. Vaqtim хранит тариф, магазин и срок действия. Данные карты остаются в магазине.',
       ]],
       ['Зачем мы их используем', [
         'Чтобы обслуживать ваш аккаунт, восстанавливать настройки, отвечать в поддержке, исправлять сбои и улучшать приложение. Мы не продаём ваши данные и не показываем рекламу.',
@@ -76,7 +76,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         `Запросите копию своих данных, их исправление или удаление аналитических записей: ${mail}.`,
       ]],
       ['Дети', [
-        'Vaqtim не предназначен для детей младше 13 лет.',
+        'Когда Family доступен, родитель может подключить телефон ребёнка после подтверждения согласия. Vaqtim хранит имя и дату рождения ребёнка, правила контроля и состояние устройства. Платная панель показывает время использования браузеров Vaqtim за период до семи дней. Подконтрольные телефоны не отправляют аналитику. Для детей младше 13 лет доступна только блокировка.',
       ]],
       ['Изменения', [
         'Если мы изменим политику, мы обновим дату ниже, а о важных изменениях сообщим в приложении.',
@@ -97,7 +97,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         '<b>Sozlamalar zaxirasi:</b> ilova sozlamalari (masalan, qaysi filtrlar yoqilgan), dastlabki sozlash tugatilganmi va u yerda kiritilgan kunlik lenta vaqti — yangi telefonda tiklash uchun. Sozlashdagi boshqa javoblar (masalan, yosh va maqsadlar) telefoningizda qoladi.',
         '<b>Yordam xabarlari:</b> ilova ichidagi yordam chatiga yozgan xabarlaringiz, hisob pochtasi va ismi, javob haqida xabar berish uchun bildirishnoma tokeni.',
         '<b>Analitika, sessiya yozuvi va xatolik hisobotlari</b> (yoqilgan bo‘lsa): ilova hodisalari, masalan qaysi ekranlarni ochganingiz, haftalik vaqt xulosalari, Vaqtim’ning o‘z ekranlari yozuvi va xatoliklar. Parollar, pochta maydonlari, hisob ekrani va ijtimoiy tarmoq mazmuni yashiriladi. Buni Sozlamalar → Maxfiylik’da o‘chirishingiz mumkin.',
-        '<b>Xaridlar</b> (pullik tariflar chiqqanda): Apple yoki Google orqali amalga oshadi. Biz karta ma’lumotini emas, faqat obuna holatini olamiz.',
+        '<b>Xaridlar</b> (pullik tariflar chiqqanda): to‘lovni Apple yoki Google amalga oshiradi. RevenueCat xaridlarni tekshirish va tiklash uchun Vaqtim hisob identifikatori hamda do‘kon tranzaksiya ma’lumotlaridan foydalanadi. Vaqtim tarif, do‘kon va obuna muddatini saqlaydi. Karta ma’lumotlari do‘konda qoladi.',
       ]],
       ['Nima uchun foydalanamiz', [
         'Hisobingizni yuritish, sozlamalarni tiklash, yordam so‘rovlariga javob berish, xatoliklarni tuzatish va ilovani yaxshilash uchun. Biz ma’lumotlaringizni sotmaymiz va reklama ko‘rsatmaymiz.',
@@ -114,7 +114,7 @@ export const privacy: Record<Locale, LegalDoc> = {
         `Ma’lumotlaringiz nusxasini, ularni tuzatishni yoki analitika yozuvlarini o‘chirishni so‘rang: ${mail}.`,
       ]],
       ['Bolalar', [
-        'Vaqtim 13 yoshdan kichik bolalar uchun mo‘ljallanmagan.',
+        'Family mavjud bo‘lganda ota-ona rozilik berib, farzandining telefonini ulashi mumkin. Vaqtim farzandning taxallusi, tug‘ilgan sanasi, nazorat qoidalari va qurilma holatini saqlaydi. Pullik panel Vaqtim brauzerlarida o‘tkazilgan kunlik vaqtni yetti kungacha ko‘rsatadi. Nazoratdagi telefonlar analitika yubormaydi. 13 yoshdan kichik bolalar uchun faqat bloklash ishlaydi.',
       ]],
       ['O‘zgarishlar', [
         'Siyosatni o‘zgartirsak, quyidagi sanani yangilaymiz, muhim o‘zgarishlar haqida esa ilovada xabar beramiz.',
@@ -132,7 +132,7 @@ export const terms: Record<Locale, LegalDoc> = {
       ['Your account', ['You need a Vaqtim account to use the app. Keep your sign-in details safe and give accurate information. You must be at least 13 years old, or the age required in your country.']],
       ['Social networks', ['When you use a social network inside Vaqtim, its own terms and privacy policy apply to you. Social networks change their websites, so filtering may sometimes miss a section or stop working until we update it.']],
       ['Acceptable use', ['Don’t misuse Vaqtim: don’t try to break, overload or reverse-engineer our services, access other people’s accounts, or use Vaqtim to break the law or a social network’s rules.']],
-      ['Paid plans', ['Paid plans, when available, are sold through the App Store or Google Play and renew automatically until cancelled in your store account settings. Prices and trial terms are shown before you buy. Refunds follow the store’s rules.']],
+      ['Paid plans', ['Paid plans, when available, are sold through the App Store or Google Play and renew automatically until cancelled in your store account settings. The store shows the price and billing period before you buy. Refunds follow the store’s rules. Deleting your Vaqtim account does not cancel your store subscription. When Family expires, existing child rules stay in place until the parent clears or removes them.']],
       ['No guarantee', ['Vaqtim is provided “as is”. We work hard to keep it reliable, but we can’t promise it will always be available or remove every short video. To the extent the law allows, we are not liable for indirect losses from using the app.']],
       ['Ending', ['You can stop using Vaqtim and delete your account at any time. We may suspend accounts that break these terms.']],
       ['Changes', ['We may update these terms. If changes are important, we will tell you in the app before they apply.']],
@@ -146,7 +146,7 @@ export const terms: Record<Locale, LegalDoc> = {
       ['Ваш аккаунт', ['Для работы приложения нужен аккаунт Vaqtim. Храните данные входа в безопасности и указывайте верные сведения. Вам должно быть не менее 13 лет или возраст, требуемый в вашей стране.']],
       ['Соцсети', ['Когда вы пользуетесь соцсетью внутри Vaqtim, к вам применяются её собственные условия и политика конфиденциальности. Соцсети меняют свои сайты, поэтому фильтр иногда может пропустить раздел или перестать работать до нашего обновления.']],
       ['Допустимое использование', ['Не злоупотребляйте Vaqtim: не пытайтесь взломать, перегрузить или декомпилировать наши сервисы, получить доступ к чужим аккаунтам или использовать Vaqtim для нарушения закона или правил соцсетей.']],
-      ['Платные тарифы', ['Платные тарифы, когда появятся, продаются через App Store или Google Play и продлеваются автоматически, пока вы не отмените их в настройках аккаунта магазина. Цены и условия пробного периода показываются до покупки. Возвраты — по правилам магазина.']],
+      ['Платные тарифы', ['Платные тарифы, когда появятся, продаются через App Store или Google Play и продлеваются автоматически, пока вы не отмените их в настройках аккаунта магазина. Магазин показывает цену и период оплаты до покупки. Возвраты регулируются правилами магазина. Удаление аккаунта Vaqtim не отменяет подписку. После окончания Family действующие правила ребёнка сохраняются, пока родитель не снимет их или не отключит устройство.']],
       ['Без гарантий', ['Vaqtim предоставляется «как есть». Мы стараемся, чтобы он работал надёжно, но не можем обещать, что он всегда будет доступен или уберёт каждое короткое видео. В пределах, разрешённых законом, мы не отвечаем за косвенные убытки от использования приложения.']],
       ['Прекращение', ['Вы можете прекратить пользоваться Vaqtim и удалить аккаунт в любой момент. Мы можем заблокировать аккаунты, нарушающие эти условия.']],
       ['Изменения', ['Мы можем обновлять условия. О важных изменениях мы сообщим в приложении до их вступления в силу.']],
@@ -160,7 +160,7 @@ export const terms: Record<Locale, LegalDoc> = {
       ['Hisobingiz', ['Ilovadan foydalanish uchun Vaqtim hisobi kerak. Kirish ma’lumotlaringizni xavfsiz saqlang va to‘g‘ri ma’lumot kiriting. Yoshingiz kamida 13 yoki mamlakatingizda talab qilingan yoshda bo‘lishi kerak.']],
       ['Ijtimoiy tarmoqlar', ['Vaqtim ichida ijtimoiy tarmoqdan foydalanganingizda uning o‘z shartlari va maxfiylik siyosati amal qiladi. Tarmoqlar saytlarini o‘zgartirib turadi, shuning uchun filtr ba’zan biror bo‘limni o‘tkazib yuborishi yoki biz yangilaguncha ishlamay qolishi mumkin.']],
       ['Ruxsat etilgan foydalanish', ['Vaqtim’dan noto‘g‘ri foydalanmang: xizmatlarimizni buzish, ortiqcha yuklash yoki teskari muhandislik qilishga urinmang, boshqalarning hisoblariga kirmang va Vaqtim’dan qonun yoki tarmoq qoidalarini buzish uchun foydalanmang.']],
-      ['Pullik tariflar', ['Pullik tariflar chiqqanda App Store yoki Google Play orqali sotiladi va do‘kon hisobi sozlamalarida bekor qilmaguningizcha avtomatik yangilanadi. Narx va sinov muddati xariddan oldin ko‘rsatiladi. Pulni qaytarish do‘kon qoidalariga ko‘ra amalga oshadi.']],
+      ['Pullik tariflar', ['Pullik tariflar chiqqanda App Store yoki Google Play orqali sotiladi va do‘kon hisobi sozlamalarida bekor qilmaguningizcha avtomatik yangilanadi. Do‘kon xariddan oldin narx va to‘lov davrini ko‘rsatadi. Pul do‘kon qoidalariga muvofiq qaytariladi. Vaqtim hisobini o‘chirish do‘kondagi obunani bekor qilmaydi. Family muddati tugagach, ota-ona mavjud qoidalarni olib tashlamaguncha yoki qurilmani uzmaguncha ular amal qiladi.']],
       ['Kafolat yo‘q', ['Vaqtim «boricha» taqdim etiladi. Ishonchli ishlashi uchun harakat qilamiz, lekin u doim mavjud bo‘lishi yoki har bir qisqa videoni olib tashlashiga va’da bera olmaymiz. Qonun ruxsat bergan darajada ilovadan foydalanish bilan bog‘liq bilvosita zararlar uchun javobgar emasmiz.']],
       ['Tugatish', ['Vaqtim’dan foydalanishni to‘xtatib, hisobingizni istalgan vaqtda o‘chirishingiz mumkin. Ushbu shartlarni buzgan hisoblarni to‘xtatishimiz mumkin.']],
       ['O‘zgarishlar', ['Shartlarni yangilashimiz mumkin. Muhim o‘zgarishlar haqida ular kuchga kirishidan oldin ilovada xabar beramiz.']],

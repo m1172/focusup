@@ -4,6 +4,7 @@ import { createTelegramLogin, pkceChallenge, TELEGRAM_CODE_PREFIX, TELEGRAM_ISSU
 import { createEdgeHandler } from '../src/edge.ts';
 import { config, fakeGateway, session } from './fixtures.js';
 
+function replayStore() { const seen = new Set<string>(); return async (hash: string) => { if (seen.has(hash)) return false; seen.add(hash); return true; }; }
 const settings = { clientId: '7700112233', clientSecret: 'telegram-client-secret-value', origin: 'https://auth.example.com', key: 'k'.repeat(40), appRedirectUrl: 'focusup://auth/callback' };
 const verifier = 'v'.repeat(43);
 const b64url = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64url');
@@ -42,7 +43,7 @@ async function startAndCallback(login: ReturnType<typeof createTelegramLogin>, t
 
 test('Telegram login: our domain is the redirect, Telegram never sees the app PKCE verifier, and the app redeems a one-time code', async () => {
   const telegram = await fakeTelegram(validClaims);
-  const login = createTelegramLogin(settings, telegram.fetcher);
+  const login = createTelegramLogin(settings, telegram.fetcher, Date.now, replayStore());
   const { authorize, redirect } = await startAndCallback(login, telegram);
   assert.equal(authorize.origin + authorize.pathname, `${TELEGRAM_ISSUER}/auth`);
   assert.equal(authorize.searchParams.get('redirect_uri'), 'https://auth.example.com/telegram/callback');
@@ -59,6 +60,7 @@ test('Telegram login: our domain is the redirect, Telegram never sees the app PK
   assert.ok(code.startsWith(TELEGRAM_CODE_PREFIX));
   assert.ok(!code.includes('123456789') && !code.includes('Ali'), 'the code is encrypted');
   assert.deepEqual(await login.redeem(code, verifier), { id: '123456789', name: 'Ali Valiyev', username: 'ali', picture: 'https://t.me/i/userpic/ali.jpg' });
+  await assert.rejects(login.redeem(code, verifier), /new sign-in/);
   await assert.rejects(login.redeem(code, 'w'.repeat(43)), /new sign-in/);
   await assert.rejects(login.redeem(`${code.slice(0, -2)}AA`, verifier), /new sign-in/);
 });
@@ -73,7 +75,7 @@ test('Telegram login sends the app an error, never details, for refusals, tamper
     ['token endpoint failure', await fakeTelegram(validClaims, { tokenStatus: 400 }), {}, 'server_error'],
   ];
   for (const [name, telegram, extra, expected] of cases) {
-    const { redirect } = await startAndCallback(createTelegramLogin(settings, telegram.fetcher), telegram, extra);
+    const { redirect } = await startAndCallback(createTelegramLogin(settings, telegram.fetcher, Date.now, replayStore()), telegram, extra);
     assert.equal(redirect.searchParams.get('error'), expected, name);
     assert.equal(redirect.searchParams.get('code'), null, name);
   }
@@ -85,7 +87,7 @@ test('Telegram login sends the app an error, never details, for refusals, tamper
 test('Telegram login state and codes expire', async () => {
   let clock = Date.now();
   const telegram = await fakeTelegram(validClaims);
-  const login = createTelegramLogin(settings, telegram.fetcher, () => clock);
+  const login = createTelegramLogin(settings, telegram.fetcher, () => clock, replayStore());
   const { redirect } = await startAndCallback(login, telegram);
   clock += 3 * 60_000;
   await assert.rejects(login.redeem(redirect.searchParams.get('code')!, verifier), /new sign-in/);
@@ -99,7 +101,7 @@ test('edge API routes Telegram through our domain when configured and falls back
   const base = 'https://project.supabase.co/functions/v1/focusup-api';
   const edgeConfig = { ...config, SUPABASE_SECRET_KEY: 'server-test-secret', AUTH_REDIRECT_URL: 'focusup://auth/callback', AUTH_OAUTH_PROVIDERS: 'telegram' };
   const telegram = await fakeTelegram(validClaims);
-  const login = createTelegramLogin(settings, telegram.fetcher);
+  const login = createTelegramLogin(settings, telegram.fetcher, Date.now, replayStore());
   let signedIn: { id: string; domain: string } | null = null;
   const gateway = fakeGateway({ signInWithTelegram: async (profile, domain) => { signedIn = { id: profile.id, domain }; return session; } });
   const noLimit = async () => {};

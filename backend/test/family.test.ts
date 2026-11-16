@@ -56,7 +56,11 @@ async function database() {
     } catch (error) { throw familyDatabaseError(error as { message?: string }); }
     finally { await db.exec('reset role'); }
   };
-  return { db, rpc };
+  const setTier = (tier: 'family' | 'free', verifiedAt = Date.now()) => rpc('billing_save', {
+    p_user: PARENT, p_environment: 'PRODUCTION',
+    p_snapshot: { tier, expiresAt: tier === 'family' ? new Date(Date.now() + 86_400_000).toISOString() : null, verifiedAt },
+  });
+  return { db, rpc, setTier };
 }
 
 const yearsAgo = (years: number, days = 0) => { const date = new Date(); date.setUTCFullYear(date.getUTCFullYear() - years); date.setUTCDate(date.getUTCDate() - days); return date.toISOString().slice(0, 10); };
@@ -73,7 +77,8 @@ function edgeClient(rpc: FamilyRpc, hints: string[][] = []) {
 }
 
 test('family pairing, policies, replacement, removal and adult release work end to end', async (t) => {
-  const { db, rpc } = await database(); t.after(() => db.close());
+  const { db, rpc, setTier } = await database(); t.after(() => db.close());
+  await setTier('family');
   const hints: string[][] = [];
   const api = edgeClient(rpc, hints);
   const bearer = `Bearer ${fresh}`;
@@ -93,6 +98,12 @@ test('family pairing, policies, replacement, removal and adult release work end 
   const teen = (await api('/v1/family/children', 'POST', { nickname: 'Malika', birthDate: yearsAgo(17, -30), consentVersion: '2026-11.2' }, bearer)).json;
   assert.deepEqual(young.policy.policy.protectedApps, ['instagram', 'youtube', 'tiktok']);
   assert.equal(young.policy.revision, 1);
+
+  const extraChild = { nickname: 'Third child', birthDate: yearsAgo(12), consentVersion: '2026-11.2' };
+  const extra = await api('/v1/family/children', 'POST', extraChild, bearer);
+  assert.equal(extra.status, 201);
+  assert.equal((await api('/v1/family/children', 'POST', extraChild, bearer)).json.error.code, 'FAMILY_CHILD_LIMIT');
+  await api(`/v1/family/children/${extra.json.id}`, 'DELETE', undefined, bearer);
 
   // Policies: strict shape, revision checks, and no social browsers under 13.
   const savePolicy = (childId: string, expectedRevision: number, value: object, auth = bearer) => api(`/v1/family/children/${childId}/policy`, 'PUT', { expectedRevision, policy: value }, auth);
@@ -179,6 +190,16 @@ test('family pairing, policies, replacement, removal and adult release work end 
   // Under 18 the child cannot end supervision; from 18 they can.
   assert.equal((await api('/v1/family/device/end-supervision', 'POST', undefined, replacement)).json.error.code, 'FAMILY_NOT_ADULT');
 
+  // Expiry preserves supervision and rejects an old paid snapshot arriving late.
+  const expiredAt = Date.now() + 1;
+  await setTier('free', expiredAt);
+  await setTier('family', expiredAt - 1);
+  assert.equal((await api('/v1/family', 'GET', undefined, bearer)).json.familyPaid, false);
+  assert.equal((await sync(replacement)).json.revision, 3);
+  assert.equal((await savePolicy(teen.id, 3, policy())).json.error.code, 'FAMILY_SUBSCRIPTION_REQUIRED');
+  assert.equal((await savePolicy(teen.id, 3, policy({ protectedApps: [], downtime: [] }))).json.revision, 4);
+  assert.deepEqual((await sync(replacement)).json.policy.protectedApps, []);
+
   // Removing supervision needs a fresh sign-in; the phone is released on its next contact.
   assert.equal((await api(`/v1/family/children/${teen.id}`, 'DELETE', undefined, `Bearer ${stale}`)).json.error.code, 'REAUTH_REQUIRED');
   assert.deepEqual((await api(`/v1/family/children/${teen.id}`, 'DELETE', undefined, bearer)).json, { state: 'pending' });
@@ -190,6 +211,7 @@ test('family pairing, policies, replacement, removal and adult release work end 
   // A child without a phone goes at once.
   assert.deepEqual((await api(`/v1/family/children/${young.id}`, 'DELETE', undefined, bearer)).json, { state: 'removed' });
 
+  await setTier('family', expiredAt + 1);
   // Turning 18: the supervised person ends it themselves.
   const adult = (await api('/v1/family/children', 'POST', { nickname: 'Sardor', birthDate: yearsAgo(17), consentVersion: '2026-11.2' }, bearer)).json;
   const adultCode = (await api(`/v1/family/children/${adult.id}/pairing`, 'POST', undefined, bearer)).json;
@@ -212,7 +234,8 @@ test('family pairing, policies, replacement, removal and adult release work end 
 });
 
 test('family tables and functions are closed to app users; deleting the account removes the family', async (t) => {
-  const { db, rpc } = await database(); t.after(() => db.close());
+  const { db, rpc, setTier } = await database(); t.after(() => db.close());
+  await setTier('family');
   const api = edgeClient(rpc);
   await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, `Bearer ${fresh}`);
   await api('/v1/family/children', 'POST', { nickname: 'Ali', birthDate: yearsAgo(9), consentVersion: '2026-11.2' }, `Bearer ${fresh}`);
@@ -221,6 +244,8 @@ test('family tables and functions are closed to app users; deleting the account 
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [PARENT]);
     await assert.rejects(db.query('select * from public.family_children'), /permission denied/);
     await assert.rejects(db.query('select * from public.family_devices'), /permission denied/);
+    await assert.rejects(db.query('select * from public.billing_subscriptions'), /permission denied/);
+    await assert.rejects(db.query("select public.billing_save($1, 'PRODUCTION', '{}'::jsonb)", [PARENT]), /permission denied/);
     await assert.rejects(db.query('select public.family_overview($1)', [PARENT]), /permission denied/);
     await assert.rejects(db.query("select public.family_device_sync('x', null, null, null)"), /permission denied/);
     await db.exec('reset role');
@@ -230,7 +255,8 @@ test('family tables and functions are closed to app users; deleting the account 
 });
 
 test('family enrollment stays closed until switched on, and Fastify enforces the same checks', async (t) => {
-  const { db, rpc } = await database(); t.after(() => db.close());
+  const { db, rpc, setTier } = await database(); t.after(() => db.close());
+  await setTier('family');
   const closed = { ...config, FAMILY_ENROLLMENT_ENABLED: 'false' as const };
   const handler = createEdgeHandler(closed, async () => undefined, gateway, undefined, undefined, null, rpc, async () => undefined);
   const setup = await handler(new Request(base + '/v1/family', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh}` }, body: JSON.stringify({ country: 'UZ', consentVersion: '2026-11.2' }) }));
@@ -266,7 +292,8 @@ test('family helpers: codes, sign-in time and path matching', () => {
 });
 
 test('usage reports: totals per day and app, retries and late reports change nothing, 7 days kept', async (t) => {
-  const { db, rpc } = await database(); t.after(() => db.close());
+  const { db, rpc, setTier } = await database(); t.after(() => db.close());
+  await setTier('family');
   const api = edgeClient(rpc);
   const bearer = `Bearer ${fresh}`;
   await api('/v1/family', 'POST', { country: 'UZ', consentVersion: '2026-11.2' }, bearer);

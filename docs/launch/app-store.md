@@ -89,6 +89,28 @@ eas metadata:push                          # uploads the listing from store.conf
 
 Then in App Store Connect: test in TestFlight, attach the build to version 1.0, add screenshots, and **Submit for Review**. `store.config.json` sets manual release with phased rollout, so after approval you press *Release* yourself and it reaches all users over 7 days.
 
+## 8. When Pro and Family launch
+
+The code side is in [subscriptions-setup.md](../subscriptions-setup.md). These are the App Store Connect steps for the same submission. The Business section (Paid Apps agreement, tax, bank) is the owner's; nothing can be sold until the Paid Apps agreement is active.
+
+1. **Subscriptions:** one subscription group, four products (`focusup_pro_monthly`, `focusup_pro_annual`, `focusup_family_monthly`, `focusup_family_annual`), Family ranked above Pro. For each product: display name and description in English and Russian, price, availability, and a **review screenshot** of the paywall with that plan selected, plus a review note saying where the paywall is (Settings → Vaqtim Pro). Family Sharing for the subscriptions stays **off** (the server refuses family-shared purchases).
+2. **Attach the subscriptions to the app version** on the version page ("In-App Purchases and Subscriptions") the first time. Apple reviews them together with the build; a first subscription submitted without a build is not reviewed.
+3. **Terms of Use in the listing:** Apple wants the Terms of Use (EULA) link in the App Store listing as well as in the app. Add this line to the end of the description in `store.config.json` (both languages), or set a custom EULA in App Information: `Terms of Use: https://vaqtim.com/en/terms/` and keep the Privacy Policy URL field filled.
+4. **Listing text:** the description must not call the whole app "free" any more. Use: "Vaqtim is free to use. Optional Vaqtim Pro and Vaqtim Family subscriptions add extra tools." Do not mention Android or Google Play anywhere in the iOS listing or screenshots.
+5. **App Privacy:** add **Purchases → Purchase History** (linked to the user, App Functionality). For Family add **Usage Data → Product Interaction** for the child's daily minutes in Vaqtim's browsers if not already covered, and **Other Data** for the child's nickname and birth date (linked, App Functionality).
+6. **Age rating:** answer **Parental controls: Yes** once Family is on.
+7. **Review notes:** add this to the notes in section 5.
+
+```
+Subscriptions: Settings → Vaqtim Pro opens the paywall (Vaqtim Pro and Vaqtim Family, monthly and yearly). All existing blocking and filter features stay free; the paywall can be closed. Purchases are linked to the signed-in Vaqtim account and verified on our server; sandbox purchases are accepted. Restore purchases and Manage subscription are on the same screen.
+
+Vaqtim Family: a parent subscribes, then adds a child (nickname and birth date only; the child has no account) in Settings → Vaqtim Family. The parent's phone shows a pairing code. On the child's phone: first screen → "Connect to my parent" → enter the code → read the supervision notice → the parent types the 6-digit confirmation code. On the child's iPhone, Screen Time asks for the parent's approval through Family Sharing (FamilyControls .child authorization). The child's phone always shows that it is supervised and what the parent can see. It shows no purchase screens and sends no analytics.
+To test Family you need two devices; a short video of the pairing flow is at <link>.
+```
+
+8. **Record the Family video** for the note above (two phones are hard for a reviewer to set up), and give the reviewer account an active sandbox subscription path: nothing to pre-buy, the sandbox purchase works in the review build.
+9. **Server:** `REVENUECAT_SANDBOX_PURCHASES` must be `allow` and RevenueCat's sandbox access on **Anybody** while the build is in review, or the reviewer's purchase will not unlock.
+
 ## Review risks to know
 
 - **Guideline 5.2.2 (third-party content):** Apple can ask whether you have permission to show Instagram and YouTube. The notes above explain that users load the services' public websites with their own accounts, as similar apps on the App Store do. If Apple asks, answer in Resolution Center with the same explanation.

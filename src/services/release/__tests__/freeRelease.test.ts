@@ -50,9 +50,9 @@ test('the release hides every Pro feature for both free and cached Pro users', (
     expect(canUseFeature(false, feature)).toBe(free);
     expect(canUseFeature(true, feature)).toBe(free);
     // The retained Pro-enabled policy still enforces entitlements.
-    expect(isFeatureAvailable(feature, true)).toBe(true);
+    expect(isFeatureAvailable(feature, true)).toBe(FEATURE_ACCESS[feature] !== 'unavailable');
     expect(canUseFeature(false, feature, true)).toBe(free);
-    expect(canUseFeature(true, feature, true)).toBe(true);
+    expect(canUseFeature(true, feature, true)).toBe(FEATURE_ACCESS[feature] !== 'unavailable');
   }
 });
 

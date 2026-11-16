@@ -9,7 +9,13 @@ const envSchema = z.object({
   SUPABASE_URL: z.url(),
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SUPABASE_SECRET_KEY: z.string().optional(),
+  REVENUECAT_SECRET_KEY: z.string().min(1).optional(),
+  REVENUECAT_WEBHOOK_SECRET: z.string().min(32).max(256).optional(),
+  REVENUECAT_ENVIRONMENT: z.enum(['SANDBOX', 'PRODUCTION']).optional(),
+  // Production only: store-sandbox purchases (reviewers, TestFlight, licence testers) count unless this is 'deny'.
+  REVENUECAT_SANDBOX_PURCHASES: z.enum(['allow', 'deny']).default('allow'),
   CORS_ORIGINS: z.string().default(''),
+  EDGE_TRUSTED_CLIENT_IP_HEADER: z.enum(['cf-connecting-ip']).optional(),
   TRUST_PROXY: z.string().default(''),
   AUTH_REDIRECT_URL: z.url().optional(),
   AUTH_OAUTH_PROVIDERS: z.string().default(''),

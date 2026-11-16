@@ -95,11 +95,11 @@ describe('local protection policy', () => {
     expect(buildNativePlan({ ...input, baseline: [], websites, isPro: true }).websites).toEqual({});
   });
 
-  it('keeps device-wide Pro settings off for Free customers', () => {
+  it('keeps unreleased device-wide settings off for all customers', () => {
     const free = buildNativePlan({ ...input, baseline: [], adultFilter: true, uninstallProtection: true, isPro: false });
     expect(free.adultFilter).toBe(false); expect(free.uninstallProtection).toBe(false);
     const pro = buildNativePlan({ ...input, baseline: [], adultFilter: true, uninstallProtection: true, isPro: true });
-    expect(pro.adultFilter).toBe(true); expect(pro.uninstallProtection).toBe(true);
+    expect(pro.adultFilter).toBe(false); expect(pro.uninstallProtection).toBe(false);
   });
 
   it('counts breaks per local day', () => {

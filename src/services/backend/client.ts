@@ -1,3 +1,4 @@
+import type { SubscriptionStatus } from '../subscription/types';
 import type { FamilyChild, FamilyClaim, FamilyDeviceSync, FamilyDeviceSyncRequest, FamilyOverview, FamilyPolicyRecord } from '../family/types';
 import type { FamilyPolicy } from '../family/policy';
 import type { Account, AccountExport, AccountProfile, AuthSession, CloudBackup, CloudSettings, Credentials, OAuthProvider, SupportMessage, SupportThread } from './types';
@@ -81,6 +82,8 @@ export function createBackendClient(options: Options) {
     saveSupportPushToken: (token: string, platform: 'ios' | 'android') => request<void>('/v1/support/push-token', 'PUT', { token, platform }),
     removeSupportPushToken: (token: string) => request<void>('/v1/support/push-token', 'DELETE', { token }),
     // Vaqtim Family, parent side. Pairing approval, removal and deletion need a recent sign-in (REAUTH_REQUIRED).
+    getSubscription: () => request<SubscriptionStatus>('/v1/me/subscription'),
+    refreshSubscription: () => request<SubscriptionStatus>('/v1/me/subscription/refresh', 'POST'),
     getFamily: () => request<FamilyOverview>('/v1/family'),
     setUpFamily: (country: string, consentVersion: string) => request<FamilyOverview>('/v1/family', 'POST', { country, consentVersion }),
     deleteFamily: () => request<{ deleted: boolean }>('/v1/family', 'DELETE'),

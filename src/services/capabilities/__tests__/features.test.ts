@@ -11,8 +11,18 @@ describe('Vaqtim features page', () => {
     expect(all.filter((item) => item.alwaysOn).map((item) => item.key)).toEqual(['reels', 'shorts', 'forYou']);
   });
 
+  it('lists paid plans only when they can be bought', () => {
+    const groups = (options: Parameters<typeof vaqtimFeatures>[0]) => vaqtimFeatures(options).map((entry) => entry.group);
+    expect(groups({ widget: false })).toEqual(['instagram', 'youtube', 'tiktok', 'general']);
+    expect(groups({ widget: false, pro: true })).toEqual(['instagram', 'youtube', 'tiktok', 'general', 'pro']);
+    expect(groups({ widget: false, pro: true, family: true })).toEqual(['instagram', 'youtube', 'tiktok', 'general', 'pro', 'family']);
+    // Nothing free moves under a paid heading.
+    const free = vaqtimFeatures({ widget: false }).flatMap((entry) => entry.items);
+    expect(vaqtimFeatures({ widget: false, pro: true, family: true }).slice(0, 4).flatMap((entry) => entry.items)).toEqual(free);
+  });
+
   it('has text for every item in uz, ru and en', () => {
-    const keys = vaqtimFeatures({ widget: true }).flatMap((group) => group.items.map((item) => item.key));
+    const keys = vaqtimFeatures({ widget: true, pro: true, family: true }).flatMap((group) => group.items.map((item) => item.key));
     for (const locale of ['uz', 'ru', 'en'] as const) for (const key of keys) expect(featuresTranslations[locale].item).toHaveProperty(key);
   });
 });

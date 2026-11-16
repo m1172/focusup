@@ -5,7 +5,7 @@ import { protectionBridge } from '../../protection/nativeBridge';
 import { useFamilyStore } from '../../../store/familyStore';
 import { useAppStore } from '../../../store/appStore';
 import { getEffectiveAppConfig } from '../../blockers/effective';
-import { buildFamilyReport, claimFamilyCode, syncFamilyDevice } from '../deviceSync';
+import { buildFamilyReport, claimFamilyCode, recoverFamilyCredentials, syncFamilyDevice } from '../deviceSync';
 import type { FamilyPolicy } from '../policy';
 
 const mockApi = { claimFamilyPairing: jest.fn(), syncFamilyDevice: jest.fn(), releaseFamilyDevice: jest.fn(), endFamilySupervision: jest.fn() };
@@ -151,4 +151,28 @@ test('restoring a personal backup cannot weaken the family rules', async () => {
   useAppStore.getState().setFilter('instagram', 'reels', true);
   useAppStore.getState().setFilter('instagram', 'reels', false);
   expect(useAppStore.getState().apps.instagram.filters.reels).toBe(true);
+});
+
+test('secure device credentials recover missing Family state and keep rules offline', async () => {
+  await useFamilyStore.persist.rehydrate();
+  useFamilyStore.setState({ role: 'none', supervision: null });
+  mockSecrets.set('focusup.family.device.v1', secret);
+  await recoverFamilyCredentials();
+  expect(useFamilyStore.getState().role).toBe('child');
+  mockApi.syncFamilyDevice.mockRejectedValue(new Error('offline'));
+  await syncFamilyDevice();
+  expect(useFamilyStore.getState().role).toBe('child');
+  expect(useFamilyStore.getState().supervision?.policy.protectedApps).toContain('instagram');
+});
+
+test('a delayed sync for an old device credential cannot replace current supervision', async () => {
+  await supervise();
+  let finish!: (value: unknown) => void;
+  mockApi.syncFamilyDevice.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const pending = syncFamilyDevice();
+  while (!finish) await Promise.resolve();
+  mockSecrets.set('focusup.family.device.v1', 'replacement-credential');
+  finish(active(99));
+  await pending;
+  expect(useFamilyStore.getState().supervision?.revision).toBe(2);
 });

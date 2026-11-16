@@ -211,7 +211,43 @@ The service only listens to TYPE_WINDOW_STATE_CHANGED events to read the package
 ### Government, financial, health, news apps
 Not applicable.
 
-## 4. Testing and release
+## 4. When Pro and Family launch
+
+The code side is in [subscriptions-setup.md](../subscriptions-setup.md). These are the Play Console steps for the same release. Setting up the payments profile (merchant account) is the owner's.
+
+1. **Subscriptions:** `focusup_pro` and `focusup_family`, each with `monthly` and `annual` auto-renewing base plans, names and benefits in English, Russian and Uzbek. Add licence testers (Settings → License testing) so test purchases are free.
+2. **Billing library:** the build uses Play Billing Library 8 (through `react-native-purchases`), which Google requires for updates since 1 November 2026. Check Google's deadline table before each `react-native-purchases` downgrade or long gap between releases.
+3. **Store listing:** replace "Vaqtim is free and available in English, Russian and Uzbek." with the lines below, and add the Family paragraph. Google requires monitoring features to be described in the listing.
+
+```
+Vaqtim is free to use. Optional Vaqtim Pro and Vaqtim Family subscriptions add extra tools. Available in English, Russian and Uzbek.
+
+VAQTIM FAMILY
+A parent can link a child's phone with a code that the child enters on their own phone. The parent can then block apps and set daily limits and downtime, and sees the child's daily time in Vaqtim's browsers. The child's phone always shows a notification that it is supervised and a screen listing what the parent can see. Vaqtim Family is for parents and their children only. It does not show messages, location, browsing history or screen content.
+```
+
+```
+Vaqtim можно пользоваться бесплатно. Подписки Vaqtim Pro и Vaqtim Family добавляют дополнительные инструменты. Доступен на русском, английском и узбекском языках.
+
+VAQTIM FAMILY
+Родитель может подключить телефон ребёнка с помощью кода, который ребёнок вводит на своём телефоне. После этого родитель может блокировать приложения, задавать дневные лимиты и время отдыха и видит время ребёнка в браузерах Vaqtim по дням. На телефоне ребёнка всегда показано уведомление о контроле и экран со списком того, что видит родитель. Vaqtim Family предназначен только для родителей и их детей. Он не показывает сообщения, местоположение, историю браузера и содержимое экрана.
+```
+
+```
+Vaqtim’dan bepul foydalanish mumkin. Vaqtim Pro va Vaqtim Family obunalari qo‘shimcha vositalar beradi. O‘zbek, rus va ingliz tillarida.
+
+VAQTIM FAMILY
+Ota-ona farzandining telefonini farzand o‘z telefonida kiritadigan kod orqali ulashi mumkin. Shundan so‘ng ota-ona ilovalarni bloklaydi, kunlik limit va dam olish vaqtini belgilaydi hamda farzandning Vaqtim brauzerlaridagi kunlik vaqtini ko‘radi. Farzand telefonida nazorat haqidagi bildirishnoma va ota-ona nimalarni ko‘rishi yozilgan ekran doim ko‘rinib turadi. Vaqtim Family faqat ota-onalar va ularning farzandlari uchun. U xabarlar, joylashuv, brauzer tarixi va ekran mazmunini ko‘rsatmaydi.
+```
+
+4. **Content rating (IARC):** change "Allows purchases of digital goods" to **Yes**.
+5. **Data safety:** add **Financial info → Purchase history** (collected, not shared, required, app functionality; processed by RevenueCat as a service provider). For Family add the child's **name** (nickname) and **other info** (birth date) under Personal info, and the child's daily minutes under App activity, all "app functionality". Supervised phones send no analytics.
+6. **Target audience:** Family puts Vaqtim on children's phones, so add the age groups you will support (13–15, and under 13 if you allow those children; under-13 phones get blocking only). Adding any group under 18 brings in the Families policy: answer its questions truthfully (no ads; no advertising ID, location or device identifiers collected from children; PostHog is off on supervised phones). Do this in the same release that turns Family on, not before.
+7. **Monitoring declaration:** the Family build sets `android.app.isMonitoringTool = child_monitoring` (`withMonitoringTool` `{ "enabled": true }`; `npm run release:check` fails if it and `FAMILY_ENABLED` disagree). Keep the persistent "Vaqtim Family is on" notification and the app's own icon; never hide the app on a child's phone.
+8. **Accessibility declaration and video:** update both to show the family use (a parent's rule blocking an app on the child's phone) next to the personal use.
+9. **App access:** give reviewers the parent account, the steps to pair a child phone, and a note that test purchases work with the reviewer's licence. Keep `REVENUECAT_SANDBOX_PURCHASES=allow` on the server while the release is in review.
+
+## 5. Testing and release
 
 1. Internal testing: upload the first `.aab` by hand, add your own Gmail as a tester, install from the opt-in link.
 2. Closed testing (personal accounts): add at least 12 testers and keep them opted in for 14 days. Ask them to actually open the app on those days.

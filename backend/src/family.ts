@@ -42,7 +42,8 @@ const DEVICE_SECRET = /^vqd1_[A-Za-z0-9_-]{43}$/;
 
 const errors: Record<string, [number, string]> = {
   FAMILY_REQUIRED: [409, 'Set up Vaqtim Family first.'],
-  FAMILY_CHILD_LIMIT: [409, 'A family can have up to 8 children.'],
+  FAMILY_SUBSCRIPTION_REQUIRED: [403, 'An active Vaqtim Family subscription is required.'],
+  FAMILY_CHILD_LIMIT: [409, 'A family can have up to 3 children.'],
   FAMILY_AGE_INVALID: [400, 'Children must be under 18.'],
   FAMILY_CHILD_NOT_FOUND: [404, 'This child is not in your family.'],
   FAMILY_REVISION_CONFLICT: [409, 'These rules changed. Load the latest rules before saving again.'],
@@ -172,7 +173,8 @@ export function createFamilyApi({ config, rpc, limit, hint = async () => undefin
   const route = (method: FamilyRoute['method'], path: string, auth: FamilyRoute['auth'], perMinute: number, run: FamilyRoute['run'], body = false) => {
     const name = `${method.toLowerCase()}-${path.replace(/^\/v1\/family\/?/, '').replace(/:[a-zA-Z]+/g, 'id').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'root'}`;
     routes.push({ method, path, auth, body, limit: perMinute, run: async (request) => {
-      const who = auth === 'parent' ? `parent:${parent(request).id}` : auth === 'device' ? `device:${deviceSecret(request.authorization)}` : 'everyone';
+      const verifiedDevice = auth === 'device' ? await call('family_rate_identity', { p_secret_hash: await sha256(deviceSecret(request.authorization)) }) : null;
+      const who = auth === 'parent' ? `parent:${parent(request).id}` : auth === 'device' ? typeof verifiedDevice === 'string' ? verifiedDevice : `unverified-device:${parseInt((await sha256(deviceSecret(request.authorization))).slice(0, 8), 16) % 256}` : 'everyone';
       await limit(`edge:family:${name}:${await subject(who)}`.slice(0, 160), perMinute);
       return run(request);
     } });

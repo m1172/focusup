@@ -11,6 +11,7 @@ import { timeAgo } from '../../features/family/format';
 import { accountApi } from '../../services/backend/accountSession';
 import { childState, statusVariant } from '../../features/family/status';
 import { ageOn } from '../../services/family/policy';
+import { PRO_ENABLED } from '../../config/release';
 import { useAppTheme } from '../../theme';
 
 export default function FamilyScreen() {
@@ -23,6 +24,9 @@ export default function FamilyScreen() {
   const [busy, setBusy] = useState(false);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
+  const familyPaid = overview?.familyPaid === true;
+  const upgrade = PRO_ENABLED && overview?.enrollmentOpen && !familyPaid
+    ? <ActionButton secondary title={t('billing.family')} onPress={() => router.push({ pathname: '/pro', params: { tier: 'family' } })} /> : null;
   const setUp = (country: string) => {
     if (!overview) return;
     setBusy(true);
@@ -69,7 +73,8 @@ export default function FamilyScreen() {
         </View>
       </Panel>
       {!overview.enrollmentOpen ? <Note tone="amber" icon="info">{t('family.parent.closed')}</Note> : null}
-      <ActionButton title={t('family.parent.setUp')} disabled={!agreed || busy || !overview.enrollmentOpen} onPress={() => setUp(country)} />
+      {upgrade}
+      <ActionButton title={t('family.parent.setUp')} disabled={!familyPaid || !agreed || busy || !overview.enrollmentOpen} onPress={() => setUp(country)} />
     </Screen>;
   }
 
@@ -86,7 +91,8 @@ export default function FamilyScreen() {
       }) : <Text style={{ color: c.text2, fontSize: 15, paddingVertical: 18 }}>{t('family.parent.noChildren')}</Text>}
     </Panel>
     {!overview.enrollmentOpen ? <Note tone="amber" icon="info">{t('family.parent.closed')}</Note> : null}
-    <ActionButton title={t('family.parent.addChild')} disabled={!overview.enrollmentOpen || overview.children.length >= 8} onPress={() => router.push('/family/add-child')} />
+    {upgrade}
+    <ActionButton title={t('family.parent.addChild')} disabled={!familyPaid || !overview.enrollmentOpen || overview.children.length >= 3} onPress={() => router.push('/family/add-child')} />
     <ActionButton variant="destructive" title={t('family.parent.deleteFamily')} disabled={busy} onPress={deleteFamily} />
   </Screen>;
 }

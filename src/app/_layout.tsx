@@ -85,6 +85,7 @@ export default function RootLayout() {
     ...FontAwesome6.font,
   });
   useEffect(() => {
+    if (!hydrated) return;
     // Before anything can start analytics: a supervised phone (Vaqtim Family) never sends any.
     const stopAnalyticsGate = startFamilyAnalyticsGate();
     void loadBrowserUserAgent();
@@ -95,7 +96,13 @@ export default function RootLayout() {
     void refreshAccountSession().then(() => initializeProductAnalytics()).then(() => takeUsageSnapshot());
     if (PRO_ENABLED) void useSubscriptionStore.getState().initialize();
     void initializeRemoteBlockerConfig();
-    const reconcileNative = () => { if (!isClearingFocusUpData() && useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated()) void reconcileProtection().catch(() => { if (__DEV__) console.warn('[FocusUp Protection] Native plan could not be applied'); }); };
+    const waitingForBilling = () => {
+      const session = useAccountStore.getState();
+      return PRO_ENABLED && useFamilyStore.getState().role === 'none'
+        && (!session.ready || (Boolean(session.user) && !session.recoveryRequired && !useSubscriptionStore.getState().isInitialized));
+    };
+    const reconcileStrict = () => { if (!waitingForBilling()) void reconcileStrictModeState(); };
+    const reconcileNative = () => { if (!waitingForBilling() && !isClearingFocusUpData() && useAppStore.persist.hasHydrated() && useWellbeingStore.persist.hasHydrated()) void reconcileProtection().catch(() => { if (__DEV__) console.warn('[FocusUp Protection] Native plan could not be applied'); }); };
     const nativeHydration = useWellbeingStore.persist.onFinishHydration(reconcileNative);
     const appNativeHydration = useAppStore.persist.onFinishHydration(reconcileNative);
     const appChanges = useAppStore.subscribe((state, previous) => {
@@ -113,13 +120,18 @@ export default function RootLayout() {
     const familyChanges = useFamilyStore.subscribe((state, previous) => { if (state.supervision !== previous.supervision || state.role !== previous.role) reconcileNative(); });
     const stopFamilySync = startFamilySync();
     const stopSupervisionNotice = startSupervisionNotice();
-    const entitlementChanges = useSubscriptionStore.subscribe(reconcileNative);
+    const entitlementChanges = useSubscriptionStore.subscribe((next, previous) => {
+      if (next.isPro !== previous.isPro || next.isInitialized !== previous.isInitialized) {
+        reconcileNative();
+        reconcileStrict();
+      }
+    });
     reconcileNative();
-    const stopHydrationListener = useAppStore.persist.onFinishHydration(() => { void reconcileStrictModeState(); });
-    if (useAppStore.persist.hasHydrated()) void reconcileStrictModeState();
+    const stopHydrationListener = useAppStore.persist.onFinishHydration(reconcileStrict);
+    if (useAppStore.persist.hasHydrated()) reconcileStrict();
     // Schedules and sleep start and end on their own, so the plan is rechecked while the app is open.
-    const reconcileTimer = setInterval(() => { if (!isClearingFocusUpData()) { void reconcileStrictModeState(); reconcileNative(); } }, 15_000);
-    const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { void reconcileStrictModeState(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); void takeUsageSnapshot(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
+    const reconcileTimer = setInterval(() => { if (!isClearingFocusUpData()) { reconcileStrict(); reconcileNative(); } }, 15_000);
+    const appStateListener = AppState.addEventListener('change', (state) => { if (state !== 'active') flushProductAnalytics(); if (state === 'active' && !isClearingFocusUpData()) { reconcileStrict(); void refreshRemoteBlockerConfig(); void refreshAccountSession(); void takeUsageSnapshot(); if (PRO_ENABLED) void useSubscriptionStore.getState().refresh(); reconcileNative(); } });
     // Signed-in devices that already allow notifications register for support replies without a prompt.
     const supportPush = useAccountStore.subscribe((state, previous) => { if (state.user && state.user.id !== previous.user?.id) void syncSupportPush(); });
     if (useAccountStore.getState().user) void syncSupportPush();
@@ -133,9 +145,9 @@ export default function RootLayout() {
       if (data?.kind === 'wellbeing') router.push('/(tabs)/focus');
     });
     return () => { stopAnalyticsGate(); familyChanges(); stopFamilySync(); stopSupervisionNotice(); stopSettingsSync(); nativeHydration(); appNativeHydration(); appChanges(); wellbeingChanges(); entitlementChanges(); stopHydrationListener(); clearInterval(reconcileTimer); appStateListener.remove(); supportPush(); pushTokenListener.remove(); notificationListener.remove(); };
-  }, []);
+  }, [hydrated]);
   if ((!fontsLoaded && !fontError) || !hydrated || !account.ready) return <View style={{ flex: 1, backgroundColor: c.background, justifyContent: 'center' }}><ActivityIndicator accessibilityLabel={i18n.t('cloudAuth.loading')} /></View>;
-  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><FamilyNotice /><NativeHandoff enabled={appAllowed} /><OnboardingPaywall enabled={appAllowed} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
+  return <SafeAreaProvider><View style={{ flex: 1 }} onTouchEnd={perfLogsEnabled ? recordTap : undefined}><AnalyticsObserver /><FamilyNotice /><NativeHandoff enabled={appAllowed} /><OnboardingPaywall enabled={appAllowed && familyRole === 'none' && Boolean(account.user)} /><SupportReplyOpener enabled={Boolean(account.user) && !account.recoveryRequired && isBackendConfigured()} /><ScreenStatusBar /><Stack screenOptions={{ headerShown: false, statusBarStyle: c.isDark ? 'light' : 'dark', statusBarHidden: false, contentStyle: { backgroundColor: c.background }, animation: reducedMotion ? 'none' : 'fade_from_bottom', animationDuration: 280 }}>
     <Stack.Screen name="index" /><Stack.Screen name="start" />
     <Stack.Protected guard={!completed} redirectTo="/start">
       <Stack.Screen name="onboarding/index" /><Stack.Screen name="onboarding/how-it-works" /><Stack.Screen name="onboarding/account" />
@@ -169,7 +181,7 @@ export default function RootLayout() {
       <Stack.Protected guard={FAMILY_ENABLED && Boolean(account.user) && familyRole === 'none'} redirectTo="/(tabs)">
         <Stack.Screen name="family/index" /><Stack.Screen name="family/add-child" /><Stack.Screen name="family/child/[childId]" /><Stack.Screen name="family/pair/[childId]" />
       </Stack.Protected>
-      <Stack.Protected guard={PRO_ENABLED} redirectTo="/(tabs)">
+      <Stack.Protected guard={PRO_ENABLED && familyRole === 'none' && Boolean(account.user)} redirectTo="/(tabs)">
         <Stack.Screen name="temporary-access" options={{ presentation: 'formSheet', sheetAllowedDetents: [0.65, 1], sheetGrabberVisible: false }} />
         <Stack.Screen name="strict-mode" /><Stack.Screen name="protection" /><Stack.Screen name="pro" />
       </Stack.Protected>
