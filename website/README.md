@@ -24,6 +24,8 @@ Short links `/privacy/`, `/terms/`, `/support/` and `/delete-account/` redirect 
 
 Animations only move `transform`/`opacity`, run once when a section comes into view, and switch off for visitors who turned on "Reduce motion".
 
+**Pro and Family** prices (`PRICES` in `src/content/site.ts`) show "Coming soon" until they are on sale. Build with `NEXT_PUBLIC_PLANS_LIVE=1` once both stores sell them.
+
 ## Develop and build
 
 ```bash
@@ -43,11 +45,11 @@ Then replace the button icons with Apple's and Google's official store badges, a
 
 1. **Buy the domain:** `vaqtim.com` (and `vaqtim.app`) at Cloudflare Registrar or Namecheap. `vaqtim.uz` is already taken.
 2. **Host on Cloudflare Pages (free):** connect the repository, set root directory `website`, build command `npm run build` and output directory `out`. Add `vaqtim.com` and `www.vaqtim.com` as custom domains.
-3. **Email:** turn on Cloudflare Email Routing and forward `support@vaqtim.com` to your inbox.
+3. **Email:** the site's support address is `vaqtim.app@gmail.com` (`SUPPORT_EMAIL` in `src/content/site.ts`). To use `support@vaqtim.com` later, turn on Cloudflare Email Routing to forward it, then change `SUPPORT_EMAIL`.
 4. **Point the app at the site** in `.env` and the EAS production environment:
    - `EXPO_PUBLIC_PRIVACY_POLICY_URL=https://vaqtim.com/privacy/`
    - `EXPO_PUBLIC_TERMS_URL=https://vaqtim.com/terms/`
-   - `EXPO_PUBLIC_SUPPORT_EMAIL=support@vaqtim.com`
+   - `EXPO_PUBLIC_SUPPORT_EMAIL=vaqtim.app@gmail.com`
 5. **Store listings:** the same Privacy Policy URL in App Store Connect and Google Play, and `https://vaqtim.com/delete-account/` as Google Play's account deletion URL.
 6. **Sign-in prompt:** iOS shows "wants to use vrmfrhvzvjrktiosptdp.supabase.co to Sign In". A Supabase custom domain such as `auth.vaqtim.com` (paid Supabase add-on) shows your own domain instead.
 

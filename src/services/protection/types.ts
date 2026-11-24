@@ -11,7 +11,8 @@ export type SleepPlan = {
   allowedApps: SocialAppId[];
   notify: boolean;
 };
-export type TemporaryAccess = { id: string; platform: SocialAppId; startedAt: number; endsAt: number };
+/** A break (Pro) or Post mode (free, a few short ones a day for posting in the real app). */
+export type TemporaryAccess = { id: string; platform: SocialAppId; startedAt: number; endsAt: number; kind?: 'break' | 'post' };
 export type NativeProtectionPlan = {
   schemaVersion: 1;
   locale: 'uz' | 'ru' | 'en';
@@ -29,6 +30,12 @@ export type NativeProtectionPlan = {
   routines: FocusSchedule[];
   strict: { startedAt: number; endsAt: number; platforms: SocialAppId[] } | null;
   temporary: TemporaryAccess | null;
+  /** Android: baseline apps whose real app stays usable with only Reels/Shorts blocked (see androidFeeds.ts). */
+  feedsOnly?: SocialAppId[];
+  /** Android: view IDs of each app's short-video screen. */
+  feedScreens?: Partial<Record<SocialAppId, string[]>>;
+  /** Android: the short message shown when Vaqtim leaves a Reels/Shorts screen. */
+  feedNotice?: string;
 };
 export type ProtectionReason = 'unprotected' | 'protected' | 'routine' | 'sleep' | 'strict' | 'temporary';
 export type NativeProtectionStatus = { supported: boolean; authorized: boolean; selectedCount: number; active: boolean; protectedPlatforms?: SocialAppId[]; /** iOS: apps picked in Apple's list, protected or not. */ selectedPlatforms?: SocialAppId[];

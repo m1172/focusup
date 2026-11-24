@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '../../components/Typography';
 import { FocusLogo } from '../../components/FocusLogo';
 
-export function BrowserLaunchScreen({ name, onOpen, onOpenLink, onLeave }: {
+/** `post`: Post mode, which opens the real app for a few minutes so the person can post there. */
+export function BrowserLaunchScreen({ name, onOpen, onOpenLink, onLeave, post }: {
   name: string; onOpen: () => void; onOpenLink: () => void; onLeave: () => void;
+  post?: { minutes: number; left: number; busy: boolean; onPress: () => void };
 }) {
   const { t } = useTranslation();
   return <View style={styles.screen}>
@@ -25,6 +27,13 @@ export function BrowserLaunchScreen({ name, onOpen, onOpenLink, onLeave }: {
         <Pressable accessibilityRole="button" onPress={onOpen} style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed]}>
           <Text style={styles.primaryText}>{t('browser.openApp', { name })}</Text><Ionicons name="arrow-forward" size={20} color="#32223F" />
         </Pressable>
+        {post ? <View style={styles.post}>
+          <Pressable accessibilityRole="button" accessibilityHint={t('browser.postModeHint', { minutes: post.minutes })} disabled={post.busy || post.left === 0} onPress={post.onPress}
+            style={({ pressed }) => [styles.button, styles.ghost, (pressed || post.busy) && styles.pressed, post.left === 0 && styles.disabled]}>
+            <Ionicons name="add-circle-outline" size={20} color="#E0D9E7" /><Text style={styles.secondaryText}>{t('browser.postMode', { name, minutes: post.minutes })}</Text>
+          </Pressable>
+          <Text style={styles.postNote}>{post.left === 0 ? t('browser.postModeNone') : t('browser.postModeLeft', { count: post.left })}</Text>
+        </View> : null}
       </View>
     </ScrollView>
   </View>;
@@ -44,4 +53,8 @@ const styles = StyleSheet.create({
   secondaryText: { color: '#E0D9E7', fontSize: 17, fontWeight: '600', textAlign: 'center' },
   primaryText: { color: '#32223F', fontSize: 17, fontWeight: '700', textAlign: 'center' },
   pressed: { opacity: 0.75 },
+  ghost: { backgroundColor: 'transparent' },
+  disabled: { opacity: 0.45 },
+  post: { gap: 2 },
+  postNote: { color: '#B5ACBD', fontSize: 13, lineHeight: 18, textAlign: 'center' },
 });

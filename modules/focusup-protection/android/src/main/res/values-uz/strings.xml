@@ -1,6 +1,6 @@
 <resources>
   <string name="focusup_protection_label">Vaqtim himoyasi</string>
-  <string name="focusup_accessibility_description">Ruxsatingiz bilan Vaqtim tanlangan ilovalar uchun himoya ekranini ko‘rsatish maqsadida faqat ochiq ilovaning paket nomini tekshiradi. Xabarlar, parollar, kiritilgan matn yoki ekran mazmunini o‘qimaydi. Xizmatni Android maxsus imkoniyatlar sozlamalarida istalgan payt o‘chirishingiz mumkin.</string>
+  <string name="focusup_accessibility_description">Ruxsatingiz bilan Vaqtim tanlangan ilovalar uchun himoya ekranini ko‘rsatish maqsadida qaysi ilova ochiqligini tekshiradi. Instagram va YouTube’da Reels va Shorts ekranlarini ekran elementlarining identifikatorlari orqali topadi va ular ochilganda orqaga qaytaradi, ilovaning qolgan qismi ishlayveradi. Xabarlar, parollar, kiritilgan matn, rasmlar yoki ekranning boshqa mazmunini o‘qimaydi, hech narsa telefondan chiqmaydi. Xizmatni Android maxsus imkoniyatlar sozlamalarida istalgan payt o‘chirishingiz mumkin.</string>
   <string name="focusup_quick_description">Vaqtim’da toza Instagram, YouTube va TikTok’ni oching.</string>
   <string name="focusup_quick_instagram">Instagram’ni Vaqtim’da ochish</string>
   <string name="focusup_quick_youtube">YouTube’ni Vaqtim’da ochish</string>

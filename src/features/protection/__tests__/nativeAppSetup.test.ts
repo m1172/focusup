@@ -2,7 +2,7 @@ import { Alert, Platform } from 'react-native';
 import { protectionBridge } from '../../../services/protection/nativeBridge';
 import { useProtectionStatusStore } from '../../../store/protectionStatusStore';
 import type { NativeProtectionStatus } from '../../../services/protection/types';
-import { enableAfterNativeBlock, isRealAppBlocked, nativeBlockState } from '../nativeAppSetup';
+import { enableAfterNativeBlock, ensureNativeAuthorization, isRealAppBlocked, nativeBlockState, permissionMessageMustContinue } from '../nativeAppSetup';
 
 jest.mock('../../../services/protection/nativeBridge', () => ({ protectionBridge: { getStatus: jest.fn(), requestAuthorization: jest.fn(), selectApps: jest.fn() } }));
 jest.mock('../../../services/protection/controller', () => ({ reconcileProtection: jest.fn(async () => undefined), resetProtectionController: jest.fn() }));
@@ -10,7 +10,11 @@ jest.mock('../../../services/protection/controller', () => ({ reconcileProtectio
 const bridge = jest.mocked(protectionBridge);
 const status = (patch: Partial<NativeProtectionStatus>): NativeProtectionStatus => ({ supported: true, authorized: false, selectedCount: 0, active: false, ...patch });
 const setOS = (os: 'ios' | 'android') => Object.defineProperty(Platform, 'OS', { configurable: true, get: () => os });
-const answer = (accept: boolean) => jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => { buttons?.[accept ? 1 : 0]?.onPress?.(); });
+// Accept = the last button. Decline = the cancel button, where the message has one.
+const answer = (accept: boolean) => jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+  const button = accept ? buttons?.[buttons.length - 1] : buttons?.find((item) => item.style === 'cancel');
+  button?.onPress?.();
+});
 
 describe('Reels/Shorts blocking starts with the original app blocked', () => {
   beforeEach(() => { setOS('ios'); useProtectionStatusStore.getState().setStatus(status({ supported: false })); });
@@ -31,11 +35,39 @@ describe('Reels/Shorts blocking starts with the original app blocked', () => {
     expect(enable).toHaveBeenCalledWith(false);
   });
 
-  it('keeps the filter off when the user declines blocking the app', async () => {
+  it('on iOS, the message before the Screen Time request has one button and always leads to the request', async () => {
+    expect(permissionMessageMustContinue('ios')).toBe(true);
+    expect(permissionMessageMustContinue('android')).toBe(false);
     bridge.getStatus.mockResolvedValue(status({}));
-    answer(false);
+    bridge.requestAuthorization.mockResolvedValue(false);
+    const alert = answer(true);
+    const enable = jest.fn();
+    expect(await enableAfterNativeBlock('instagram', 'Instagram', 'Reels', enable)).toBe('needsPermission');
+    const [, , buttons, options] = alert.mock.calls[0]!;
+    expect(buttons).toHaveLength(1);
+    expect(buttons?.[0]?.style).toBeUndefined();
+    expect(options?.cancelable).toBe(false);
+    expect(bridge.requestAuthorization).toHaveBeenCalledTimes(1);
+    // Refusing in Apple's own prompt keeps the filter off.
+    expect(enable).not.toHaveBeenCalled();
+  });
+
+  it('on iOS, the settings message before the Screen Time request cannot be skipped either', async () => {
+    bridge.getStatus.mockResolvedValue(status({}));
+    bridge.requestAuthorization.mockResolvedValue(false);
+    const alert = answer(true);
+    expect(await ensureNativeAuthorization()).toBe('needsPermission');
+    expect(alert.mock.calls[0]![2]).toHaveLength(1);
+    expect(bridge.requestAuthorization).toHaveBeenCalledTimes(1);
+  });
+
+  it('on Android, keeps the filter off when the user declines the disclosure', async () => {
+    setOS('android');
+    bridge.getStatus.mockResolvedValue(status({}));
+    const alert = answer(false);
     const enable = jest.fn();
     await enableAfterNativeBlock('instagram', 'Instagram', 'Reels', enable);
+    expect(alert.mock.calls[0]![2]).toHaveLength(2);
     expect(enable).not.toHaveBeenCalled();
     expect(bridge.requestAuthorization).not.toHaveBeenCalled();
   });

@@ -1,6 +1,6 @@
 <resources>
   <string name="focusup_protection_label">Vaqtim protection</string>
-  <string name="focusup_accessibility_description">With your permission, Vaqtim checks only the foreground app package to show a protection screen for apps you select. It does not read messages, passwords, typed text, or screen contents. Disable this service at any time in Android Accessibility settings.</string>
+  <string name="focusup_accessibility_description">With your permission, Vaqtim checks which app is open to show a protection screen for apps you select. In Instagram and YouTube it also looks for the Reels and Shorts screens by their screen element IDs, and goes back when one opens, so the rest of the app keeps working. It does not read messages, passwords, typed text, images or other screen contents, and nothing leaves your phone. Disable this service at any time in Android Accessibility settings.</string>
   <string name="focusup_quick_description">Open clean Instagram, YouTube and TikTok in Vaqtim.</string>
   <string name="focusup_quick_instagram">Open Instagram in Vaqtim</string>
   <string name="focusup_quick_youtube">Open YouTube in Vaqtim</string>

@@ -26,6 +26,8 @@ export function Header({ lang }: { lang: Locale }) {
           <nav className="nav" aria-label="Main">
             <Link className="hide-sm" href={`/${lang}/#how`}>{t.how}</Link>
             <Link className="hide-sm" href={`/${lang}/support/`}>{t.support}</Link>
+            <Link className="hide-sm" href={`/${lang}/#apps`}>{t.apps}</Link>
+            <Link className="hide-sm" href={`/${lang}/#pricing`}>{t.pricing}</Link>
             <Link className="hide-sm" href={`/${lang}/#faq`}>{t.faq}</Link>
             <div className="lang" role="group" aria-label="Language">
               {locales.map((l) => (

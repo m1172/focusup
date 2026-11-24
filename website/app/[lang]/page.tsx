@@ -2,11 +2,14 @@ import type { Metadata } from 'next';
 import { alternates } from '@/alternates';
 import { icons } from '@/components/Icons';
 import { Logo } from '@/components/Logo';
-import { CountUp, Faq, InViewClass, PulseRings, StepsTrack } from '@/components/Motion';
+import { Faq, InViewClass, PulseRings, StepsTrack } from '@/components/Motion';
 import { PhoneDemo } from '@/components/PhoneDemo';
 import { Reveal, SpotCard, Words } from '@/components/Reveal';
 import { StoreButtons } from '@/components/StoreButtons';
-import { content, isLocale, type Locale } from '@/content/site';
+import { AppControls } from '@/components/AppControls';
+import { TimeCalc } from '@/components/TimeCalc';
+import { Pricing } from '@/components/Pricing';
+import { PLANS_LIVE, PRICES, content, isLocale, type Locale } from '@/content/site';
 
 export async function generateMetadata({ params }: PageProps<'/[lang]'>): Promise<Metadata> {
   const { lang } = await params;
@@ -77,6 +80,17 @@ export default async function Home({ params }: PageProps<'/[lang]'>) {
         </div>
       </section>
 
+      {/* App by app */}
+      <section className="section" id="apps" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head">
+            <Words className="h2" text={t.controls.title} />
+            <Reveal delay={0.15}><p className="lead">{t.controls.lead}</p></Reveal>
+          </div>
+          <Reveal><AppControls apps={t.controls.apps as never} labels={t.controls} /></Reveal>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="section" id="how" style={{ paddingTop: 0 }}>
         <div className="wrap">
@@ -95,19 +109,67 @@ export default async function Home({ params }: PageProps<'/[lang]'>) {
         </div>
       </section>
 
-      {/* Numbers */}
+      {/* iPhone and Android */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head"><Words className="h2" text={t.platforms.title} /></div>
+          <div className="grid g2">
+            {[t.platforms.ios, t.platforms.android].map((platform, i) => (
+              <Reveal key={platform.name} delay={i * 0.12}>
+                <SpotCard style={{ height: '100%' }}>
+                  <div className={`icon${i ? ' mint' : ''}`}>{icons.phone}</div>
+                  <h3 className="h3">{platform.name}</h3>
+                  <ul className="list">{platform.items.map((item) => <li key={item} className="list-long"><span className="dot ok">✓</span><span>{item}</span></li>)}</ul>
+                </SpotCard>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal delay={0.2}><p className="muted platform-note">{t.platforms.note}</p></Reveal>
+        </div>
+      </section>
+
+      {/* Your time */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <Reveal>
             <div className="numbers">
-              <h2 className="h2">{t.numbers.title}</h2>
-              <p className="lead" style={{ marginTop: 16 }}>{t.numbers.lead}</p>
-              <div className="stats">
-                {t.numbers.stats.map(([n, label]) => <div key={label} className="stat"><CountUp to={Number(n)} locale={lang} /><span>{label}</span></div>)}
-              </div>
-              <p className="fine">{t.numbers.fine}</p>
+              <h2 className="h2">{t.calc.title}</h2>
+              <p className="lead" style={{ marginTop: 16 }}>{t.calc.lead}</p>
+              <TimeCalc locale={lang} labels={t.calc} />
+              <p className="fine">{t.calc.fine}</p>
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      {/* Compared with blockers */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head"><Words className="h2" text={t.compare.title} /></div>
+          <Reveal>
+            <div className="compare" role="table" aria-label={t.compare.title}>
+              <div className="compare-row head" role="row"><span role="columnheader">{t.compare.other}</span><span role="columnheader">{t.compare.ours}</span></div>
+              {t.compare.rows.map(([other, ours]) => (
+                <div key={ours} className="compare-row" role="row">
+                  <span role="cell"><span className="dot x" aria-hidden="true">✕</span>{other}</span>
+                  <span role="cell"><span className="dot ok" aria-hidden="true">✓</span>{ours}</span>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+          <p className="muted platform-note">{t.compare.fine}</p>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="section" id="pricing" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="section-head">
+            <Words className="h2" text={t.pricing.title} />
+            <Reveal delay={0.15}><p className="lead">{t.pricing.lead}</p></Reveal>
+          </div>
+          <Reveal><Pricing free={t.pricing.free} pro={t.pricing.pro} family={t.pricing.family} prices={PRICES} labels={t.pricing} live={PLANS_LIVE} /></Reveal>
+          <p className="muted platform-note">{t.pricing.fine}</p>
         </div>
       </section>
 
