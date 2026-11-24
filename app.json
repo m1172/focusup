@@ -53,6 +53,7 @@
       "expo-router",
       "expo-font",
       "expo-notifications",
+      "expo-status-bar",
       [
         "./plugins/withFocusUpProtection",
         {
