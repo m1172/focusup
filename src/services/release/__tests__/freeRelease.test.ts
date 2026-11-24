@@ -14,6 +14,8 @@ import * as Notifications from 'expo-notifications';
 import { scheduleStrictModeCompletion } from '../../notifications/notificationService';
 import { scheduleWellbeingNotifications } from '../../notifications/wellbeingNotifications';
 
+// Checks the build with Pro switched off, so it keeps guarding that path while Pro is on.
+jest.mock('../../../config/release', () => ({ ...jest.requireActual('../../../config/release'), PRO_ENABLED: false, FAMILY_ENABLED: false }));
 jest.mock('react-native-purchases', () => ({ __esModule: true, default: {}, LOG_LEVEL: {}, PACKAGE_TYPE: {}, PURCHASES_ERROR_CODE: {} }));
 jest.mock('react-native-purchases-ui', () => ({ __esModule: true, default: {} }));
 jest.mock('../../protection/nativeBridge', () => ({ protectionBridge: {

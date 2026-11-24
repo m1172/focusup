@@ -22,7 +22,7 @@ describe('Android with the Accessibility service', () => {
     const { expo } = jest.requireActual('../../../../app.json');
     const plugin = expo.plugins.find((entry: unknown) => Array.isArray(entry) && entry[0] === './plugins/withAndroidAccessibility');
     expect(plugin?.[1]).toEqual({ enabled: true });
-    expect(expo.android.runtimeVersion).toBe('1.0.0-secure-cookies');
+    expect(expo.android.runtimeVersion).toBe('1.1.0-pro-family');
   });
 
   it('passes status, permission and the blocking plan through to the service', async () => {

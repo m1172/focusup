@@ -1,5 +1,5 @@
 /** Source-controlled release switch. Preserve Pro code and saved settings for a future release. */
-export const PRO_ENABLED: boolean = false;
+export const PRO_ENABLED: boolean = true;
 
 /**
  * Android real-app locking uses an Accessibility service that only reads which app is in front (no screen content).
@@ -32,7 +32,7 @@ export const WEBSITE_BLOCKING: boolean = false;
  * and both must be on before families can enroll. Keep both off until the Uzbekistan launch checks in
  * docs/family.md are done.
  */
-export const FAMILY_ENABLED: boolean = false;
+export const FAMILY_ENABLED: boolean = true;
 
 /**
  * Home Screen quick-launch widgets (iOS WidgetKit, Android App Widgets), added by `plugins/withQuickLaunchWidget.js`.
@@ -40,4 +40,4 @@ export const FAMILY_ENABLED: boolean = false;
  * real phones; while false the features page lists widgets as not available. Turning the plugin off in app.json
  * and this switch go together, with new `ios.runtimeVersion` and `android.runtimeVersion` values.
  */
-export const WIDGETS_ENABLED: boolean = false;
+export const WIDGETS_ENABLED: boolean = true;

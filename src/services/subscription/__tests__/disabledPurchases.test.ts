@@ -3,6 +3,7 @@ import RevenueCatUI from 'react-native-purchases-ui';
 import { revenueCatSubscriptionService, identifySubscriptionUser, resetSubscriptionUser, presentSubscriptionCustomerCenter, installRevenueCatCustomerInfoListener, setRevenueCatCustomerInfoListener, isRevenueCatConfigured } from '../revenueCat';
 import { useSubscriptionStore } from '../../../store/subscriptionStore';
 
+jest.mock('../../../config/release', () => ({ ...jest.requireActual('../../../config/release'), PRO_ENABLED: false, FAMILY_ENABLED: false }));
 jest.mock('react-native-purchases', () => ({ __esModule: true, default: {
   configure: jest.fn(), setLogLevel: jest.fn(), getOfferings: jest.fn(), getCustomerInfo: jest.fn(), purchasePackage: jest.fn(), restorePurchases: jest.fn(), addCustomerInfoUpdateListener: jest.fn(), logIn: jest.fn(), logOut: jest.fn(),
 }, LOG_LEVEL: { INFO: 'INFO' }, PACKAGE_TYPE: {}, PURCHASES_ERROR_CODE: {} }));

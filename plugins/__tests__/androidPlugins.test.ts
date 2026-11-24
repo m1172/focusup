@@ -23,11 +23,12 @@ describe('Android config plugins for Family and widgets', () => {
     expect(receivers.map((item) => item.$['android:name'])).toEqual(['expo.modules.focusupprotection.FocusUpQuickLaunchWidget']);
   });
 
-  it('ships both switched off in app.json', () => {
+  it('matches the release switches in app.json', () => {
+    const { FAMILY_ENABLED, WIDGETS_ENABLED } = require('../../src/config/release') as { FAMILY_ENABLED: boolean; WIDGETS_ENABLED: boolean };
     const plugins = (require('../../app.json') as { expo: { plugins: (string | [string, Record<string, unknown>])[] } }).expo.plugins;
     const options = (name: string) => (plugins.find((item) => Array.isArray(item) && item[0] === name) as [string, Record<string, unknown>])[1];
-    expect(options('./plugins/withMonitoringTool').enabled).toBe(false);
-    expect(options('./plugins/withQuickLaunchWidget').enabled).toBe(false);
-    expect(options('./plugins/withFocusUpProtection').quickLaunchWidget).toBe(false);
+    expect(options('./plugins/withMonitoringTool').enabled).toBe(FAMILY_ENABLED);
+    expect(options('./plugins/withQuickLaunchWidget').enabled).toBe(WIDGETS_ENABLED);
+    expect(options('./plugins/withFocusUpProtection').quickLaunchWidget).toBe(WIDGETS_ENABLED);
   });
 });

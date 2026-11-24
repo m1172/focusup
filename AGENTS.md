@@ -13,7 +13,7 @@ Vaqtim (repo and slug `focusup`) is a free iPhone and Android app that helps peo
 - **Clean social apps inside Vaqtim.** Instagram, YouTube and TikTok open in Vaqtim's own browser (a WebView) with the short-video feeds hidden: Reels, Shorts and TikTok's For You. Messages, profiles, search and single shared videos keep working.
 - **The real app gets blocked.** When you add an app on the Protect tab, Vaqtim blocks the real app on the phone: Screen Time (Family Controls) on iOS, an Accessibility service on Android. Opening the real app sends the user to Vaqtim instead.
 - **Free extras:** Explore, recommendation and Home filters, Instagram Stories and messages-only mode, YouTube Explore/Trending, grayscale (inside Vaqtim), schedules, sleep mode and daily limits.
-- **Pro extras (hidden while Pro is off):** Hard Mode (strict mode), breaks (temporary access), blocking extra apps, advanced statistics and YouTube comment hiding.
+- **Pro extras (switched on for 1.1.0, from the `release/1.1-all-features` branch):** Hard Mode (strict mode), breaks (temporary access), blocking extra apps, advanced statistics and YouTube comment hiding.
 - **Languages:** Uzbek (default), Russian and English, everywhere: app, store listings and website.
 
 | Item | Value |
@@ -69,12 +69,12 @@ Some features are switched on or off in code. Change a switch and its partner to
 
 | Switch | File | Now | Partner that must match |
 |---|---|---|---|
-| `PRO_ENABLED` | `src/config/release.ts` | `false` | `FAMILY_ENABLED` (they launch together; `npm run release:check` fails otherwise), `FEATURE_ACCESS` in `src/services/subscription/subscriptionService.ts`, RevenueCat keys, store products, the paywall rules and store checklists in `docs/subscriptions-setup.md` |
+| `PRO_ENABLED` | `src/config/release.ts` | `true` (1.1.0) | `FAMILY_ENABLED` (they launch together; `npm run release:check` fails otherwise), `FEATURE_ACCESS` in `src/services/subscription/subscriptionService.ts`, RevenueCat keys, store products, the paywall rules and store checklists in `docs/subscriptions-setup.md` |
 | `IOS_APP_BLOCKING` | `src/config/release.ts` | `true` | `familyControls` in the `withFocusUpProtection` plugin options in `app.json`; give `ios.runtimeVersion` a new value |
 | `ANDROID_APP_BLOCKING` | `src/config/release.ts` | `true` | `enabled` in the `withAndroidAccessibility` plugin options in `app.json`; give `android.runtimeVersion` a new value; Google Play needs an Accessibility declaration and a video |
 | `WEBSITE_BLOCKING` | `src/config/release.ts` | `false` | iOS applies the web filter to every web view, including Vaqtim's own, which showed "Website Not Allowed" |
-| `FAMILY_ENABLED` | `src/config/release.ts` | `false` | Server secret `FAMILY_ENROLLMENT_ENABLED` (default `false`) and `FAMILY_COUNTRIES` (`UZ`); `enabled` in the `withMonitoringTool` plugin options in `app.json` (Play's `isMonitoringTool`); the launch checks in `docs/family.md` |
-| `WIDGETS_ENABLED` | `src/config/release.ts` | `false` | `quickLaunchWidget` in the `withFocusUpProtection` options and `enabled` in the `withQuickLaunchWidget` options in `app.json`; new `ios.runtimeVersion` and `android.runtimeVersion` values |
+| `FAMILY_ENABLED` | `src/config/release.ts` | `true` (1.1.0) | Server secret `FAMILY_ENROLLMENT_ENABLED` (default `false`) and `FAMILY_COUNTRIES` (`UZ`); `enabled` in the `withMonitoringTool` plugin options in `app.json` (Play's `isMonitoringTool`); the launch checks in `docs/family.md` |
+| `WIDGETS_ENABLED` | `src/config/release.ts` | `true` (1.1.0) | `quickLaunchWidget` in the `withFocusUpProtection` options and `enabled` in the `withQuickLaunchWidget` options in `app.json`; new `ios.runtimeVersion` and `android.runtimeVersion` values |
 
 iOS and Android follow the same Protect rule (rule 10): adding an app first asks for access to block the real app (Screen Time on iOS, the Accessibility service on Android). If either switch is turned off, that platform reports that it can't block apps, and its users can't add apps on the Protect tab.
 
@@ -150,7 +150,7 @@ Store builds are made **locally** (Xcode and Gradle), not with EAS Build. The fu
 
 - `npm run release` bumps the build number, runs `release:check`, regenerates the native folders, builds, and uploads to TestFlight and Play internal testing. Pass `--ios` or `--android` for one platform, or `--no-bump` to rebuild the same number.
 - Build numbers: `ios.buildNumber` and `android.versionCode` in `app.json`. Every upload needs a higher number.
-- **Over-the-air updates** (`npm run update:publish "<message>"`, channel `production`) only reach builds with the same runtime version. iOS uses `ios.runtimeVersion` (now `1.0.0-screentime`) and Android uses `android.runtimeVersion` (now `1.0.0-secure-cookies`), so builds made before Screen Time or the Accessibility service was switched on never get updates meant for later builds. JavaScript-only fixes can ship this way. Native changes need a new store build.
+- **Over-the-air updates** (`npm run update:publish "<message>"`, channel `production`) only reach builds with the same runtime version. Both platforms use `1.1.0-pro-family` since 1.1.0 (before that iOS used `1.0.0-screentime` and Android `1.0.0-secure-cookies`), so older builds never get updates meant for a build with billing, Family and widgets. JavaScript-only fixes can ship this way. Native changes need a new store build.
 - Known local build problems:
   - `pod install` needs `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8`.
   - Gradle can run out of memory. Use `-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"`.

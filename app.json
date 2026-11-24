@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vaqtim",
     "slug": "focusup",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "default",
     "scheme": "focusup",
     "icon": "./assets/icon.png",
@@ -15,8 +15,8 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.m1172.focusup",
-      "buildNumber": "8",
-      "runtimeVersion": "1.0.0-screentime",
+      "buildNumber": "10",
+      "runtimeVersion": "1.1.0-pro-family",
       "appleTeamId": "GH6PP8FUU8",
       "infoPlist": {
         "com.posthog.posthog.CAPTURE_PUSH_NOTIFICATION_OPENED": false,
@@ -32,8 +32,8 @@
     },
     "android": {
       "package": "com.m1172.focusup",
-      "versionCode": 8,
-      "runtimeVersion": "1.0.0-secure-cookies",
+      "versionCode": 10,
+      "runtimeVersion": "1.1.0-pro-family",
       "adaptiveIcon": {
         "backgroundColor": "#5B4FE9",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -57,20 +57,20 @@
         "./plugins/withFocusUpProtection",
         {
           "familyControls": true,
-          "quickLaunchWidget": false
+          "quickLaunchWidget": true
         }
       ],
       [
         "./plugins/withQuickLaunchWidget",
         {
-          "enabled": false
+          "enabled": true
         }
       ],
       "./plugins/withAndroidReleaseSigning",
       [
         "./plugins/withMonitoringTool",
         {
-          "enabled": false
+          "enabled": true
         }
       ],
       [
