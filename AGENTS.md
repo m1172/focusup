@@ -40,7 +40,7 @@ These come straight from the project owner. Following them matters more than fin
 4. **Don't build or upload to the stores until the owner says the fixes are done.** That covers TestFlight archives and uploads, Play `.aab` uploads and `npm run release`. Finish the code, run the checks, then ask. Put several fixes into one build.
 5. **Production changes need the owner's OK first:** an over-the-air update (`npm run update:publish`), a website deploy, a backend or Supabase deploy, or a database migration.
 
-21. **Security release gate:** security migrations, native cookie checks, and trusted-ingress staging verification must pass before the security release. See `docs/security.md`. Never enable trusted client-IP headers without proving the gateway overwrites them.
+21. **Security release gate:** security migrations, native cookie checks, and trusted-ingress staging verification must pass before the security release. See `docs/security.md`. Never enable trusted client-IP headers without proving the gateway overwrites them. On 25 November 2026 the owner chose to deploy the server part (migrations `202611090002`, `202611090003` and the API) to production without the staging test, with `EDGE_TRUSTED_CLIENT_IP_HEADER` left off. The staging test is still required before that header is ever turned on, and the native cookie checks still gate the 1.1.0 store release.
 
 ### Code and git
 6. **Commit or push only when the owner asks.** Don't commit straight to `main`; work on a branch.

@@ -1,6 +1,8 @@
 # Security release preparation — 10 November 2026
 
-These changes are local and uncommitted. Production has not been scanned, migrated, deployed or load-tested. Paid release switches remain disabled.
+**Update, 25 November 2026:** at the owner's decision, migrations `202611090002` (billing) and `202611090003` (security) were applied to production and `focusup-api` was deployed from commit `89bf676`, without the staging test below. `EDGE_TRUSTED_CLIENT_IP_HEADER` stays off. The previous API was version 13, built from commit `eb4a18c`; redeploy that commit to roll back the code. Production has not been load-tested. The native and device gates below still apply to the 1.1.0 store build.
+
+These changes were first prepared locally on 10 November.
 
 ## Implemented boundaries
 
